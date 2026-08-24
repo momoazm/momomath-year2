@@ -8,17 +8,20 @@ import type { LessonDef, UnitDef } from '../content/types'
 
 const OFFSETS = [0, 44, 64, 0, -44, -64] // zigzag x-offsets like Duolingo's winding path
 
-function isUnlocked(unitIdx: number, lessonIdx: number, progress: Record<string, { completions: number }>) {
+type ProgressMap = Record<string, { completions: number; bestAccuracy: number }>
+
+/** A lesson unlocks only when the previous lesson was finished PERFECTLY (100%). */
+function isUnlocked(unitIdx: number, lessonIdx: number, progress: ProgressMap) {
   if (unitIdx === 0 && lessonIdx === 0) return true
   const flat = UNITS.flatMap((u) => u.lessons.map((l) => l.id))
   const idx = flat.indexOf(UNITS[unitIdx].lessons[lessonIdx].id)
   if (idx <= 0) return true
   const prevId = flat[idx - 1]
-  return (progress[prevId]?.completions ?? 0) > 0
+  return (progress[prevId]?.bestAccuracy ?? 0) >= 100
 }
 
-function unitDone(u: UnitDef, progress: Record<string, { completions: number }>) {
-  return u.lessons.every((l) => (progress[l.id]?.completions ?? 0) > 0)
+function unitDone(u: UnitDef, progress: ProgressMap) {
+  return u.lessons.every((l) => (progress[l.id]?.bestAccuracy ?? 0) >= 100)
 }
 
 export function PathScreen({ onStartLesson }: { onStartLesson: (lessonId: string) => void }) {
@@ -97,7 +100,7 @@ export function PathScreen({ onStartLesson }: { onStartLesson: (lessonId: string
                       className={`gpu group relative flex flex-col items-center transition-transform duration-150 ${
                         unlocked ? 'hover:scale-105 active:scale-95' : 'cursor-not-allowed opacity-50'
                       }`}
-                      title={unlocked ? l.title : 'Finish the previous lesson to unlock!'}
+                      title={unlocked ? l.title : 'Finish the previous lesson with 100% to unlock!'}
                     >
                       <span
                         className={`relative flex items-center justify-center rounded-full border-b-[6px] font-display text-xl shadow-pop ${

@@ -12,6 +12,7 @@ function makeLesson(
   introTitle: string,
   introBody: string,
   gens: Gen[],
+  challenge?: Gen,
 ): LessonDef {
   return {
     id,
@@ -21,7 +22,9 @@ function makeLesson(
     generate(n, seed) {
       const rand = mulberry32(hashString(id) ^ (seed * 2654435761))
       const out: Question[] = []
-      for (let i = 0; i < n; i++) out.push(gens[i % gens.length](rand))
+      for (let i = 0; i < n - 1; i++) out.push(gens[i % gens.length](rand))
+      const finalGen = challenge ?? gens[(n - 1) % gens.length]
+      out.push(finalGen(rand))
       return out
     },
   }
@@ -33,25 +36,32 @@ const Q_PER_LESSON = 10
 const u1Lessons: LessonDef[] = [
   makeLesson('u1l1', 'Count to 20', ['2Nc.01'], 'sonic', 'Let\'s count!', 'Tap each picture and say the number out loud. One tap = one number!', [G.gCountObjects, G.gOneMoreLess]),
   makeLesson('u1l2', 'Count to 100', ['2Nc.02', '2Nc.03'], 'sonic', 'Big numbers!', 'Numbers go on and on - all the way to 100! Count in steps.', [G.gOneMoreLess, G.gNumWords]),
-  makeLesson('u1l3', 'Tens & Ones', ['2Np.01'], 'sonic', 'Place value power!', 'A number like 34 is  tens and  ones. Tens are worth ten each!', [G.gTensOnes]),
+  makeLesson('u1l3', 'Tens & Ones', ['2Np.01'], 'sonic', 'Place value power!', 'A number like 34 is tens and ones. Tens are worth ten each!', [G.gTensOnes]),
   makeLesson('u1l4', 'Compare Numbers', ['2Np.01'], 'tails', 'Who wins?', 'The hungry crocodile mouth always opens toward the BIGGER number!', [G.gCompare]),
-  makeLesson('u1l5', 'Order & Words', ['2Np.01', '2Nc.04'], 'tails', 'Line them up!', 'Order numbers smallest to biggest and read number words.', [G.gOrderNumbers, G.gNumWords, G.gMatchNumWords]),
+  makeLesson('u1l5', 'Order & Words', ['2Np.01', '2Nc.04'], 'tails', 'Line them up!', 'Order numbers and read number words.', [G.gOrderNumbers, G.gNumWords, G.gMatchNumWords]),
+  makeLesson('u1l6', 'Number Words Pro', ['2Nc.04'], 'knuckles', 'Word wizard!', 'Forty-two? Ninety? Read and write numbers as words!', [G.gNumWords, G.gMatchNumWords], G.gTensOnes),
+  makeLesson('u1l7', 'Place Value Practice', ['2Np.01'], 'amy', 'Split them up!', 'Every 2-digit number hides tens and ones inside. Find them!', [G.gTensOnes, G.gOneMoreLess], G.gCompare),
+  makeLesson('u1l8', 'Compare Champion', ['2Np.01'], 'shadow', 'Bigger or smaller?', 'Compare like a champion - and watch out for tricky equals!', [G.gCompare, G.gOrderNumbers], G.gOrderNumbers),
 ]
 const u1Boss = makeLesson('u1boss', 'Unit 1 Boss', [], 'shadow', 'BOSS TIME!', 'Everything you learned about numbers - mixed together. Beat it for a trophy!', [
   G.gCompare, G.gTensOnes, G.gOrderNumbers, G.gNumWords, G.gOneMoreLess,
-])
+], G.gOrderNumbers)
 
 /* ============================ UNIT 2 ============================ */
 const u2Lessons: LessonDef[] = [
   makeLesson('u2l1', 'Bonds to 10', ['2Ni.01'], 'sonic', 'Perfect pairs!', 'Number bonds are pairs that snap together to make 10. Like magnets!', [G.gBonds10]),
   makeLesson('u2l2', 'Add within 20', ['2Ni.01'], 'sonic', 'Adding up!', 'Put two groups together and count them all up!', [G.gAddWithin20, G.gDoubles]),
   makeLesson('u2l3', 'Add 1-digit', ['2Ni.02'], 'sonic', 'Crossing tens!', 'Add ones onto a 2-digit number. Watch what happens when the ones fill up!', [G.gAddTwoDigitPlus1]),
-  makeLesson('u2l4', 'Add Two 2-digit', ['2Ni.03'], 'tails', 'Double digits!', 'Split into tens and ones, add tens first, then ones.', [G.gAddTwoDigitPairs]),
+  makeLesson('u2l4', 'Two 2-digit Numbers', ['2Ni.03'], 'tails', 'Double digits!', 'Split into tens and ones, add tens first, then ones. Sums up to 150!', [G.gAddTwoDigitPairs]),
   makeLesson('u2l5', 'Story Sums', ['2Ni.04'], 'amy', 'Maths stories!', 'Real problems hide maths inside. Find the clue words!', [G.gAddWordProblem]),
+  makeLesson('u2l6', 'Cross the Tens', ['2Ni.03'], 'knuckles', 'Carry it over!', 'When the ones fill past ten, carry into the tens column!', [G.gAddTwoDigitCarry]),
+  makeLesson('u2l7', 'Big Number Bash', ['2Np.02'], 'shadow', 'Hundreds hero!', 'Hundreds plus hundreds! Add big friendly numbers up to 990!', [G.gAddBigNumbers], G.gAddTwoDigitCarry),
+  makeLesson('u2l8', 'Missing Numbers', ['2Ni.05'], 'shadow', 'Mystery box!', 'A number is hiding! Use what you know to find it: 34 + ? = 61', [G.gMissingAddend, G.gCompareSums], G.gMissingAddend),
+  makeLesson('u2l9', 'Doubling Machine', ['2Ni.06'], 'amy', 'Twice as much!', 'Doubling means adding a number to itself. Double small AND big numbers!', [G.gDoubles, G.gDoubleTwoDigit], G.gDoubleTwoDigit),
 ]
-const u2Boss = makeLesson('u2boss', 'Unit 2 Boss', [], 'shadow', 'BOSS TIME!', 'The great addition gauntlet. Show your adding powers!', [
-  G.gBonds10, G.gAddWithin20, G.gAddTwoDigitPlus1, G.gAddWordProblem,
-])
+const u2Boss = makeLesson('u2boss', 'Unit 2 Boss', [], 'shadow', 'BOSS TIME!', 'The great addition gauntlet - all the way to hundreds! Show your adding powers!', [
+  G.gBonds10, G.gAddWithin20, G.gAddTwoDigitPairs, G.gAddTwoDigitCarry, G.gAddBigNumbers, G.gAddWordProblem,
+], G.gAddBigNumbers)
 
 /* ============================ UNIT 3 ============================ */
 const u3Lessons: LessonDef[] = [
@@ -59,10 +69,12 @@ const u3Lessons: LessonDef[] = [
   makeLesson('u3l2', '2-digit − 1-digit', ['2Ni.06'], 'sonic', 'Careful counting!', 'Subtract ones from a big number. Watch the tens change!', [G.gSubFrom2Digit]),
   makeLesson('u3l3', 'Take Away Tens', ['2Ni.07'], 'knuckles', 'Whole tens!', '40 − 20 is just 4 tens take 2 tens!', [G.gSubTens]),
   makeLesson('u3l4', 'Find Difference', ['2Ni.08'], 'tails', 'How many more?', '"How many more?" asks for the DIFFERENCE between two numbers.', [G.gDifferenceProblem]),
+  makeLesson('u3l5', 'Two-digit Takeaway', ['2Ni.08'], 'knuckles', 'Power subtraction!', 'Two 2-digit numbers - subtract the tens, then the ones!', [G.gSubTwoDigit]),
+  makeLesson('u3l6', 'Missing Numbers', ['2Ni.09'], 'amy', 'What vanished?', '? − 12 = 25 or 40 − ? = 18 - be a number detective!', [G.gMissingPart], G.gDifferenceProblem),
 ]
 const u3Boss = makeLesson('u3boss', 'Unit 3 Boss', [], 'shadow', 'BOSS TIME!', 'Subtraction showdown - every trick you know!', [
-  G.gSubWithin20, G.gSubFrom2Digit, G.gSubTens, G.gDifferenceProblem,
-])
+  G.gSubWithin20, G.gSubFrom2Digit, G.gSubTens, G.gSubTwoDigit, G.gDifferenceProblem, G.gMissingPart,
+], G.gMissingPart)
 
 /* ============================ UNIT 4 ============================ */
 const u4Lessons: LessonDef[] = [
@@ -71,10 +83,12 @@ const u4Lessons: LessonDef[] = [
   makeLesson('u4l3', 'Arrays', ['2Ni.10'], 'shadow', 'Rows of fun!', 'Rows × columns = total. Multiplication you can SEE!', [G.gArrayVisual]),
   makeLesson('u4l4', 'Sharing Fairly', ['2Ni.11'], 'amy', 'Fair shares!', 'Dividing means sharing equally between friends.', [G.gSharing]),
   makeLesson('u4l5', 'Odd or Even', ['2Nc.06'], 'knuckles', 'Two teams!', 'Even numbers share into 2 equal teams. Odd ones always leave one out!', [G.gOddEven]),
+  makeLesson('u4l6', 'Tricky Tables', ['2Ni.12'], 'knuckles', 'Table tamer!', 'Now with 3s and 4s - all the way to 12 groups!', [G.gTimesTableExtended], G.gTimesTableExtended),
+  makeLesson('u4l7', 'Inverse Genius', ['2Ni.13'], 'shadow', 'Work backwards!', 'If 5 × 7 = 35, then 35 ÷ 5 = 7! Flip your times tables!', [G.gInverseTimes], G.gInverseTimes),
 ]
 const u4Boss = makeLesson('u4boss', 'Unit 4 Boss', [], 'shadow', 'BOSS TIME!', 'The multiplication mega-mix. Ready, set, GO!', [
-  G.gSkipSequence, G.gTimesTable, G.gArrayVisual, G.gSharing, G.gOddEven,
-])
+  G.gSkipSequence, G.gTimesTable, G.gArrayVisual, G.gSharing, G.gOddEven, G.gTimesTableExtended, G.gInverseTimes,
+], G.gInverseTimes)
 
 /* ============================ UNIT 5 ============================ */
 const u5Lessons: LessonDef[] = [
@@ -82,10 +96,11 @@ const u5Lessons: LessonDef[] = [
   makeLesson('u5l2', 'Half of a Number', ['2Nf.03'], 'amy', 'Split in two!', 'Half means one of TWO equal groups.', [G.gHalfOfNumber]),
   makeLesson('u5l3', 'Quarters & Thirds', ['2Nf.04'], 'amy', 'More parts!', 'Quarter = 4 equal groups. Third = 3 equal groups.', [G.gQuarterOfNumber, G.gFractionOfSet]),
   makeLesson('u5l4', 'Fraction Sets', ['2Nf.05'], 'knuckles', 'Share the stars!', 'Fractions work on sets of things too!', [G.gFractionOfSet]),
+  makeLesson('u5l5', 'Fraction Detective', ['2Nf.05'], 'shadow', 'Solve the slice!', 'Mix your fraction powers together - pizzas, sets and numbers!', [G.gShadedFractionName, G.gHalfOfNumber, G.gFractionOfSet], G.gQuarterOfNumber),
 ]
 const u5Boss = makeLesson('u5boss', 'Unit 5 Boss', [], 'shadow', 'BOSS TIME!', 'The fraction finale - slice through it!', [
   G.gShadedFractionName, G.gHalfOfNumber, G.gQuarterOfNumber, G.gFractionOfSet,
-])
+], G.gFractionOfSet)
 
 /* ============================ UNIT 6 ============================ */
 const u6Lessons: LessonDef[] = [
@@ -93,47 +108,52 @@ const u6Lessons: LessonDef[] = [
   makeLesson('u6l2', '3D Shapes', ['2Gg.03'], 'shadow', 'Solid shapes!', 'Balls, boxes and cans are 3D shapes hiding in plain sight!', [G.gShapeFacts]),
   makeLesson('u6l3', 'Turns & Directions', ['2Gp.01'], 'tails', 'Race turns!', 'Quarter turns left and right - steer the racer!', [G.gTurnsDirections]),
   makeLesson('u6l4', 'Patterns', ['2Nc.07'], 'amy', 'What comes next?', 'Patterns repeat. Spot the repeating block!', [G.gPatternNext]),
+  makeLesson('u6l5', 'Pattern Power', ['2Nc.07', '2Gp.01'], 'knuckles', 'Master the pattern!', 'Patterns AND turns together - keep your eyes sharp!', [G.gPatternNext, G.gTurnsDirections], G.gTurnsDirections),
 ]
 const u6Boss = makeLesson('u6boss', 'Unit 6 Boss', [], 'shadow', 'BOSS TIME!', 'Shapes, spins and patterns collide!', [
   G.gShapeFacts, G.gTurnsDirections, G.gPatternNext,
-])
+], G.gTurnsDirections)
 
 /* ============================ UNIT 7 ============================ */
 const u7Lessons: LessonDef[] = [
   makeLesson('u7l1', 'Longer & Heavier', ['2Gg.04'], 'knuckles', 'Size showdown!', 'Comparing lengths and weights - which is more?', [G.gMeasureFacts]),
   makeLesson('u7l2', 'Choose the Unit', ['2Gg.05'], 'knuckles', 'Right tool!', 'cm measures length. g weighs things. ml fills cups!', [G.gMeasureFacts]),
   makeLesson('u7l3', 'Measure Stories', ['2Gg.06'], 'amy', 'Measuring tales!', 'Word problems about rulers, ribbons and jugs!', [G.gMeasureWordProblem]),
+  makeLesson('u7l4', 'Measuring Master', ['2Gg.06'], 'shadow', 'Master class!', 'Everything about measuring in one tough lesson!', [G.gMeasureFacts, G.gMeasureWordProblem], G.gMeasureWordProblem),
 ]
-const u7Boss = makeLesson('u7boss', 'Unit 7 Boss', [], 'shadow', 'BOSS TIME!', 'The measure marathon!', [G.gMeasureFacts, G.gMeasureWordProblem])
+const u7Boss = makeLesson('u7boss', 'Unit 7 Boss', [], 'shadow', 'BOSS TIME!', 'The measure marathon!', [G.gMeasureFacts, G.gMeasureWordProblem], G.gMeasureWordProblem)
 
 /* ============================ UNIT 8 ============================ */
 const u8Lessons: LessonDef[] = [
-  makeLesson('u8l1', 'Clock Quest', ['2Gt.01'], 'knuckles', 'Tick tock!', 'When the big hand points UP it is o\'clock. DOWN means half past!', [G.gClockRead]),
+  makeLesson('u8l1', 'Clock Quest', ['2Gt.01'], 'knuckles', 'Tick tock!', 'O\'clock, half past, quarter past and quarter to!', [G.gClockRead]),
   makeLesson('u8l2', 'Days & Months', ['2Gt.03'], 'knuckles', 'Calendar kid!', 'Seven days a week, twelve months a year - in order!', [G.gDayOrder, G.gMonthsBetween]),
   makeLesson('u8l3', 'Money Coins', ['2Nm.01'], 'amy', 'Coin counting!', 'Add coins together. Start with the biggest coin!', [G.gCoinsTotal]),
-  makeLesson('u8l4', 'Giving Change', ['2Nm.02'], 'tails', 'Shop keeper!', 'Change = what you paid minus the price!', [G.gChangeFrom]),
+  makeLesson('u8l4', 'Giving Change', ['2Nm.02'], 'tails', 'Shop keeper!', 'Change from 20p, 50p or even £1!', [G.gChangeFrom]),
+  makeLesson('u8l5', 'Time Champion', ['2Gt.03'], 'shadow', 'Beat the clock!', 'Quarters of the hour mixed with calendar facts!', [G.gClockRead, G.gDayOrder], G.gMonthsBetween),
+  makeLesson('u8l6', 'Shop Keeper Pro', ['2Nm.02'], 'sonic', 'Money master!', 'Big coins, big prices, big change!', [G.gChangeFrom, G.gCoinsTotal], G.gCoinsTotal),
 ]
 const u8Boss = makeLesson('u8boss', 'Unit 8 Boss', [], 'shadow', 'BOSS TIME!', 'Time and money mastery test!', [
   G.gClockRead, G.gDayOrder, G.gCoinsTotal, G.gChangeFrom,
-])
+], G.gChangeFrom)
 
 /* ============================ UNIT 9 ============================ */
 const u9Lessons: LessonDef[] = [
   makeLesson('u9l1', 'Tally Charts', ['2Ss.01'], 'shadow', 'Count with marks!', 'Four lines then a cross - every bundle is FIVE!', [G.gTallyRead]),
   makeLesson('u9l2', 'Pictograms', ['2Ss.02'], 'shadow', 'Picture data!', 'Each picture stands for a number of things!', [G.gPictogram]),
   makeLesson('u9l3', 'Chart Champions', ['2Ss.03'], 'tails', 'Read & compare!', 'Charts tell stories. Compare the columns to win!', [G.gChartCompare]),
+  makeLesson('u9l4', 'Data Dash', ['2Ss.03'], 'sonic', 'Detective finale!', 'Tallies, pictograms and charts - the full data workout!', [G.gTallyRead, G.gPictogram, G.gChartCompare], G.gChartCompare),
 ]
 
 export const UNITS: UnitDef[] = [
   { id: 'u1', order: 1, title: 'Numbers to 100', subtitle: 'Counting · Place Value · Comparing', color: '#58cc02', icon: '🔢', lessons: [...u1Lessons, u1Boss], bossLessonIds: [u1Boss.id] },
-  { id: 'u2', order: 2, title: 'Super Addition', subtitle: 'Bonds · Column-free Adding', color: '#1cb0f6', icon: '➕', lessons: [...u2Lessons, u2Boss], bossLessonIds: [u2Boss.id] },
-  { id: 'u3', order: 3, title: 'Super Subtraction', subtitle: 'Take-away · Differences', color: '#ce82ff', icon: '➖', lessons: [...u3Lessons, u3Boss], bossLessonIds: [u3Boss.id] },
-  { id: 'u4', order: 4, title: 'Times Tables Sprint', subtitle: '×2 ×5 ×10 · Sharing', color: '#ff9600', icon: '✖️', lessons: [...u4Lessons, u4Boss], bossLessonIds: [u4Boss.id] },
+  { id: 'u2', order: 2, title: 'Super Addition', subtitle: 'Bonds · Carrying · Big Numbers', color: '#1cb0f6', icon: '➕', lessons: [...u2Lessons, u2Boss], bossLessonIds: [u2Boss.id] },
+  { id: 'u3', order: 3, title: 'Super Subtraction', subtitle: 'Take-away · Missing Numbers', color: '#ce82ff', icon: '➖', lessons: [...u3Lessons, u3Boss], bossLessonIds: [u3Boss.id] },
+  { id: 'u4', order: 4, title: 'Times Tables Sprint', subtitle: '×2 ×3 ×4 ×5 ×10 · Inverses', color: '#ff9600', icon: '✖️', lessons: [...u4Lessons, u4Boss], bossLessonIds: [u4Boss.id] },
   { id: 'u5', order: 5, title: 'Fraction Pizza', subtitle: 'Halves · Quarters · Thirds', color: '#ff86d0', icon: '🍕', lessons: [...u5Lessons, u5Boss], bossLessonIds: [u5Boss.id] },
   { id: 'u6', order: 6, title: 'Shape Galaxy', subtitle: '2D & 3D · Turns · Patterns', color: '#00cd9c', icon: '🔷', lessons: [...u6Lessons, u6Boss], bossLessonIds: [u6Boss.id] },
   { id: 'u7', order: 7, title: 'Measure Land', subtitle: 'Length · Weight · Capacity', color: '#ffc800', icon: '📏', lessons: [...u7Lessons, u7Boss], bossLessonIds: [u7Boss.id] },
-  { id: 'u8', order: 8, title: 'Time & Money', subtitle: 'Clocks · Days · Coins', color: '#4a90e2', icon: '⏰', lessons: [...u8Lessons, u8Boss], bossLessonIds: [u8Boss.id] },
-  { id: 'u9', order: 9, title: 'Data Detectives', subtitle: 'Tallies · Pictograms', color: '#ff6b6b', icon: '📊', lessons: u9Lessons, bossLessonIds: [] },
+  { id: 'u8', order: 8, title: 'Time & Money', subtitle: 'Clocks · Days · Coins · Change', color: '#4a90e2', icon: '⏰', lessons: [...u8Lessons, u8Boss], bossLessonIds: [u8Boss.id] },
+  { id: 'u9', order: 9, title: 'Data Detectives', subtitle: 'Tallies · Pictograms · Charts', color: '#ff6b6b', icon: '📊', lessons: u9Lessons, bossLessonIds: [] },
 ]
 
 export const ALL_LESSONS: Record<string, { unit: UnitDef; lesson: LessonDef }> = {}

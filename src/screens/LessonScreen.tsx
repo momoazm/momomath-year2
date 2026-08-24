@@ -211,7 +211,7 @@ export function LessonScreen({ lessonId, onExit }: { lessonId: string; onExit: (
     const gained = base + bonus
     const totalAnswered = QUESTIONS_PER_LESSON + mistakes
     const accuracy = Math.round(((totalAnswered - mistakes) / totalAnswered) * 100)
-    const crownsGained = mistakes === 0 ? 1 : mistakes <= 2 ? 1 : 0
+    const crownsGained = mistakes === 0 ? 1 : 0
     setXpEarned(gained)
     player.completeLesson({
       lessonId,
@@ -222,7 +222,7 @@ export function LessonScreen({ lessonId, onExit }: { lessonId: string; onExit: (
       accuracy,
     })
     sfx.complete()
-    confetti({ particleCount: 120, spread: 75, origin: { y: 0.7 }, disableForReducedMotion: true })
+    confetti({ particleCount: mistakes === 0 ? 120 : 60, spread: 75, origin: { y: 0.7 }, disableForReducedMotion: true })
     setPhase('done')
   }
 
@@ -275,15 +275,22 @@ export function LessonScreen({ lessonId, onExit }: { lessonId: string; onExit: (
           <Stat label="Streak" value={`${player.streakCurrent}🔥`} color="text-red-500" icon='' delay={0.45} />
         </div>
 
-        <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.55 }}
-          className="mt-4 text-center font-body font-bold text-slate-400">
-          ∞ Energy stays unlimited — play as much as you like!
-        </motion.p>
+        {mistakes === 0 ? (
+          <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.55 }}
+            className="mt-2 text-center font-body font-bold text-emerald-600">
+            PERFECT! Next lesson unlocked! 🔓
+          </motion.p>
+        ) : (
+          <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.55 }}
+            className="mt-2 max-w-xs text-center font-body font-bold text-amber-500">
+            You made {mistakes} mistake{mistakes === 1 ? '' : 's'}. Play again and score 100% to unlock the next lesson!
+          </motion.p>
+        )}
 
-        <button onClick={() => { setAttempt((a) => a + 1); setPhase('intro') }} className="btn3d btn-blue mt-6 gpu">
-          Play again
+        <button onClick={() => { setAttempt((a) => a + 1); setPhase('intro') }} className={`btn3d mt-4 gpu ${mistakes === 0 ? 'btn-blue' : 'btn-green'}`}>
+          {mistakes === 0 ? 'Play again' : 'Try for 100%!'}
         </button>
-        <button onClick={onExit} className="btn3d btn-green mt-2 gpu">Continue</button>
+        <button onClick={onExit} className="btn3d btn-grey mt-2 gpu">Back to path</button>
       </div>
     )
   }

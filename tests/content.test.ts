@@ -52,14 +52,14 @@ describe('curriculum generators', () => {
     expect(seen).toBeGreaterThan(50)
   })
 
-  it('type-number answers stay within Year-2 bounds', () => {
+  it('type-number answers stay within Stage-2 bounds', () => {
     for (const { lesson } of Object.values(ALL_LESSONS)) {
       for (let seed = 1; seed <= attempts * 2; seed++) {
         for (const q of lesson.generate(10, seed)) {
           if (q.kind === 'type-number') {
             expect(Number.isFinite(q.answer)).toBe(true)
             expect(q.answer).toBeGreaterThanOrEqual(0)
-            expect(q.answer).toBeLessThanOrEqual(100)
+            expect(q.answer).toBeLessThanOrEqual(1000)
           }
         }
       }

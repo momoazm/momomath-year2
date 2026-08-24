@@ -121,15 +121,17 @@ export function gCompare(rand: Rand): Question {
 }
 
 export function gOrderNumbers(rand: Rand): Question {
-  const start = randInt(rand, 1, 80)
+  const descending = rand() < 0.35
+  const start = randInt(rand, 5, 88)
   const step = pick(rand, [1, 2, 5, 10])
   const items = [0, 1, 2, 3].map((i) => start + i * step)
-  if (new Set(items).size !== 4) return gOrderNumbers(rand)
+  if (new Set(items).size !== 4 || items[3] > 99) return gOrderNumbers(rand)
+  const ordered = descending ? [...items].reverse() : items
   return {
     kind: 'order',
-    prompt: 'Put these numbers in order, smallest first!',
-    items: items.map(String),
-    hint: 'Find the smallest, then count on.',
+    prompt: descending ? 'Put these numbers in order, biggest first!' : 'Put these numbers in order, smallest first!',
+    items: ordered.map(String),
+    hint: descending ? 'Find the biggest, then count back.' : 'Find the smallest, then count on.',
   }
 }
 
@@ -192,16 +194,47 @@ export function gAddTwoDigitPlus1(rand: Rand): Question {
 }
 
 export function gAddTwoDigitPairs(rand: Rand): Question {
-  const a = randInt(rand, 12, 45)
-  const b = randInt(rand, 12, 45)
-  if (a + b > 100 || (a % 10) + (b % 10) >= 10) return gAddTwoDigitPairs(rand)
-  return { kind: 'type-number', prompt: `${a} + ${b} = ?`, answer: a + b, hint: 'Add the tens, then add the ones.' }
+  const a = randInt(rand, 12, 69)
+  const b = randInt(rand, 12, 79)
+  if (a + b > 150) return gAddTwoDigitPairs(rand)
+  return { kind: 'type-number', prompt: `${a} + ${b} = ?`, answer: a + b, hint: 'Add the tens first, then the ones.' }
+}
+
+/** Two-digit addition that MUST cross a ten (carry), sums up to 199. */
+export function gAddTwoDigitCarry(rand: Rand): Question {
+  const a = randInt(rand, 15, 89)
+  const b = randInt(rand, 15, 99)
+  if ((a % 10) + (b % 10) < 10 || a + b > 199) return gAddTwoDigitCarry(rand)
+  return {
+    kind: 'type-number',
+    prompt: `${a} + ${b} = ?`,
+    answer: a + b,
+    hint: 'The ones make more than ten - carry to the tens!',
+  }
+}
+
+/** Big friendly numbers: hundreds and tens, answers up to about 990. */
+export function gAddBigNumbers(rand: Rand): Question {
+  const v = randInt(rand, 0, 2)
+  if (v === 0) {
+    const a = randInt(rand, 1, 8) * 100
+    const b = randInt(rand, 1, 9 - a / 100) * 100
+    return { kind: 'type-number', prompt: `${a} + ${b} = ?`, answer: a + b, hint: 'Count in hundreds.' }
+  }
+  if (v === 1) {
+    const a = randInt(rand, 1, 8) * 100 + randInt(rand, 1, 8) * 10
+    const b = randInt(rand, 1, 8) * 10
+    return { kind: 'type-number', prompt: `${a} + ${b} = ?`, answer: a + b, hint: 'Hundreds with hundreds, tens with tens.' }
+  }
+  const a = randInt(rand, 2, 7) * 100 + pick(rand, [20, 30, 40, 50])
+  const b = randInt(rand, 11, 89)
+  return { kind: 'type-number', prompt: `${a} + ${b} = ?`, answer: a + b, hint: 'Partition the small number into tens and ones.' }
 }
 
 export function gAddWordProblem(rand: Rand): Question {
   const e = pick(rand, ['🍎 apples', '🎈 balloons', '⚽ balls', '🍪 cookies'])
-  const a = randInt(rand, 5, 40)
-  const b = randInt(rand, 3, 25)
+  const a = randInt(rand, 15, 80)
+  const b = randInt(rand, 12, 60)
   const who = pick(rand, ['Sonic', 'Amy', 'Knuckles', 'Shadow'])
   return {
     kind: 'type-number',
@@ -209,6 +242,70 @@ export function gAddWordProblem(rand: Rand): Question {
     answer: a + b,
     hint: 'Joining together means ADD.',
   }
+}
+
+/* ============== Missing numbers & inverses (harder reasoning) ====== */
+
+/** a + ? = c with 2-digit numbers (find the missing part). */
+export function gMissingAddend(rand: Rand): Question {
+  const a = randInt(rand, 5, 78)
+  const ans = randInt(rand, 5, Math.min(90 - a, 60))
+  return {
+    kind: 'type-number',
+    prompt: `${a} + ? = ${a + ans}`,
+    answer: ans,
+    hint: 'How far is it from the first number up to the total?',
+  }
+}
+
+/** Missing number in subtraction, both directions: c − ? = r and ? − b = r. */
+export function gMissingPart(rand: Rand): Question {
+  if (rand() < 0.5) {
+    const r = randInt(rand, 4, 50)
+    const b = randInt(rand, 5, 49)
+    return { kind: 'type-number', prompt: `${r + b} − ? = ${r}`, answer: b, hint: 'What did we take away?' }
+  }
+  const b = randInt(rand, 12, 60)
+  const r = randInt(rand, 4, 38)
+  return { kind: 'type-number', prompt: `? − ${b} = ${r}`, answer: b + r, hint: 'Add back to find the start.' }
+}
+
+/** Which expression is MORE? Comparing two sums without computing exactly. */
+export function gCompareSums(rand: Rand): Question {
+  const s = () => [randInt(rand, 11, 58), randInt(rand, 11, 41)] as const
+  let A = s(), B = s()
+  while (A[0] + A[1] === B[0] + B[1]) B = s()
+  const left = `${A[0]} + ${A[1]}`, right = `${B[0]} + ${B[1]}`
+  const leftSum = A[0] + A[1], rightSum = B[0] + B[1]
+  const answer = leftSum > rightSum ? left : right
+  return mcq(
+    rand,
+    'Which one is MORE?',
+    answer,
+    leftSum > rightSum ? [right] : [left],
+    { hint: 'Add the tens first to compare quickly!' },
+  )
+}
+
+/** Inverse times tables: 5 × ? = 35 (uses tables 2, 3, 4, 5, 10). */
+export function gInverseTimes(rand: Rand): Question {
+  const table = pick(rand, [2, 3, 4, 5, 10])
+  const b = randInt(rand, 2, 10)
+  return {
+    kind: 'type-number',
+    prompt: `${table} × ? = ${table * b}`,
+    answer: b,
+    hint: `How many groups of ${table} make ${table * b}?`,
+  }
+}
+
+/** Doubling two-digit numbers (double 34 = 68). */
+export function gDoubleTwoDigit(rand: Rand): Question {
+  const n = randInt(rand, 13, 99)
+  if (rand() < 0.5) {
+    return { kind: 'type-number', prompt: `What is DOUBLE ${n}?`, answer: n * 2, hint: `Double ${n - n % 10} first, then double the ones.` }
+  }
+  return { kind: 'type-number', prompt: `${n * 2} is double which number?`, answer: n, hint: 'Halve it - split into tens and ones.' }
 }
 
 /* ==================== Unit 3 · Subtraction ======================= */
@@ -482,17 +579,26 @@ export function gMeasureWordProblem(rand: Rand): Question {
 
 export function gClockRead(rand: Rand): Question {
   const hour = randInt(rand, 1, 12)
-  const halfPast = rand() < 0.5
-  const minute = halfPast ? 30 : 0
-  const label = halfPast ? `half past ${hour}` : `${hour} o'clock`
+  const style = randInt(rand, 0, 3)
+  const minute = [0, 15, 30, 45][style]
+  const label =
+    style === 0 ? `${hour} o'clock`
+    : style === 1 ? `quarter past ${hour}`
+    : style === 2 ? `half past ${hour}`
+    : `quarter to ${(hour % 12) + 1}`
   const wrongLabels = shuffle(rand, [
     `${hour} o'clock`,
     `half past ${(hour % 12) + 1}`,
-    `${(hour % 12) + 1} o'clock`,
+    `quarter past ${(hour % 12) + 1}`,
+    `quarter to ${hour === 12 ? 1 : hour}`,
   ]).filter((w) => w !== label)
   return mcq(rand, 'What time does the clock show?', label, wrongLabels.slice(0, 3), {
     visual: { type: 'clock', hour, minute },
-    hint: halfPast ? 'The big hand points straight down at 30 minutes.' : 'The big hand points straight up.',
+    hint:
+      style === 0 ? 'The big hand points straight up.'
+      : style === 1 ? 'The big hand points to the 3.'
+      : style === 2 ? 'The big hand points straight down at 30 minutes.'
+      : 'The big hand points to the 9 - it is almost the next hour!',
   })
 }
 
@@ -531,14 +637,39 @@ export function gCoinsTotal(rand: Rand): Question {
 }
 
 export function gChangeFrom(rand: Rand): Question {
-  const from = pick(rand, [10, 20])
-  const cost = randInt(rand, 2, from - 2)
+  const from = pick(rand, [20, 50, 100])
+  const cost = randInt(rand, 5, from - 5)
+  const paid = from === 100 ? '£1' : `${from}p`
   return {
     kind: 'type-number',
-    prompt: `A toy costs ${cost}p. You pay with ${from}p. How much change do you get?`,
+    prompt: `A toy costs ${cost}p. You pay with ${paid}. How much change do you get?`,
     answer: from - cost,
     hint: 'Change = money paid − price.',
   }
+}
+
+/** Extended tables for the challenge lessons: ×2 ×3 ×4 ×5 ×10 up to 12. */
+export function gTimesTableExtended(rand: Rand): Question {
+  const table = pick(rand, [2, 3, 4, 5, 10])
+  const b = randInt(rand, 3, 12)
+  const ans = table * b
+  return mcq(
+    rand,
+    `${table} × ${b} = ?`,
+    String(ans),
+    numDistractors(rand, ans, table),
+    { hint: `Count in ${table}s!` },
+  )
+}
+
+/** Two-digit minus two-digit, no borrowing needed (Stage 2 mental method). */
+export function gSubTwoDigit(rand: Rand): Question {
+  const a = randInt(rand, 35, 99)
+  const bTens = randInt(rand, 1, Math.floor(a / 10) - 1)
+  const bOnes = randInt(rand, 0, a % 10)
+  const b = bTens * 10 + bOnes
+  if (b < 11) return gSubTwoDigit(rand)
+  return { kind: 'type-number', prompt: `${a} − ${b} = ?`, answer: a - b, hint: 'Tens first, then the ones.' }
 }
 
 /* ====================== Unit 9 · Data ============================ */

@@ -228,7 +228,7 @@ export const usePlayer = create<PlayerState>()(
           }
         }),
     }),
-    { name: 'momomath-year2-player' },
+    { name: 'momomath-year2-player-v2' },
   ),
 )
 
