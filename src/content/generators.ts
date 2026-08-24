@@ -195,8 +195,8 @@ export function gAddTwoDigitPlus1(rand: Rand): Question {
 
 export function gAddTwoDigitPairs(rand: Rand): Question {
   const a = randInt(rand, 12, 69)
-  const b = randInt(rand, 12, 79)
-  if (a + b > 150) return gAddTwoDigitPairs(rand)
+  const b = randInt(rand, 12, 29)
+  if (a + b > 99 || (a % 10) + (b % 10) >= 10) return gAddTwoDigitPairs(rand)
   return { kind: 'type-number', prompt: `${a} + ${b} = ?`, answer: a + b, hint: 'Add the tens first, then the ones.' }
 }
 
@@ -233,8 +233,8 @@ export function gAddBigNumbers(rand: Rand): Question {
 
 export function gAddWordProblem(rand: Rand): Question {
   const e = pick(rand, ['🍎 apples', '🎈 balloons', '⚽ balls', '🍪 cookies'])
-  const a = randInt(rand, 15, 80)
-  const b = randInt(rand, 12, 60)
+  const a = randInt(rand, 12, 68)
+  const b = randInt(rand, 5, Math.min(30, 98 - a))
   const who = pick(rand, ['Sonic', 'Amy', 'Knuckles', 'Shadow'])
   return {
     kind: 'type-number',
@@ -287,9 +287,9 @@ export function gCompareSums(rand: Rand): Question {
   )
 }
 
-/** Inverse times tables: 5 × ? = 35 (uses tables 2, 3, 4, 5, 10). */
+/** Inverse times tables: 5 × ? = 35 (uses tables 2, 5, 10). */
 export function gInverseTimes(rand: Rand): Question {
-  const table = pick(rand, [2, 3, 4, 5, 10])
+  const table = pick(rand, [2, 5, 10])
   const b = randInt(rand, 2, 10)
   return {
     kind: 'type-number',
@@ -345,7 +345,7 @@ export function gDifferenceProblem(rand: Rand): Question {
 
 export function gSkipSequence(rand: Rand): Question {
   const step = pick(rand, [2, 5, 10])
-  const start = step * randInt(rand, 1, 6)
+  const start = step * randInt(rand, 1, Math.max(1, Math.floor(24 / step)))
   const seq = [start, start + step, start + 2 * step]
   const ans = start + 3 * step
   return mcq(
@@ -354,6 +354,175 @@ export function gSkipSequence(rand: Rand): Question {
     String(ans),
     numDistractors(rand, ans, step),
   )
+}
+
+/** Ten more / ten less on 2-digit numbers (place value fluency). */
+export function gTenMoreLess(rand: Rand): Question {
+  const n = randInt(rand, 13, 88)
+  const more = rand() < 0.5
+  const ans = more ? n + 10 : n - 10
+  return mcq(
+    rand,
+    more ? `What is 10 more than ${n}?` : `What is 10 less than ${n}?`,
+    String(ans),
+    numDistractors(rand, ans, 10),
+    { hint: 'Only the tens digit changes!' },
+  )
+}
+
+/** Number bonds to 20. */
+export function gBondsTo20(rand: Rand): Question {
+  const a = randInt(rand, 1, 19)
+  return { kind: 'type-number', prompt: `${a} + ? = 20`, answer: 20 - a, hint: 'How many more make 20?' }
+}
+
+/** Two-digit + two-digit bonds to 100 (43 + ? = 100). */
+export function gTensBond100(rand: Rand): Question {
+  const a = randInt(rand, 11, 89)
+  return { kind: 'type-number', prompt: `${a} + ? = 100`, answer: 100 - a, hint: 'Ones make 10, tens make 90.' }
+}
+
+/** Division as grouping: how many groups of b fit into the total? */
+export function gGroupingDivision(rand: Rand): Question {
+  const b = pick(rand, [2, 5, 10])
+  const k = randInt(rand, 2, 10)
+  return {
+    kind: 'type-number',
+    prompt: `How many groups of ${b} are there in ${b * k}?`,
+    answer: k,
+    hint: `Keep taking away ${b}s and count.`,
+  }
+}
+
+/** Multiplication written as repeated addition: 3 + 3 + 3 = 9. */
+export function gRepeatedAddition(rand: Rand): Question {
+  const table = pick(rand, [2, 5, 10])
+  const groups = randInt(rand, 2, 6)
+  const parts = Array.from({ length: groups }, () => table)
+  return {
+    kind: 'type-number',
+    prompt: `${parts.join(' + ')} = ?`,
+    answer: table * groups,
+    hint: `Same as ${table} × ${groups}.`,
+  }
+}
+
+/* ================ Symmetry & sorting (Stage 2 geometry/data) ======= */
+
+const SYMMETRY_MCQ: { prompt: string; answer: string; wrong: string[] }[] = [
+  { prompt: 'Which letter has a line of symmetry?', answer: 'A', wrong: ['P', 'F', 'G'] },
+  { prompt: 'Which letter has a line of symmetry?', answer: 'M', wrong: ['J', 'R', 'S'] },
+  { prompt: 'Which letter has NO line of symmetry?', answer: 'F', wrong: ['A', 'O', 'W'] },
+  { prompt: 'Which letter has NO line of symmetry?', answer: 'R', wrong: ['M', 'T', 'U'] },
+  { prompt: 'How many lines of symmetry does a SQUARE have?', answer: '4', wrong: ['1', '2', '3'] },
+  { prompt: 'How many lines of symmetry does a RECTANGLE have?', answer: '2', wrong: ['1', '4', '0'] },
+  { prompt: 'How many lines of symmetry does an EQUILATERAL TRIANGLE have?', answer: '3', wrong: ['1', '2', '6'] },
+]
+
+export function gSymmetry(rand: Rand): Question {
+  const f = pick(rand, SYMMETRY_MCQ)
+  return mcq(rand, f.prompt, f.answer, shuffle(rand, f.wrong), { hint: 'Picture folding it - do both halves match exactly?' })
+}
+
+/** Carroll-diagram style sorting with computed answers. */
+export function gSortingDiagrams(rand: Rand): Question {
+  const n = randInt(rand, 11, 98)
+  const even = n % 2 === 0
+  const small = n < 50
+  const parity = even ? 'even' : 'odd'
+  const side = small ? 'less than 50' : 'greater than 50'
+  const otherParity = even ? 'odd' : 'even'
+  const otherSide = small ? 'greater than 50' : 'less than 50'
+  return mcq(
+    rand,
+    `In our sorting diagram, where does the number ${n} go?`,
+    `${parity} and ${side}`,
+    [`${otherParity} and ${side}`, `${parity} and ${otherSide}`, `${otherParity} and ${otherSide}`],
+    { hint: 'Check BOTH rules: odd/even, then compare with 50.' },
+  )
+}
+
+/* ===================== Temperature (measure strand) ================ */
+
+const TEMP_MCQ: { prompt: string; answer: string; wrong: string[] }[] = [
+  { prompt: 'Water freezes at…', answer: '0°C', wrong: ['10°C', '100°C', '-50°C'] },
+  { prompt: 'Water boils at…', answer: '100°C', wrong: ['0°C', '50°C', '10°C'] },
+  { prompt: 'A hot sunny day is about…', answer: '30°C', wrong: ['0°C', '5°C', '60°C'] },
+  { prompt: 'Your body temperature is about…', answer: '37°C', wrong: ['10°C', '80°C', '0°C'] },
+  { prompt: 'We measure temperature with…', answer: 'A thermometer', wrong: ['A ruler', 'A scale', 'A clock'] },
+]
+
+export function gTemperature(rand: Rand): Question {
+  if (rand() < 0.45) {
+    const low = randInt(rand, 0, 3) * 10
+    return {
+      kind: 'type-number',
+      prompt: `The thermometer is halfway between ${low}°C and ${low + 10}°C. What does it read?`,
+      answer: low + 5,
+      hint: 'Halfway between two marks.',
+    }
+  }
+  const f = pick(rand, TEMP_MCQ)
+  return mcq(rand, f.prompt, f.answer, shuffle(rand, f.wrong))
+}
+
+/* =================== Time to five minutes & durations ============== */
+
+const MIN_WORDS: Record<number, string> = {
+  5: 'five', 10: 'ten', 20: 'twenty', 25: 'twenty-five',
+  35: 'twenty-five', 40: 'twenty', 50: 'ten', 55: 'five',
+}
+
+export function gTimeFiveMin(rand: Rand): Question {
+  const hour = randInt(rand, 1, 12)
+  const minute = pick(rand, [5, 10, 20, 25, 35, 40, 50, 55])
+  const to = minute > 30
+  const label = to
+    ? `${MIN_WORDS[minute]} to ${(hour % 12) + 1}`
+    : `${MIN_WORDS[minute]} past ${hour}`
+  const candidates = [
+    `five past ${(hour % 12) + 1}`,
+    `quarter to ${hour === 12 ? 1 : hour}`,
+    `half past ${hour}`,
+    `twenty to ${(hour % 12) + 1}`,
+    `ten past ${hour}`,
+    `quarter past ${(hour % 12) + 1}`,
+  ]
+  const wrongLabels = shuffle(rand, candidates.filter((w) => w !== label))
+  return mcq(rand, 'What time does the clock show?', label, wrongLabels.slice(0, 3), {
+    visual: { type: 'clock', hour, minute },
+    hint: to ? 'Past the half - count DOWN to the next hour.' : 'Before the half - count UP from the hour.',
+  })
+}
+
+const DURATION_MCQ: { prompt: string; answer: string; wrong: string[] }[] = [
+  { prompt: 'Brushing your teeth takes about…', answer: '2 minutes', wrong: ['2 seconds', '2 hours', '2 days'] },
+  { prompt: 'A school day lasts about…', answer: '6 hours', wrong: ['6 minutes', '6 weeks', '60 hours'] },
+  { prompt: 'A good night\'s sleep is about…', answer: '10 hours', wrong: ['10 minutes', '10 days', '10 weeks'] },
+  { prompt: 'A football match lasts about…', answer: '90 minutes', wrong: ['90 hours', '9 days', '90 seconds'] },
+  { prompt: 'One blink of your eyes takes about…', answer: '1 second', wrong: ['1 hour', '1 minute', '1 day'] },
+  { prompt: 'A banana grows ripe after being picked in about…', answer: 'a few days', wrong: ['a few years', 'a few seconds', 'a few months'] },
+]
+
+export function gDurationUnits(rand: Rand): Question {
+  const f = pick(rand, DURATION_MCQ)
+  return mcq(rand, f.prompt, f.answer, shuffle(rand, f.wrong), { hint: 'Would you count it in seconds, minutes, hours or days?' })
+}
+
+/* ==================== Equivalent fraction facts ==================== */
+
+const EQUIV_BANK: { prompt: string; answer: string; wrong: string[] }[] = [
+  { prompt: 'Two quarters of a pizza is the same as…', answer: 'one half', wrong: ['one whole', 'one third', 'three quarters'] },
+  { prompt: 'Four quarters of a pizza is the same as…', answer: 'one whole', wrong: ['one half', 'one third', 'two thirds'] },
+  { prompt: 'How many HALVES make one whole?', answer: '2', wrong: ['3', '4', '1'] },
+  { prompt: 'How many QUARTERS make one whole?', answer: '4', wrong: ['2', '3', '8'] },
+  { prompt: 'How many QUARTERS make one HALF?', answer: '2', wrong: ['1', '3', '4'] },
+  { prompt: 'One half of my cake is the same as…', answer: 'two quarters', wrong: ['one quarter', 'three quarters', 'one third'] },
+]
+
+export function gEquivFractions(rand: Rand): Question {
+  const f = pick(rand, EQUIV_BANK)
+  return mcq(rand, f.prompt, f.answer, shuffle(rand, f.wrong), { hint: 'Cut it smaller: more pieces, same amount!' })
 }
 
 export function gTimesTable(rand: Rand): Question {
@@ -483,6 +652,9 @@ const SHAPE_FACTS: { prompt: string; answer: string; wrong: string[] }[] = [
   { prompt: 'A dice is like which 3D shape?', answer: 'Cube', wrong: ['Sphere', 'Cone', 'Cylinder'] },
   { prompt: 'An ice-cream cone is like which 3D shape?', answer: 'Cone', wrong: ['Cube', 'Sphere', 'Cuboid'] },
   { prompt: 'A tin can is like which 3D shape?', answer: 'Cylinder', wrong: ['Sphere', 'Cone', 'Pyramid'] },
+  { prompt: 'How many CORNERS does a circle have?', answer: '0', wrong: ['1', '3', '4'] },
+  { prompt: 'Every point on a circle is the same distance from the…', answer: 'Centre', wrong: ['Edge', 'Corner', 'Side'] },
+  { prompt: 'Which shape looks like a ball?', answer: 'Sphere', wrong: ['Cube', 'Cylinder', 'Circle'] },
 ]
 
 export function gShapeFacts(rand: Rand): Question {
@@ -650,7 +822,7 @@ export function gChangeFrom(rand: Rand): Question {
 
 /** Extended tables for the challenge lessons: ×2 ×3 ×4 ×5 ×10 up to 12. */
 export function gTimesTableExtended(rand: Rand): Question {
-  const table = pick(rand, [2, 3, 4, 5, 10])
+  const table = pick(rand, [2, 5, 10])
   const b = randInt(rand, 3, 12)
   const ans = table * b
   return mcq(
@@ -709,4 +881,151 @@ export function gChartCompare(rand: Rand): Question {
     answer: hi - Math.min(a, b),
     hint: 'Winner minus loser = difference.',
   }
+}
+
+/* ========== Cambridge 0096 Stage 2 coverage generators ============ */
+
+/** 2Np.04 Ordinal numbers: first, second, third, fourth. */
+const ORDINALS = ['first', 'second', 'third', 'fourth']
+export function gOrdinals(rand: Rand): Question {
+  const lineup = shuffle(rand, ['🦔', '🦊', '🐢', '🌸']).slice(0, 4)
+  const k = randInt(rand, 1, 4)
+  return mcq(
+    rand,
+    `${lineup.join(' ')} - which emoji finished ${ORDINALS[k - 1]}?`,
+    lineup[k - 1],
+    lineup.filter((_, i) => i !== k - 1),
+    { hint: `${k}${['st', 'nd', 'rd', 'th'][k - 1]} place!` },
+  )
+}
+
+/** 2Np.05 Round a 2-digit number to the nearest 10. */
+export function gRoundTen(rand: Rand): Question {
+  let n = randInt(rand, 11, 99)
+  while (n % 10 === 0) n = randInt(rand, 11, 99)
+  const ans = Math.round(n / 10) * 10
+  const wrongs = [ans + 10, ans - 10].map(String).filter((w) => w !== String(ans) && Number(w) >= 0)
+  return mcq(
+    rand,
+    `What is ${n} rounded to the nearest 10?`,
+    String(ans),
+    shuffle(rand, wrongs),
+    { hint: 'Look at the ones digit: 5 or more rounds UP.' },
+  )
+}
+
+/** 2Nc.03 Estimate how many objects (visual group). */
+export function gEstimateCount(rand: Rand): Question {
+  const buckets: [number, number[]][] = [
+    [5, [6, 7]], [10, [8, 9, 11, 12]], [20, [17, 18]],
+  ]
+  const [bucket, options] = pick(rand, buckets)
+  const n = pick(rand, options)
+  const emoji = pick(rand, ['⭐', '🍎', '🎈'])
+  const wrongLabels = ['about 5', 'about 10', 'about 20'].filter((l) => l !== `about ${bucket}`)
+  return mcq(
+    rand,
+    'About how many can you see? Do not count exactly!',
+    `about ${bucket}`,
+    wrongLabels,
+    { visual: { type: 'emoji-group', emojis: emojis(rand, n) }, hint: 'Group them into fives or tens to estimate!' },
+  )
+}
+
+/** 2Gg.10 How many times does a shape look identical in one full turn? */
+const ROTATION_MCQ: { prompt: string; answer: string; wrong: string[] }[] = [
+  { prompt: 'A SQUARE looks identical how many times in one full turn?', answer: '4', wrong: ['1', '2', '3'] },
+  { prompt: 'A RECTANGLE looks identical how many times in one full turn?', answer: '2', wrong: ['1', '4', '3'] },
+  { prompt: 'An EQUILATERAL TRIANGLE looks identical how many times in a full turn?', answer: '3', wrong: ['1', '2', '6'] },
+  { prompt: 'A REGULAR HEXAGON looks identical how many times in a full turn?', answer: '6', wrong: ['3', '4', '8'] },
+]
+export function gRotationalTurns(rand: Rand): Question {
+  const f = pick(rand, ROTATION_MCQ)
+  return mcq(rand, f.prompt, f.answer, shuffle(rand, f.wrong), { hint: 'Spin it slowly and count each perfect match!' })
+}
+
+/** 2Sp.01/.02 Random vs regular patterns and chance language. */
+const CHANCE_MCQ: { prompt: string; answer: string; wrong: string[] }[] = [
+  { prompt: 'Rolling a dice - which number will land face up?', answer: 'Random - you cannot know for sure!', wrong: ['Always 6', 'Always 1', 'The same number every time'] },
+  { prompt: '🔴🔵🔴🔵🔴🔵 - what kind of pattern is this?', answer: 'A regular pattern', wrong: ['A random pattern', 'No pattern at all', 'A mistake'] },
+  { prompt: 'Which event is CERTAIN to happen?', answer: 'The sun rises tomorrow', wrong: ['You roll a 6 next throw', 'It rains on your birthday', 'Your toy turns into gold'] },
+  { prompt: 'Which event is IMPOSSIBLE?', answer: 'A cat barks like a dog tomorrow', wrong: ['You eat food today', 'The sun sets tonight', 'You blink soon'] },
+  { prompt: 'Tossing a coin gives heads or tails. This outcome is�', answer: 'Random', wrong: ['Regular', 'Certain to be heads', 'Impossible'] },
+]
+export function gChanceLanguage(rand: Rand): Question {
+  const f = pick(rand, CHANCE_MCQ)
+  return mcq(rand, f.prompt, f.answer, shuffle(rand, f.wrong))
+}
+
+/** 2Gt.01 Order and compare units of time. */
+const TIME_UNITS_MCQ: { prompt: string; answer: string; wrong: string[] }[] = [
+  { prompt: 'How many MINUTES are in one hour?', answer: '60', wrong: ['24', '30', '100'] },
+  { prompt: 'How many HOURS are in one day?', answer: '24', wrong: ['12', '60', '36'] },
+  { prompt: 'How many DAYS are in one year?', answer: '365', wrong: ['360', '12', '52'] },
+  { prompt: 'Which unit of time is LONGEST?', answer: 'One year', wrong: ['One day', 'One hour', 'One minute'] },
+  { prompt: 'Which unit of time is SHORTEST?', answer: 'One second', wrong: ['One minute', 'One hour', 'One day'] },
+]
+export function gTimeUnitsFacts(rand: Rand): Question {
+  const f = pick(rand, TIME_UNITS_MCQ)
+  return mcq(rand, f.prompt, f.answer, shuffle(rand, f.wrong))
+}
+
+/** 2Nm.02 Compare values of different combinations of coins. */
+export function gMoneyCompare(rand: Rand): Question {
+  const coins = [1, 2, 5, 10, 20, 50]
+  const big = pick(rand, [20, 50])
+  let parts = [10, 10]
+  let sum = 20
+  while (sum === big || sum > 90) {
+    parts = Array.from({ length: randInt(rand, 2, 3) }, () => pick(rand, coins.filter((c) => c < big)))
+    sum = parts.reduce((a, c) => a + c, 0)
+  }
+  const labelA = `${big}p`
+  const labelB = parts.map((p) => `${p}p`).join(' + ')
+  const answerLabel = big > sum ? labelA : labelB
+  const wrongLabel = big > sum ? labelB : labelA
+  return mcq(
+    rand,
+    'Which pile of money has MORE?',
+    answerLabel,
+    [wrongLabel],
+    { hint: 'Add up the small coins before you decide!' },
+  )
+}
+
+/** 2Nf.06 Combine wholes, halves and quarters. */
+const COMBINE_BANK: { prompt: string; answer: string; wrong: string[] }[] = [
+  { prompt: 'One half + one quarter = ?', answer: 'three quarters', wrong: ['one half', 'one whole', 'two thirds'] },
+  { prompt: 'One half + one half = ?', answer: 'one whole', wrong: ['one quarter', 'three quarters', 'one third'] },
+  { prompt: 'Two quarters + two quarters = ?', answer: 'one whole', wrong: ['one half', 'three quarters', 'two halves'] },
+  { prompt: 'One whole - one half = ?', answer: 'one half', wrong: ['one quarter', 'nothing at all', 'three quarters'] },
+  { prompt: 'Three quarters - one quarter = ?', answer: 'one half', wrong: ['one whole', 'two quarters', 'nothing at all'] },
+]
+export function gCombineFractions(rand: Rand): Question {
+  const f = pick(rand, COMBINE_BANK)
+  return mcq(rand, f.prompt, f.answer, shuffle(rand, f.wrong), { hint: 'Picture a pizza cut into quarters!' })
+}
+
+/** 2Gp.01 Position and direction vocabulary. */
+const POSITION_MCQ: { prompt: string; answer: string; wrong: string[] }[] = [
+  { prompt: '🐕 🐈 🐕 - the cat is sitting ___ the dogs.', answer: 'between', wrong: ['on top of', 'inside', 'far from'] },
+  { prompt: 'You walk towards the door. You are moving ___ the door.', answer: 'towards', wrong: ['away from', 'under', 'above'] },
+  { prompt: 'The kite flies ___ the trees.', answer: 'above', wrong: ['below', 'between', 'behind'] },
+  { prompt: 'The shoes are ___ the bed, on the floor under it.', answer: 'below', wrong: ['above', 'beside', 'around'] },
+  { prompt: 'If you take two steps BACKWARDS you move�', answer: 'away from where you were facing', wrong: ['closer to where you were facing', 'in a circle only', 'upwards'] },
+]
+export function gPositionWords(rand: Rand): Question {
+  const f = pick(rand, POSITION_MCQ)
+  return mcq(rand, f.prompt, f.answer, shuffle(rand, f.wrong))
+}
+
+/** 2Gp.02 Mirror reflections swap left and right. */
+const MIRROR_MCQ: { prompt: string; answer: string; wrong: string[] }[] = [
+  { prompt: 'You wave your RIGHT hand at a mirror. Which hand does your reflection wave?', answer: 'Its left hand', wrong: ['Its right hand', 'Both hands', 'No hands'] },
+  { prompt: 'In a mirror, a shape and its reflection are�', answer: 'The same size', wrong: ['Different sizes', 'Always upside down', 'Always spinning'] },
+  { prompt: 'Hold the letter F up to a mirror. The reflection faces�', answer: 'The opposite way', wrong: ['Exactly the same way', 'Upside down only', 'It disappears'] },
+]
+export function gMirrorReflections(rand: Rand): Question {
+  const f = pick(rand, MIRROR_MCQ)
+  return mcq(rand, f.prompt, f.answer, shuffle(rand, f.wrong), { hint: 'Mirrors flip left and right - but never change size!' })
 }

@@ -3,9 +3,9 @@ import { ALL_LESSONS, QUESTIONS_PER_LESSON, UNITS } from '../src/content/curricu
 import { expectValidQuestion } from './questionChecks'
 
 describe('curriculum structure', () => {
-  it('has nine units in order', () => {
-    expect(UNITS.length).toBe(9)
-    expect(UNITS.map((u) => u.order)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9])
+  it('has thirteen units in Cambridge order', () => {
+    expect(UNITS.length).toBe(13)
+    expect(UNITS.map((u) => u.order)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13])
   })
 
   it('gives every lesson a globally unique id', () => {
@@ -24,18 +24,21 @@ describe('curriculum structure', () => {
     }
   })
 
-  it('marks boss lessons consistently (units 1-8 have one each)', () => {
+  it('marks every unit with a consistent trailing boss lesson', () => {
     for (const u of UNITS) {
-      if (u.order <= 8) {
-        expect(u.bossLessonIds).toEqual([`u${u.order}boss`])
-        expect(u.lessons.at(-1)?.id).toBe(`u${u.order}boss`)
-      } else {
-        expect(u.bossLessonIds).toEqual([])
-      }
+      expect(u.bossLessonIds).toEqual([`${u.id}boss`])
+      expect(u.lessons.at(-1)?.id).toBe(`${u.id}boss`)
       for (const id of u.bossLessonIds) {
         expect(id).toMatch(/^u\d+boss$/)
         expect(ALL_LESSONS[id]).toBeDefined()
       }
+    }
+  })
+
+  it('covers every Cambridge Stage 2 sub-strand', () => {
+    const codes = UNITS.flatMap((unit) => unit.lessons.flatMap((l) => l.objectiveCodes))
+    for (const sub of ['2Nc', '2Ni', '2Nm', '2Np', '2Nf', '2Gg', '2Gp', '2Gt', '2Ss', '2Sp']) {
+      expect(codes.some((c) => c.startsWith(sub + '.'))).toBe(true)
     }
   })
 })
