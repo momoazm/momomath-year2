@@ -2,11 +2,15 @@ import { useState } from 'react'
 import { ACHIEVEMENTS, LEAGUES, LEAGUE_META } from '../engine/gamification'
 import { usePlayer } from '../engine/store'
 import { MASCOTS, Mascot } from '../components/mascots/Mascots'
+import { GoogleSignInInline } from '../components/ui/AuthBadge'
+import { signOutGoogle, useAuth } from '../engine/auth'
 import { sfx } from '../engine/sfx'
 import type { MascotId } from '../content/types'
 
 export function ProfileScreen() {
   const s = usePlayer()
+  const user = useAuth((a) => a.user)
+  const signOut = useAuth((a) => a.signOut)
   const [editing, setEditing] = useState(false)
   const [draftName, setDraftName] = useState(s.name)
 
@@ -65,6 +69,33 @@ export function ProfileScreen() {
         </div>
       </section>
 
+      {/* account */}
+      <section className="card-white mt-4">
+        <p className="font-display text-sm font-bold uppercase tracking-wide text-slate-400">Google account</p>
+        {user ? (
+          <div className="mt-2 flex items-center gap-3">
+            {user.picture ? (
+              <img src={user.picture} alt="" className="h-11 w-11 rounded-full ring-2 ring-speed-blue" referrerPolicy="no-referrer" />
+            ) : (
+              <span className="flex h-11 w-11 items-center justify-center rounded-full bg-speed-blue font-display text-lg font-extrabold text-white">
+                {user.name[0]?.toUpperCase()}
+              </span>
+            )}
+            <div className="min-w-0 flex-1">
+              <p className="truncate font-display font-extrabold">{user.name}</p>
+              <p className="truncate text-xs font-bold text-slate-400">{user.email}</p>
+            </div>
+            <button onClick={() => { sfx.tap(); signOutGoogle(); signOut() }} className="btn3d btn-grey !px-3 !py-2 !text-xs">
+              Sign out
+            </button>
+          </div>
+        ) : (
+          <div className="mt-2">
+            <GoogleSignInInline />
+          </div>
+        )}
+      </section>
+
       {/* league history */}
       <section className="card-white mt-4">
         <p className="font-display text-sm font-bold uppercase tracking-wide text-slate-400">League history</p>
@@ -77,7 +108,8 @@ export function ProfileScreen() {
           <ul className="mt-2 space-y-1 text-sm font-bold text-slate-400">
             {[...s.leagueHistory].reverse().slice(0, 5).map((h) => (
               <li key={h.weekKey}>
-                Week of {h.weekKey}: #{h.rank} · {h.outcome === 'promoted' ? '⬆️ promoted' : h.outcome === 'demoted' ? '⬇️ demoted' : '— stayed'}
+                Week of {h.weekKey}: {LEAGUE_META[h.league].icon} {h.league} · {h.xp} XP ·{' '}
+                {h.outcome === 'promoted' ? '⬆️ promoted' : h.outcome === 'demoted' ? '⬇️ demoted' : '— stayed'}
               </li>
             ))}
           </ul>

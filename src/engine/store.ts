@@ -5,15 +5,14 @@ import {
   ACHIEVEMENTS,
   DAILY_QUESTS,
   advanceLeague,
-  buildLeaderboard,
-  leagueOutcome,
+  leagueOutcomeByXp,
   nextWeekKey,
   todayISO,
   weekKey,
   yesterdayISO,
   type LeagueName,
 } from './gamification'
-import { sfx } from './sfx'
+import { setMuted, sfx } from './sfx'
 
 export interface LessonProgress {
   crown: number
@@ -24,8 +23,8 @@ export interface LessonProgress {
 export interface LeagueHistoryEntry {
   weekKey: string
   league: LeagueName
-  rank: number
   outcome: 'promoted' | 'demoted' | 'stayed'
+  xp: number
 }
 
 /** Energy is UNLIMITED for everyone - kept as an explicit constant so the UI
@@ -88,18 +87,18 @@ function rollDay(s: PlayerState) {
   }
 }
 
-/** Weekly league rollover: settle last week's rank, promote/demote, reset XP. */
+/** Weekly league rollover (auto every Monday): settle last week by XP earned,
+ *  promote/demote, then reset the weekly XP counter for the fresh league. */
 function rollWeek(s: PlayerState) {
   const wk = weekKey()
   if (s.weeklyXpWeek === wk) return
   const prevWeek = s.weeklyXpWeek || wk
-  const board = buildLeaderboard(prevWeek, s.weeklyXp, s.name)
-  const myRank = board.find((r) => r.isYou)?.rank ?? 10
-  const outcome = leagueOutcome(myRank)
-  s.currentLeague = advanceLeague(s.currentLeague, outcome)
+  const prevLeague = s.currentLeague
+  const outcome = leagueOutcomeByXp(prevLeague, s.weeklyXp)
+  s.currentLeague = advanceLeague(prevLeague, outcome)
   s.leagueHistory = [
     ...s.leagueHistory.slice(-9),
-    { weekKey: prevWeek, league: s.currentLeague, rank: myRank, outcome },
+    { weekKey: prevWeek, league: prevLeague, outcome, xp: s.weeklyXp },
   ]
   s.weeklyXpWeek = wk
   s.weeklyXp = 0
@@ -149,7 +148,7 @@ export const usePlayer = create<PlayerState>()(
   persist(
     (set) => ({
       name: 'Champion',
-      mascot: 'zippy' as MascotId,
+      mascot: 'sonic' as MascotId,
       xpTotal: 0,
       gems: 50,
       streakCurrent: 0,
@@ -214,7 +213,7 @@ export const usePlayer = create<PlayerState>()(
       toggleSound: () =>
         set((state) => {
           const on = !state.soundOn
-          import('./sfx').then((m) => m.setMuted(!on))
+          setMuted(!on)
           return { soundOn: on }
         }),
       claimQuest: (questId, reward) =>

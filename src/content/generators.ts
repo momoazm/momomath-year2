@@ -202,10 +202,10 @@ export function gAddWordProblem(rand: Rand): Question {
   const e = pick(rand, ['🍎 apples', '🎈 balloons', '⚽ balls', '🍪 cookies'])
   const a = randInt(rand, 5, 40)
   const b = randInt(rand, 3, 25)
-  const who = pick(rand, ['Zippy', 'Pippa', 'Bolt', 'Sparky'])
+  const who = pick(rand, ['Sonic', 'Amy', 'Knuckles', 'Shadow'])
   return {
     kind: 'type-number',
-    prompt: `${who} has ${a} ${e}. Dash gives ${who} ${b} more. How many ${e} now?`,
+    prompt: `${who} has ${a} ${e}. Tails gives ${who} ${b} more. How many ${e} now?`,
     answer: a + b,
     hint: 'Joining together means ADD.',
   }
@@ -233,7 +233,7 @@ export function gSubTens(rand: Rand): Question {
 }
 
 export function gDifferenceProblem(rand: Rand): Question {
-  const who = pick(rand, ['Zippy', 'Dash', 'Pippa'])
+  const who = pick(rand, ['Sonic', 'Tails', 'Amy'])
   const a = randInt(rand, 15, 60)
   const b = randInt(rand, 5, a - 5)
   return {
@@ -405,7 +405,7 @@ export function gTurnsDirections(rand: Rand): Question {
   const ans = dirMap[facing][turn].split(' ')[0]
   return mcq(
     rand,
-    `Dash races ${facing}. He turns ${turn}. Which way is he facing now?`,
+    `Tails races ${facing}. He turns ${turn}. Which way is he facing now?`,
     ans,
     shuffle(rand, ['⬆️', '➡️', '⬇️', '⬅️'].filter((e) => e !== ans)),
   )
@@ -433,7 +433,7 @@ export function gPatternNext(rand: Rand): Question {
 
 const MEASURE_MCQ: { prompt: string; answer: string; wrong: string[]; hint?: string }[] = [
   { prompt: 'Which is LONGER than a pencil?', answer: 'A door', wrong: ['An eraser', 'A paperclip', 'A stamp'] },
-  { prompt: 'Which animal is TALLER than Zippy?', answer: 'A giraffe', wrong: ['A mouse', 'A kitten', 'A frog'] },
+  { prompt: 'Which animal is TALLER than Sonic?', answer: 'A giraffe', wrong: ['A mouse', 'A kitten', 'A frog'] },
   { prompt: 'What would you use to measure your book?', answer: 'Centimetres (cm)', wrong: ['Kilograms (kg)', 'Litres (L)', 'Hours'] },
   { prompt: 'What would you use to measure how heavy you are?', answer: 'Kilograms (kg)', wrong: ['Centimetres (cm)', 'Litres (L)', 'Minutes'] },
   { prompt: 'What would you use to fill a water bottle?', answer: 'Millilitres (ml)', wrong: ['Centimetres (cm)', 'Grams (g)', 'Seconds'] },
@@ -464,7 +464,7 @@ export function gMeasureWordProblem(rand: Rand): Question {
     const b = randInt(rand, 10, a - 5)
     return {
       kind: 'type-number',
-      prompt: `Zippy's ribbon is ${a} cm. Bolt's ribbon is ${b} cm. How much LONGER is Zippy's ribbon?`,
+      prompt: `Sonic's ribbon is ${a} cm. Knuckles' ribbon is ${b} cm. How much LONGER is Sonic's ribbon?`,
       answer: a - b,
       hint: 'Find the difference.',
     }
@@ -472,7 +472,7 @@ export function gMeasureWordProblem(rand: Rand): Question {
   const jar = randInt(rand, 3, 8)
   return {
     kind: 'type-number',
-    prompt: `A jug holds ${jar} cups of juice. Pippa pours in ${jar - 1} cups. How many more cups fit?`,
+    prompt: `A jug holds ${jar} cups of juice. Amy pours in ${jar - 1} cups. How many more cups fit?`,
     answer: 1,
     hint: 'Full capacity minus what is already inside.',
   }

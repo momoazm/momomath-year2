@@ -1,5 +1,3 @@
-import { hashString, mulberry32, randInt } from '../content/rng'
-
 export const LEAGUES = [
   'Bronze',
   'Silver',
@@ -24,14 +22,34 @@ export const LEAGUE_META: Record<LeagueName, { icon: string; color: string }> = 
   Diamond: { icon: '💎', color: '#06b6d4' },
 }
 
-export const PROMOTION_ZONE = 3 // top 3 of 10 go up
-export const DEMOTION_RANK = 9 // bottom 2 go down
+export const PROMOTION_GOAL_FACTOR = 1 // hit the weekly goal -> promoted
+export const STAY_FACTOR = 0.34 // at least this fraction of the goal keeps your league
 
-const BOT_NAMES = [
-  'RubyRacer', 'TurboTom', 'NiaNimbus', 'PixelPip', 'CometKai',
-  'ZaraZoom', 'MiloMint', 'EchoElle', 'BounceBo', 'NovaNed',
-  'SkySumi', 'DashDev', 'GigiGlow', 'OzzyOnyx', 'LunaLark',
-]
+/** Weekly XP needed to be promoted, per league - rises as you climb. */
+export const LEAGUE_GOALS: Record<LeagueName, number> = {
+  Bronze: 60,
+  Silver: 100,
+  Gold: 150,
+  Sapphire: 210,
+  Ruby: 280,
+  Emerald: 360,
+  Amethyst: 450,
+  Diamond: 550,
+}
+
+export function weeklyGoal(league: LeagueName): number {
+  return LEAGUE_GOALS[league]
+}
+
+export function leagueOutcomeByXp(
+  league: LeagueName,
+  weeklyXp: number,
+): 'promoted' | 'demoted' | 'stayed' {
+  const goal = LEAGUE_GOALS[league]
+  if (weeklyXp >= goal) return 'promoted'
+  if (weeklyXp >= Math.round(goal * STAY_FACTOR)) return 'stayed'
+  return 'demoted'
+}
 
 /** local-date "YYYY-MM-DD" (never uses UTC, so +04:00-style timezones stay correct) */
 function localISO(d: Date): string {
@@ -62,43 +80,6 @@ export function yesterdayISO(): string {
   const d = new Date()
   d.setDate(d.getDate() - 1)
   return localISO(d)
-}
-
-export interface BotRow {
-  name: string
-  xp: number
-  isYou?: boolean
-}
-
-/**
- * Deterministic weekly bot leaderboard: same board all week,
- * changes every week, no backend needed.
- */
-export function botBoard(week: string, userXp: number, count = 9): BotRow[] {
-  const rand = mulberry32(hashString('league|' + week))
-  const used = new Set<number>()
-  const bots: BotRow[] = []
-  for (let i = 0; i < count; i++) {
-    let ni = Math.floor(rand() * BOT_NAMES.length)
-    while (used.has(ni)) ni = (ni + 1) % BOT_NAMES.length
-    used.add(ni)
-    // spread bot xp around a curve that scales with user effort so it stays competitive
-    const base = Math.max(userXp * (0.35 + rand() * 1.5), randInt(rand, 10, 60) + i * 12)
-    bots.push({ name: BOT_NAMES[ni], xp: Math.round(base) })
-  }
-  return bots
-}
-
-export function buildLeaderboard(week: string, userXp: number, userName: string) {
-  const rows: BotRow[] = [...botBoard(week, userXp), { name: userName, xp: userXp, isYou: true }]
-  rows.sort((a, b) => b.xp - a.xp)
-  return rows.map((r, i) => ({ ...r, rank: i + 1 }))
-}
-
-export function leagueOutcome(rank: number): 'promoted' | 'demoted' | 'stayed' {
-  if (rank <= PROMOTION_ZONE) return 'promoted'
-  if (rank >= DEMOTION_RANK) return 'demoted'
-  return 'stayed'
 }
 
 export function advanceLeague(current: LeagueName, outcome: 'promoted' | 'demoted' | 'stayed'): LeagueName {

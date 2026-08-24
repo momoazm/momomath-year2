@@ -11,7 +11,7 @@ export function QuestsScreen() {
   return (
     <div className="mx-auto w-full max-w-xl px-4 pb-28 pt-4">
       <div className="mb-5 flex items-center justify-center gap-3">
-        <div className="h-16 w-16 gpu animate-bob"><Mascot id="dash" expression="excited" /></div>
+        <div className="h-16 w-16 gpu animate-bob"><Mascot id="tails" expression="excited" /></div>
         <h1 className="font-display text-2xl font-extrabold text-speed-blue">Daily Quests</h1>
       </div>
       <p className="mb-4 text-center font-body text-sm font-bold text-slate-400">

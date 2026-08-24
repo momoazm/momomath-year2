@@ -73,7 +73,7 @@ export interface IntroCard {
   body: string
 }
 
-export type MascotId = 'zippy' | 'dash' | 'pippa' | 'bolt' | 'sparky'
+export type MascotId = 'sonic' | 'tails' | 'knuckles' | 'amy' | 'shadow'
 
 export interface LessonDef {
   id: string

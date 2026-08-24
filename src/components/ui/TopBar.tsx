@@ -1,6 +1,7 @@
 import { usePlayer } from '../../engine/store'
 import { LEAGUE_META } from '../../engine/gamification'
 import { ENERGY_IS_UNLIMITED } from '../../engine/store'
+import { AuthBadge } from './AuthBadge'
 
 export function TopBar({ onLeagueClick }: { onLeagueClick?: () => void }) {
   const s = usePlayer()
@@ -26,6 +27,8 @@ export function TopBar({ onLeagueClick }: { onLeagueClick?: () => void }) {
           {s.currentLeague}
         </span>
       </button>
+
+      <AuthBadge />
 
       {ENERGY_IS_UNLIMITED && (
         <div

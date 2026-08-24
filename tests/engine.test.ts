@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
+  LEAGUES,
   advanceLeague,
-  botBoard,
-  buildLeaderboard,
-  leagueOutcome,
+  leagueOutcomeByXp,
   nextWeekKey,
   weekKey,
+  weeklyGoal,
 } from '../src/engine/gamification'
 import { updateStreak } from '../src/engine/store'
 
@@ -49,27 +49,17 @@ describe('leagues', () => {
     expect(nextWeekKey('2026-08-17')).toBe('2026-08-24')
   })
 
-  it('bot board is deterministic per week and reacts to user XP', () => {
-    const a = botBoard('2026-08-17', 100)
-    const b = botBoard('2026-08-17', 100)
-    const c = botBoard('2026-08-24', 100)
-    expect(a).toEqual(b)
-    expect(a.map((r) => r.name)).not.toEqual(c.map((r) => r.name))
+  it('weekly goals rise strictly across the ladder', () => {
+    const goals = LEAGUES.map((l) => weeklyGoal(l))
+    for (let i = 1; i < goals.length; i++) expect(goals[i]).toBeGreaterThan(goals[i - 1])
   })
 
-  it('leaderboard ranks user among bots with unique ranks', () => {
-    const rows = buildLeaderboard('2026-08-17', 55, 'Tester')
-    expect(rows.filter((r) => r.isYou)).toHaveLength(1)
-    const ranks = rows.map((r) => (r as { rank: number }).rank)
-    expect(new Set(ranks).size).toBe(rows.length)
-  })
-
-  it('promotion/demotion boundaries are correct', () => {
-    expect(leagueOutcome(1)).toBe('promoted')
-    expect(leagueOutcome(3)).toBe('promoted')
-    expect(leagueOutcome(4)).toBe('stayed')
-    expect(leagueOutcome(8)).toBe('stayed')
-    expect(leagueOutcome(9)).toBe('demoted')
+  it('promotion/demotion boundaries are XP-based and exact', () => {
+    expect(leagueOutcomeByXp('Bronze', weeklyGoal('Bronze'))).toBe('promoted')
+    expect(leagueOutcomeByXp('Bronze', weeklyGoal('Bronze') - 1)).not.toBe('promoted')
+    expect(leagueOutcomeByXp('Gold', Math.round(weeklyGoal('Gold') * 0.34))).toBe('stayed')
+    expect(leagueOutcomeByXp('Gold', Math.round(weeklyGoal('Gold') * 0.34) - 1)).toBe('demoted')
+    expect(leagueOutcomeByXp('Diamond', 0)).toBe('demoted')
     expect(advanceLeague('Bronze', 'demoted')).toBe('Bronze')
     expect(advanceLeague('Diamond', 'promoted')).toBe('Diamond')
     expect(advanceLeague('Gold', 'promoted')).toBe('Sapphire')

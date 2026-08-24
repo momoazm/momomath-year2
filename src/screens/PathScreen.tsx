@@ -114,12 +114,9 @@ export function PathScreen({ onStartLesson }: { onStartLesson: (lessonId: string
                       >
                         {isBoss ? '👑' : unlocked ? '⭐' : '🔒'}
                         {isActive && (
-                          <>
-                            <span className="absolute -inset-2 animate-ping rounded-full border-4" style={{ borderColor: u.color }} />
-                            <span className="absolute -top-9 whitespace-nowrap rounded-xl bg-white px-2 py-0.5 font-display text-xs font-extrabold text-emerald-600 shadow">
-                              START
-                            </span>
-                          </>
+                          <span className="absolute -top-9 whitespace-nowrap rounded-xl bg-white px-2 py-0.5 font-display text-xs font-extrabold text-emerald-600 shadow">
+                            START
+                          </span>
                         )}
                       </span>
                       <span className="mt-1 max-w-36 truncate text-center font-display text-xs font-bold text-slate-500">
@@ -133,7 +130,7 @@ export function PathScreen({ onStartLesson }: { onStartLesson: (lessonId: string
 
             {done && (
               <div className="mt-4 flex items-center justify-center gap-2">
-                <div className="h-10 w-10"><Mascot id="zippy" expression="cheer" /></div>
+                <div className="h-10 w-10"><Mascot id="sonic" expression="cheer" /></div>
                 <p className="font-display text-sm font-extrabold text-emerald-600">Unit mastered! 🎉</p>
               </div>
             )}

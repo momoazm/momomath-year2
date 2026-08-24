@@ -192,12 +192,12 @@ export function LessonScreen({ lessonId, onExit }: { lessonId: string; onExit: (
 
   function handleContinue() {
     if (!q) return
-    if (feedback === 'wrong') {
-      setQueue((qq) => [...qq, q]) // retry at the end, Duolingo-style
-    }
+    const requeued = feedback === 'wrong'
+    if (requeued) setQueue((qq) => [...qq, q]) // retry at the end, Duolingo-style
+    const finished = !requeued && qIdx + 1 >= queue.length
     setFeedback(null)
     resetQState()
-    if (qIdx + 1 >= queue.length) {
+    if (finished) {
       finishLesson()
     } else {
       setQIdx((i) => i + 1)
@@ -262,7 +262,7 @@ export function LessonScreen({ lessonId, onExit }: { lessonId: string; onExit: (
         <motion.div initial={{ scale: 0.5, rotate: -8, opacity: 0 }} animate={{ scale: 1, rotate: 0, opacity: 1 }}
           transition={{ type: 'spring', stiffness: 220, damping: 14 }}
           className="h-48 w-48 gpu">
-          <Mascot id={entry.unit.id === 'u5' ? 'pippa' : player.mascot} expression="cheer" />
+          <Mascot id={entry.unit.id === 'u5' ? 'amy' : player.mascot} expression="cheer" />
         </motion.div>
         <motion.h1 initial={{ y: 12, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.15 }}
           className="font-display text-4xl font-extrabold text-yellow-500 drop-shadow">
@@ -343,7 +343,7 @@ export function LessonScreen({ lessonId, onExit }: { lessonId: string; onExit: (
             <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
               className="mb-2 flex items-center gap-3 overflow-hidden">
               <div className="h-12 w-12 shrink-0 gpu animate-bob">
-                <Mascot id={feedback === 'correct' ? player.mascot : 'zippy'} expression={feedback === 'correct' ? 'excited' : 'sad'} />
+                <Mascot id={feedback === 'correct' ? player.mascot : 'sonic'} expression={feedback === 'correct' ? 'excited' : 'sad'} />
               </div>
               <div>
                 <p className={`font-display text-lg font-extrabold ${feedback === 'correct' ? 'text-emerald-600' : 'text-rose-500'}`}>
