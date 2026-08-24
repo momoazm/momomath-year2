@@ -33,33 +33,35 @@ const BOT_NAMES = [
   'SkySumi', 'DashDev', 'GigiGlow', 'OzzyOnyx', 'LunaLark',
 ]
 
+/** local-date "YYYY-MM-DD" (never uses UTC, so +04:00-style timezones stay correct) */
+function localISO(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
+    d.getDate(),
+  ).padStart(2, '0')}`
+}
+
 /** Monday-based ISO week key, e.g. "2026-08-17" */
 export function weekKey(d = new Date()): string {
   const date = new Date(d)
   const day = (date.getDay() + 6) % 7 // Mon=0..Sun=6
   date.setDate(date.getDate() - day)
-  return date.toISOString().slice(0, 10)
+  return localISO(date)
 }
 
 export function nextWeekKey(k: string): string {
   const d = new Date(k + 'T00:00:00')
   d.setDate(d.getDate() + 7)
-  return d.toISOString().slice(0, 10)
+  return localISO(d)
 }
 
 export function todayISO(): string {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
-    d.getDate(),
-  ).padStart(2, '0')}`
+  return localISO(new Date())
 }
 
 export function yesterdayISO(): string {
   const d = new Date()
   d.setDate(d.getDate() - 1)
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
-    d.getDate(),
-  ).padStart(2, '0')}`
+  return localISO(d)
 }
 
 export interface BotRow {

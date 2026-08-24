@@ -105,10 +105,13 @@ function rollWeek(s: PlayerState) {
   s.weeklyXp = 0
 }
 
-function updateStreak(s: PlayerState) {
-  const today = todayISO()
+export function updateStreak(
+  s: Pick<PlayerState, 'streakCurrent' | 'streakLongest' | 'lastActiveDay'>,
+  today: string = todayISO(),
+  yesterday: string = yesterdayISO(),
+) {
   if (s.lastActiveDay === today) return
-  if (s.lastActiveDay === yesterdayISO()) {
+  if (s.lastActiveDay === yesterday) {
     s.streakCurrent += 1
   } else {
     s.streakCurrent = 1

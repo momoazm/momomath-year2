@@ -27,6 +27,7 @@ export interface TypeNumberQuestion {
 export interface MatchQuestion {
   kind: 'match'
   prompt: string
+  visual?: VisualSpec
   pairs: { left: string; right: string }[]
   hint?: string
 }
@@ -34,6 +35,7 @@ export interface MatchQuestion {
 export interface OrderQuestion {
   kind: 'order'
   prompt: string
+  visual?: VisualSpec
   items: string[]
   hint?: string
 }

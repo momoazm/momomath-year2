@@ -21,7 +21,7 @@ function makeLesson(
     generate(n, seed) {
       const rand = mulberry32(hashString(id) ^ (seed * 2654435761))
       const out: Question[] = []
-      for (let i = 0; i < n; i++) out.push(gens[i % gens.length]())
+      for (let i = 0; i < n; i++) out.push(gens[i % gens.length](rand))
       return out
     },
   }
@@ -44,7 +44,7 @@ const u1Boss = makeLesson('u1boss', 'Unit 1 Boss', [], 'sparky', 'BOSS TIME!', '
 /* ============================ UNIT 2 ============================ */
 const u2Lessons: LessonDef[] = [
   makeLesson('u2l1', 'Bonds to 10', ['2Ni.01'], 'zippy', 'Perfect pairs!', 'Number bonds are pairs that snap together to make 10. Like magnets!', [G.gBonds10]),
-  makeLesson('u2l2', 'Add within 20', ['2Ni.01'], 'zippy', 'Adding up!', 'Put two groups together and count them all up!', [G.gAddWithin20]),
+  makeLesson('u2l2', 'Add within 20', ['2Ni.01'], 'zippy', 'Adding up!', 'Put two groups together and count them all up!', [G.gAddWithin20, G.gDoubles]),
   makeLesson('u2l3', 'Add 1-digit', ['2Ni.02'], 'zippy', 'Crossing tens!', 'Add ones onto a 2-digit number. Watch what happens when the ones fill up!', [G.gAddTwoDigitPlus1]),
   makeLesson('u2l4', 'Add Two 2-digit', ['2Ni.03'], 'dash', 'Double digits!', 'Split into tens and ones, add tens first, then ones.', [G.gAddTwoDigitPairs]),
   makeLesson('u2l5', 'Story Sums', ['2Ni.04'], 'pippa', 'Maths stories!', 'Real problems hide maths inside. Find the clue words!', [G.gAddWordProblem]),

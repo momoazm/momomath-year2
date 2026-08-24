@@ -32,10 +32,10 @@ describe('curriculum structure', () => {
       } else {
         expect(u.bossLessonIds).toEqual([])
       }
-    }
-    for (const id of u.bossLessonIds) {
-      expect(id).toMatch(/^u\d+boss$/)
-      expect(ALL_LESSONS[id]).toBeDefined()
+      for (const id of u.bossLessonIds) {
+        expect(id).toMatch(/^u\d+boss$/)
+        expect(ALL_LESSONS[id]).toBeDefined()
+      }
     }
   })
 })

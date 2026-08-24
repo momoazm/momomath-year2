@@ -67,10 +67,9 @@ export function gCountObjects(rand: Rand): Question {
   const n = randInt(rand, 3, 12)
   const decoyN = randInt(rand, 2, Math.min(5, n))
   const targetEmoji = pick(rand, COUNT_TARGETS)
-  const decoyPool = COUNT_DECOYS.filter((e) => e !== targetEmoji)
   const cells = shuffle(rand, [
     ...Array<string>(n).fill(targetEmoji),
-    ...Array.from({ length: decoyN }, () => pick(rand, decoyPool)),
+    ...Array.from({ length: decoyN }, () => pick(rand, COUNT_DECOYS)),
   ])
   return {
     kind: 'tap-count',
@@ -162,6 +161,26 @@ export function gAddWithin20(rand: Rand): Question {
     prompt: `${a} + ${b} = ?`,
     visual: { type: 'emoji-group', emojis: emojis(rand, Math.min(ans, 12)) },
     answer: ans,
+  }
+}
+
+/** Doubles - a core Year-2 mental strategy (e.g. double 6 = 12). */
+export function gDoubles(rand: Rand): Question {
+  const n = randInt(rand, 2, 25)
+  const isDouble = rand() < 0.65
+  if (isDouble) {
+    return {
+      kind: 'type-number',
+      prompt: `What is DOUBLE ${n}?`,
+      answer: n * 2,
+      hint: 'Doubling means adding the number to itself.',
+    }
+  }
+  return {
+    kind: 'type-number',
+    prompt: `${n * 2} is double which number?`,
+    answer: n,
+    hint: 'Halve it - share into 2 equal groups.',
   }
 }
 
