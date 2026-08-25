@@ -7,6 +7,7 @@ import { LessonScreen } from './screens/LessonScreen'
 import { LeaguesScreen } from './screens/LeaguesScreen'
 import { QuestsScreen } from './screens/QuestsScreen'
 import { ProfileScreen } from './screens/ProfileScreen'
+import { WelcomeGate } from './components/ui/WelcomeGate'
 
 export default function App() {
   const [tab, setTab] = useState<Tab>('path')
@@ -18,6 +19,7 @@ export default function App() {
 
   return (
     <div className="min-h-[100dvh] pb-20">
+      <WelcomeGate />
       <TopBar onLeagueClick={() => setTab('leagues')} />
       <AnimatePresence mode="wait">
         <motion.main

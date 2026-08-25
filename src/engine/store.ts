@@ -54,6 +54,7 @@ interface PlayerState {
   currentLeague: LeagueName
   leagueHistory: LeagueHistoryEntry[]
   soundOn: boolean
+  onboarded: boolean
 
   // actions
   completeLesson: (args: {
@@ -67,6 +68,7 @@ interface PlayerState {
   setDailyGoal: (g: number) => void
   setName: (n: string) => void
   setMascot: (m: MascotId) => void
+  setOnboarded: () => void
   toggleSound: () => void
   claimQuest: (questId: string, reward: number) => void
 }
@@ -169,6 +171,7 @@ export const usePlayer = create<PlayerState>()(
       currentLeague: 'Bronze',
       leagueHistory: [],
       soundOn: true,
+      onboarded: false,
 
       completeLesson: ({ lessonId, xp, correct, totalQuestions, crownsGained, accuracy }) =>
         set((state) => {
@@ -210,6 +213,7 @@ export const usePlayer = create<PlayerState>()(
       setDailyGoal: (g) => set({ dailyGoal: g }),
       setName: (n) => set({ name: n.trim() || 'Champion' }),
       setMascot: (m) => set({ mascot: m }),
+      setOnboarded: () => set({ onboarded: true }),
       toggleSound: () =>
         set((state) => {
           const on = !state.soundOn

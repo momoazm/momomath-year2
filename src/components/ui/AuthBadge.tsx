@@ -15,6 +15,7 @@ export function GoogleSignInInline() {
       signIn(u)
       const p = usePlayer.getState()
       if (p.name === 'Champion' && u.name) p.setName(u.name.split(' ')[0])
+      p.setOnboarded()
     }).catch(() => {
       if (!cancelled) setFailed(true)
     })
@@ -55,6 +56,7 @@ export function AuthBadge() {
       signIn(u)
       const p = usePlayer.getState()
       if (p.name === 'Champion' && u.name) p.setName(u.name.split(' ')[0])
+      p.setOnboarded()
     }).catch(() => {
       if (!cancelled) setFailed(true)
     })
