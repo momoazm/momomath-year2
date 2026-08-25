@@ -91,7 +91,7 @@ export function AuthBadge() {
   }
 
   return (
-    <div className="shrink-0 scale-[0.82] origin-right">
+    <div className="shrink-0 scale-100 origin-right">
       {failed ? (
         <span className="font-display text-xs font-bold text-slate-300">offline</span>
       ) : (

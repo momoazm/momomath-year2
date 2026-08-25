@@ -141,7 +141,7 @@ export function PathScreen({ onStartLesson }: { onStartLesson: (lessonId: string
         )
       })}
       <footer className="pb-4 text-center text-xs font-bold text-slate-300">
-        MomoMath Year 2 · Cambridge Primary Maths Stage 2 · {Object.keys(ALL_LESSONS).length} lessons
+        Momo Year 2 Cambridge · Maths ·  {Object.keys(ALL_LESSONS).length} lessons
       </footer>
     </div>
   )

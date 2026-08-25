@@ -97,12 +97,12 @@ export async function renderGoogleButton(
   el.innerHTML = ''
   g.accounts.id.renderButton(el, {
     type: 'standard',
-    theme: 'outline',
-    size: 'medium',
+    theme: 'filled_blue',
+    size: 'large',
     shape: 'pill',
     text: 'signin_with',
     logo_alignment: 'left',
-    width: 168,
+    width: 260,
   })
 }
 
