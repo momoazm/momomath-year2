@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
-import { GOOGLE_CLIENT_ID, renderGoogleButton, useAuth, type AuthUser } from '../engine/auth'
-import { usePlayer } from '../engine/store'
-import { Mascot } from './Mascots'
-import { sfx } from '../engine/sfx'
+import { GOOGLE_CLIENT_ID, renderGoogleButton, useAuth, type AuthUser } from '../../engine/auth'
+import { usePlayer } from '../../engine/store'
+import { Mascot } from '../mascots/Mascots'
+import { sfx } from '../../engine/sfx'
 
 const NAME_CHIPS = ['Speedster', 'Racer', 'Champion', 'Genius', 'Rocket', 'Star']
 
