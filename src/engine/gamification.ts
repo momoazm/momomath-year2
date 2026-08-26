@@ -89,6 +89,76 @@ export function advanceLeague(current: LeagueName, outcome: 'promoted' | 'demote
   return current
 }
 
+/** Gems inside the end-of-lesson chest. Perfect lessons give bigger loot. */
+export function lessonChestPrize(isBoss: boolean, mistakes: number, rand: () => number = Math.random): number {
+  const base = isBoss ? 15 : 8
+  const roll = Math.floor(rand() * 13)
+  const perfectBonus = mistakes === 0 ? 10 : 0
+  return base + roll + perfectBonus
+}
+
+/* ==================== Weighted chest loot system ==================== */
+/* Rarity tiers with decreasing probability:
+   common (60%) → uncommon (25%) → rare (10%) → epic (4%) → legendary (1%)
+
+   Lower probability = bigger prize. Legendary drops are extremely rare but
+   give streak freezes or exclusive wallpapers. */
+
+export type ChestRarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary'
+
+export interface ChestLoot {
+  rarity: ChestRarity
+  type: 'gems' | 'streak-saver' | 'double-xp' | 'chest-boost' | 'wallpaper' | 'xp-potion'
+  amount?: number
+  label: string
+  icon: string
+}
+
+/** Weighted loot table - weights sum to 100 for easy percentage math */
+const LOOT_TABLE: { weight: number; roll: (rand: () => number) => ChestLoot }[] = [
+  // ── COMMON (weight 55): small gem amounts ──
+  { weight: 30, roll: (r) => ({ rarity: 'common', type: 'gems', amount: 5 + Math.floor(r() * 6), label: `${5 + Math.floor(r() * 6)} gems`, icon: '💎' }) },
+  { weight: 25, roll: (r) => ({ rarity: 'common', type: 'gems', amount: 10 + Math.floor(r() * 6), label: `${10 + Math.floor(r() * 6)} gems`, icon: '💎' }) },
+
+  // ── UNCOMMON (weight 25): medium gems or small XP potion ──
+  { weight: 15, roll: (r) => ({ rarity: 'uncommon', type: 'gems', amount: 15 + Math.floor(r() * 11), label: `${15 + Math.floor(r() * 11)} gems`, icon: '💎' }) },
+  { weight: 10, roll: () => ({ rarity: 'uncommon', type: 'xp-potion', amount: 20, label: '+20 bonus XP', icon: '⚡' }) },
+
+  // ── RARE (weight 10): large gems or double-xp boost item ──
+  { weight: 6, roll: (r) => ({ rarity: 'rare', type: 'gems', amount: 30 + Math.floor(r() * 16), label: `${30 + Math.floor(r() * 16)} gems`, icon: '💎💎' }) },
+  { weight: 4, roll: () => ({ rarity: 'rare', type: 'double-xp', amount: 3, label: 'Double XP × 3 lessons!', icon: '⚡⚡' }) },
+
+  // ── EPIC (weight 4): chest boost item or big gem pile ──
+  { weight: 2, roll: () => ({ rarity: 'epic', type: 'chest-boost', amount: 1, label: 'Chest Boost earned!', icon: '🍀' }) },
+  { weight: 1, roll: (r) => ({ rarity: 'epic', type: 'gems', amount: 75 + Math.floor(r() * 26), label: `${75 + Math.floor(r() * 26)} MEGA gems!`, icon: '💎💎💎' }) },
+  { weight: 1, roll: () => ({ rarity: 'epic', type: 'xp-potion', amount: 50, label: '+50 bonus XP!', icon: '⚡⚡⚡' }) },
+
+  // ── LEGENDARY (weight 1): ultra-rare streak saver or wallpaper ──
+  { weight: 0.7, roll: () => ({ rarity: 'legendary', type: 'streak-saver', amount: 1, label: 'FREE Streak Saver!', icon: '🧊✨' }) },
+  { weight: 0.2, roll: () => ({ rarity: 'legendary', type: 'wallpaper', amount: 1, label: 'EXCLUSIVE Wallpaper unlocked!', icon: '🖼️✨' }) },
+  { weight: 0.1, roll: (r) => ({ rarity: 'legendary', type: 'gems', amount: 150 + Math.floor(r() * 51), label: `JACKPOT! ${150 + Math.floor(r() * 51)} gems!!`, icon: '🎰💎' }) },
+]
+
+const TOTAL_WEIGHT = LOOT_TABLE.reduce((sum, entry) => sum + entry.weight, 0)
+
+export function rollChest(rand: () => number = Math.random): ChestLoot {
+  let rollValue = rand() * TOTAL_WEIGHT
+  for (const entry of LOOT_TABLE) {
+    rollValue -= entry.weight
+    if (rollValue <= 0) return entry.roll(rand)
+  }
+  // Fallback (should never reach here)
+  return { rarity: 'common', type: 'gems', amount: 5, label: '5 gems', icon: '💎' }
+}
+
+export const RARITY_META: Record<ChestRarity, { color: string; glowColor: string; label: string }> = {
+  common: { color: '#94a3b8', glowColor: 'rgba(148, 163, 184, 0.3)', label: 'Common' },
+  uncommon: { color: '#22c55e', glowColor: 'rgba(34, 197, 94, 0.35)', label: 'Uncommon!' },
+  rare: { color: '#3b82f6', glowColor: 'rgba(59, 130, 246, 0.4)', label: 'RARE!' },
+  epic: { color: '#a855f7', glowColor: 'rgba(168, 85, 247, 0.45)', label: 'EPIC!!' },
+  legendary: { color: '#f59e0b', glowColor: 'rgba(245, 158, 11, 0.5)', label: '⭐ LEGENDARY!!! ⭐' },
+}
+
 /* ---------------- Daily quests ---------------- */
 export interface QuestDef {
   id: string

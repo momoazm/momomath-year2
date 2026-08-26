@@ -2,3 +2,7 @@ node_modules/
 dist/
 *.tsbuildinfo
 .env*
+clips/
+.playwright-cli/
+dev-server.log
+fps-preview.log

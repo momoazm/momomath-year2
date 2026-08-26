@@ -3,6 +3,8 @@ import { AnimatePresence, motion } from 'framer-motion'
 import confetti from 'canvas-confetti'
 import { ALL_LESSONS, QUESTIONS_PER_LESSON } from '../content/curriculum'
 import { usePlayer } from '../engine/store'
+import { lessonChestPrize } from '../engine/gamification'
+import { SHOP_ITEMS } from '../engine/shop'
 import { Mascot } from '../components/mascots/Mascots'
 import { sfx } from '../engine/sfx'
 import { hashString, mulberry32, shuffle } from '../content/rng'
@@ -132,6 +134,8 @@ export function LessonScreen({ lessonId, onExit }: { lessonId: string; onExit: (
   const [feedback, setFeedback] = useState<null | 'correct' | 'wrong'>(null)
   const [mistakes, setMistakes] = useState(0)
   const [xpEarned, setXpEarned] = useState(0)
+  const [prize, setPrize] = useState(0)
+  const [chestOpen, setChestOpen] = useState(false)
 
   // per-question UI state
   const [choiceIdx, setChoiceIdx] = useState<number | null>(null)
@@ -208,22 +212,58 @@ export function LessonScreen({ lessonId, onExit }: { lessonId: string; onExit: (
     const isBoss = entry.lesson.id.endsWith('boss')
     const base = isBoss ? 20 : 10
     const bonus = mistakes === 0 ? 5 : 0
-    const gained = base + bonus
+    let gained = base + bonus
+
+    // Apply double XP boost
+    if (player.doubleXpLessons > 0) {
+      gained *= 2
+      player.useDoubleXp()
+    }
+
     const totalAnswered = QUESTIONS_PER_LESSON + mistakes
     const accuracy = Math.round(((totalAnswered - mistakes) / totalAnswered) * 100)
-    const crownsGained = mistakes === 0 ? 1 : 0
+
+    // Calculate chest prize
+    let chest = lessonChestPrize(isBoss, mistakes)
+
+    // Apply chest boost
+    if (player.chestBoost) {
+      chest *= 2
+      player.useChestBoost()
+    }
+    if (player.megaChest) {
+      chest *= 2
+      player.useMegaChest()
+    }
+
+    setPrize(chest)
     setXpEarned(gained)
     player.completeLesson({
       lessonId,
       xp: gained,
-      correct: totalAnswered - mistakes,
+      correct: QUESTIONS_PER_LESSON - mistakes,
       totalQuestions: totalAnswered,
-      crownsGained,
+      crownsGained: mistakes === 0 ? 1 : 0,
       accuracy,
     })
+
+    // Handle streak saver
+    if (mistakes > 0 && player.streakSavers > 0) {
+      // Could add logic here to protect streak
+    }
+
     sfx.complete()
     confetti({ particleCount: mistakes === 0 ? 120 : 60, spread: 75, origin: { y: 0.7 }, disableForReducedMotion: true })
+    setChestOpen(false)
     setPhase('done')
+  }
+
+  function openChest() {
+    if (chestOpen) return
+    sfx.leagueUp()
+    player.addGems(prize)
+    setChestOpen(true)
+    confetti({ particleCount: 80, spread: 100, origin: { y: 0.6 }, disableForReducedMotion: true })
   }
 
   /* ------------------------------ INTRO ------------------------------ */
@@ -255,42 +295,55 @@ export function LessonScreen({ lessonId, onExit }: { lessonId: string; onExit: (
 
   /* ------------------------------- DONE ------------------------------ */
   if (phase === 'done') {
-    const total = QUESTIONS_PER_LESSON + mistakes
-    const accuracy = Math.round(((total - mistakes) / total) * 100)
     return (
       <div className="mx-auto flex h-[100dvh] max-w-xl flex-col items-center justify-center px-6 pb-24">
         <motion.div initial={{ scale: 0.5, rotate: -8, opacity: 0 }} animate={{ scale: 1, rotate: 0, opacity: 1 }}
           transition={{ type: 'spring', stiffness: 220, damping: 14 }}
-          className="h-48 w-48 gpu">
+          className="h-40 w-40 gpu">
           <Mascot id={entry.unit.id === 'u5' ? 'amy' : player.mascot} expression="cheer" />
         </motion.div>
         <motion.h1 initial={{ y: 12, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.15 }}
-          className="font-display text-4xl font-extrabold text-yellow-500 drop-shadow">
+          className="mt-3 text-center font-display text-4xl font-extrabold text-yellow-500 drop-shadow">
           {mistakes === 0 ? 'PERFECT!' : 'Lesson complete!'}
         </motion.h1>
+        <p className="mt-1 text-center font-body text-sm font-bold text-slate-400">
+          {mistakes === 0 ? 'Flawless run - every answer right!' : `${mistakes} mistake${mistakes === 1 ? '' : 's'} corrected. Practice makes perfect!`}
+        </p>
 
-        <div className="card-white mt-6 grid w-full max-w-xs grid-cols-3 divide-x-2 divide-slate-100 text-center">
-          <Stat label="XP" value={`+${xpEarned}`} color="text-orange-500" icon='⚡' delay={0.25} />
-          <Stat label="Accuracy" value={`${accuracy}%`} color="text-emerald-500" icon='🎯' delay={0.35} />
-          <Stat label="Streak" value={`${player.streakCurrent}🔥`} color="text-red-500" icon='' delay={0.45} />
-        </div>
+        <motion.button
+          onClick={openChest}
+          whileTap={{ scale: chestOpen ? 1 : 0.9 }}
+          animate={chestOpen ? { rotate: [0, -6, 6, 0], scale: [1, 1.15, 1] } : { y: [0, -8, 0] }}
+          transition={chestOpen ? { duration: 0.5 } : { repeat: Infinity, duration: 1.6 }}
+          className={`relative mt-6 text-[110px] leading-none ${chestOpen ? '' : 'cursor-pointer drop-shadow-lg'}`}
+          aria-label={chestOpen ? 'Chest opened' : 'Tap to open your chest'}
+        >
+          {chestOpen ? '🎉' : '🎁'}
+          {!chestOpen && (
+            <span className="absolute -bottom-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-speed-blue px-3 py-1 font-display text-xs font-extrabold text-white">
+              Tap to open!
+            </span>
+          )}
+        </motion.button>
 
-        {mistakes === 0 ? (
-          <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.55 }}
-            className="mt-2 text-center font-body font-bold text-emerald-600">
-            PERFECT! Next lesson unlocked! 🔓
-          </motion.p>
-        ) : (
-          <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.55 }}
-            className="mt-2 max-w-xs text-center font-body font-bold text-amber-500">
-            You made {mistakes} mistake{mistakes === 1 ? '' : 's'}. Play again and score 100% to unlock the next lesson!
-          </motion.p>
+        {chestOpen && (
+          <motion.div initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: 'spring', stiffness: 260, damping: 16 }} className="mt-6 text-center">
+            <p className="font-display text-3xl font-extrabold text-orange-500">+{prize} 💎</p>
+            <p className="mt-1 font-display font-extrabold text-emerald-500">+{xpEarned} ⚡ XP</p>
+          </motion.div>
         )}
 
-        <button onClick={() => { setAttempt((a) => a + 1); setPhase('intro') }} className={`btn3d mt-4 gpu ${mistakes === 0 ? 'btn-blue' : 'btn-green'}`}>
-          {mistakes === 0 ? 'Play again' : 'Try for 100%!'}
-        </button>
-        <button onClick={onExit} className="btn3d btn-grey mt-2 gpu">Back to path</button>
+        <div className="mt-8 w-full max-w-xs">
+          {chestOpen ? (
+            <button onClick={onExit} className="btn3d btn-green w-full gpu">
+              Continue to roadmap ▶
+            </button>
+          ) : (
+            <p className="text-center font-body text-xs font-bold text-slate-300">
+              Open your chest to claim the gems inside!
+            </p>
+          )}
+        </div>
       </div>
     )
   }

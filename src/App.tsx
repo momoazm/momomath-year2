@@ -7,6 +7,7 @@ import { LessonScreen } from './screens/LessonScreen'
 import { LeaguesScreen } from './screens/LeaguesScreen'
 import { QuestsScreen } from './screens/QuestsScreen'
 import { ProfileScreen } from './screens/ProfileScreen'
+import { ShopScreen } from './screens/ShopScreen'
 import { WelcomeGate } from './components/ui/WelcomeGate'
 
 export default function App() {
@@ -29,10 +30,11 @@ export default function App() {
           exit={{ opacity: 0, y: -8 }}
           transition={{ duration: 0.15 }}
         >
-          {tab === 'path' && <PathScreen onStartLesson={(id) => setActiveLesson(id)} />}
-          {tab === 'leagues' && <LeaguesScreen />}
-          {tab === 'quests' && <QuestsScreen />}
-          {tab === 'profile' && <ProfileScreen />}
+{tab === 'path' && <PathScreen onStartLesson={(id) => setActiveLesson(id)} />}
+      {tab === 'shop' && <ShopScreen />}
+      {tab === 'leagues' && <LeaguesScreen />}
+      {tab === 'quests' && <QuestsScreen />}
+      {tab === 'profile' && <ProfileScreen />}
         </motion.main>
       </AnimatePresence>
       <BottomNav tab={tab} onTab={setTab} />

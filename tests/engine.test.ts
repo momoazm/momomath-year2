@@ -3,11 +3,35 @@ import {
   LEAGUES,
   advanceLeague,
   leagueOutcomeByXp,
+  lessonChestPrize,
   nextWeekKey,
   weekKey,
   weeklyGoal,
 } from '../src/engine/gamification'
 import { updateStreak } from '../src/engine/store'
+
+describe('lesson chest prizes', () => {
+  it('always stays within expected ranges', () => {
+    for (let i = 0; i < 500; i++) {
+      const p = lessonChestPrize(false, 3)
+      expect(p).toBeGreaterThanOrEqual(8)
+      expect(p).toBeLessThanOrEqual(20)
+    }
+  })
+
+  it('perfect lessons earn more than flawed ones on average', () => {
+    const perfect = Array.from({ length: 200 }, () => lessonChestPrize(false, 0))
+    const flawed = Array.from({ length: 200 }, () => lessonChestPrize(false, 2))
+    const avg = (a: number[]) => a.reduce((x, y) => x + y, 0) / a.length
+    expect(perfect.every((p) => p >= 18)).toBe(true)
+    expect(avg(perfect)).toBeGreaterThan(avg(flawed))
+  })
+
+  it('boss chests are bigger', () => {
+    expect(lessonChestPrize(true, 0)).toBeGreaterThanOrEqual(25)
+    expect(lessonChestPrize(true, 5)).toBeGreaterThanOrEqual(15)
+  })
+})
 
 describe('streaks', () => {
   const base = { streakCurrent: 0, streakLongest: 0, lastActiveDay: null as string | null }

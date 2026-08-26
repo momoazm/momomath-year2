@@ -12,6 +12,7 @@ import {
   yesterdayISO,
   type LeagueName,
 } from './gamification'
+import { SHOP_ITEMS } from './shop'
 import { setMuted, sfx } from './sfx'
 
 export interface LessonProgress {
@@ -55,6 +56,11 @@ interface PlayerState {
   leagueHistory: LeagueHistoryEntry[]
   soundOn: boolean
   onboarded: boolean
+  shopInventory: Record<string, number>
+  streakSavers: number
+  doubleXpLessons: number
+  chestBoost: boolean
+  megaChest: boolean
 
   // actions
   completeLesson: (args: {
@@ -69,8 +75,18 @@ interface PlayerState {
   setName: (n: string) => void
   setMascot: (m: MascotId) => void
   setOnboarded: () => void
+  addGems: (n: number) => void
   toggleSound: () => void
   claimQuest: (questId: string, reward: number) => void
+  spendGems: (amount: number) => boolean
+  buyItem: (itemId: string) => { success: boolean; message: string }
+  useStreakSaver: () => boolean
+  addDoubleXpLessons: (n: number) => void
+  useDoubleXp: () => void
+  setChestBoost: (v: boolean) => void
+  useChestBoost: () => void
+  setMegaChest: (v: boolean) => void
+  useMegaChest: () => void
 }
 
 function rollDay(s: PlayerState) {
@@ -172,6 +188,11 @@ export const usePlayer = create<PlayerState>()(
       leagueHistory: [],
       soundOn: true,
       onboarded: false,
+      shopInventory: {},
+      streakSavers: 0,
+      doubleXpLessons: 0,
+      chestBoost: false,
+      megaChest: false,
 
       completeLesson: ({ lessonId, xp, correct, totalQuestions, crownsGained, accuracy }) =>
         set((state) => {
@@ -214,6 +235,7 @@ export const usePlayer = create<PlayerState>()(
       setName: (n) => set({ name: n.trim() || 'Champion' }),
       setMascot: (m) => set({ mascot: m }),
       setOnboarded: () => set({ onboarded: true }),
+      addGems: (n) => set((state) => ({ gems: state.gems + n })),
       toggleSound: () =>
         set((state) => {
           const on = !state.soundOn
@@ -231,6 +253,63 @@ export const usePlayer = create<PlayerState>()(
             claimedQuests: { day: today, questIds: [...base, questId] },
           }
         }),
+      spendGems: (amount) => {
+        let success = false
+        set((state) => {
+          if (state.gems < amount) return state
+          success = true
+          return { gems: state.gems - amount }
+        })
+        return success
+      },
+      buyItem: (itemId) => {
+        let result: { success: boolean; message: string } = { success: false, message: '' }
+        set((state) => {
+          const item = SHOP_ITEMS.find((i) => i.id === itemId)
+          if (!item) {
+            result = { success: false, message: 'Item not found' }
+            return state
+          }
+          if (state.gems < item.price) {
+            result = { success: false, message: 'Not enough gems!' }
+            return state
+          }
+          const current = state.shopInventory[itemId] || 0
+          if (item.maxStack && current >= item.maxStack) {
+            result = { success: false, message: `Max ${item.maxStack} per item!` }
+            return state
+          }
+          result = { success: true, message: 'Purchase successful!' }
+          return {
+            gems: state.gems - item.price,
+            shopInventory: { ...state.shopInventory, [itemId]: current + 1 },
+          }
+        })
+        return result
+      },
+      useStreakSaver: () => {
+        let success = false
+        set((state) => {
+          if (state.streakSavers <= 0) {
+            success = false
+            return state
+          }
+          success = true
+          return { streakSavers: state.streakSavers - 1 }
+        })
+        return success
+      },
+      addDoubleXpLessons: (n) =>
+        set((state) => ({ doubleXpLessons: state.doubleXpLessons + n })),
+      useDoubleXp: () =>
+        set((state) => {
+          if (state.doubleXpLessons <= 0) return state
+          return { doubleXpLessons: state.doubleXpLessons - 1 }
+        }),
+      setChestBoost: (v) => set({ chestBoost: v }),
+      useChestBoost: () => set({ chestBoost: false }),
+      setMegaChest: (v) => set({ megaChest: v }),
+      useMegaChest: () => set({ megaChest: false }),
     }),
     { name: 'momomath-year2-player-v2' },
   ),
