@@ -2,6 +2,7 @@ import { usePlayer } from '../../engine/store'
 import { LEAGUE_META } from '../../engine/gamification'
 import { ENERGY_IS_UNLIMITED } from '../../engine/store'
 import { AuthBadge } from './AuthBadge'
+import { useAuth } from '../../engine/auth'
 
 function Pill({ icon, iconBg, value, title, valueClass }: { icon: string; iconBg: string; value: string | number; title: string; valueClass: string }) {
   return (
@@ -14,6 +15,7 @@ function Pill({ icon, iconBg, value, title, valueClass }: { icon: string; iconBg
 
 export function TopBar({ onLeagueClick }: { onLeagueClick?: () => void }) {
   const s = usePlayer()
+  const user = useAuth((a) => a.user)
   const league = LEAGUE_META[s.currentLeague]
   return (
     <header className="sticky top-0 z-30 mx-auto flex w-full max-w-xl items-center justify-between gap-2 border-b-2 border-white/60 bg-white/70 px-3 py-2 backdrop-blur-md">
@@ -34,7 +36,7 @@ export function TopBar({ onLeagueClick }: { onLeagueClick?: () => void }) {
       </button>
 
       <div className="flex items-center gap-2">
-        <AuthBadge />
+        {user && <AuthBadge />}
         {ENERGY_IS_UNLIMITED && (
           <div
             className="rounded-full bg-gradient-to-r from-emerald-400 to-teal-400 px-2.5 py-0.5 font-display text-xs font-extrabold text-white shadow-sm"

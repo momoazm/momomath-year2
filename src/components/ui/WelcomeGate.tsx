@@ -14,7 +14,11 @@ const CHARACTERS: { id: MascotId; label: string }[] = [
   { id: 'amy', label: 'Amy' },
   { id: 'shadow', label: 'Shadow' },
   { id: 'silver', label: 'Silver' },
+  { id: 'cream', label: 'Cream' },
+  { id: 'blaze', label: 'Blaze' },
+  { id: 'rouge', label: 'Rouge' },
   { id: 'metal', label: 'Metal' },
+  { id: 'eggman', label: 'Eggman' },
 ]
 
 export function WelcomeGate() {

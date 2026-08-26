@@ -23,18 +23,53 @@ function ClockVisual({ hour, minute }: { hour: number; minute: number }) {
   const minAngle = minute * 6 - 90
   const hourAngle = ((hour % 12) + minute / 60) * 30 - 90
   return (
-    <svg viewBox="0 0 120 120" className="mx-auto h-44 w-44">
+    <svg viewBox="0 0 120 120" className="mx-auto h-44 w-44 drop-shadow-md">
+      <circle cx="60" cy="60" r="56" fill="#f8fafc" stroke="#cbd5e1" strokeWidth="2" />
       <circle cx="60" cy="60" r="54" fill="#fff" stroke="#334155" strokeWidth="6" />
       {Array.from({ length: 12 }, (_, i) => {
         const a = ((i + 1) * 30 - 90) * (Math.PI / 180)
         return (
-          <circle key={i} cx={60 + 44 * Math.cos(a)} cy={60 + 44 * Math.sin(a)} r={i % 3 === 2 ? 3 : 2} fill="#475569" />
+          <circle key={i} cx={60 + 44 * Math.cos(a)} cy={60 + 44 * Math.sin(a)} r={i % 3 === 2 ? 3 : 2} fill={i % 3 === 2 ? '#e11d48' : '#475569'} />
         )
       })}
       <line x1="60" y1="60" x2={60 + 24 * Math.cos((hourAngle * Math.PI) / 180)} y2={60 + 24 * Math.sin((hourAngle * Math.PI) / 180)} stroke="#0f172a" strokeWidth="7" strokeLinecap="round" />
       <line x1="60" y1="60" x2={60 + 38 * Math.cos((minAngle * Math.PI) / 180)} y2={60 + 38 * Math.sin((minAngle * Math.PI) / 180)} stroke="#dc2626" strokeWidth="4" strokeLinecap="round" />
       <circle cx="60" cy="60" r="4" fill="#0f172a" />
+      <circle cx="60" cy="60" r="1.6" fill="#fff" />
     </svg>
+  )
+}
+
+function NumberLineVisual({ from, to, mark }: { from: number; to: number; mark: number }) {
+  const W = 320
+  const pad = 26
+  const step = (W - pad * 2) / (to - from)
+  const x = (n: number) => pad + (n - from) * step
+  return (
+    <div className="mx-auto w-full max-w-sm px-2 py-3">
+      <svg viewBox="0 0 320 74" className="w-full">
+        <line x1={pad - 10} y1="40" x2={W - pad + 10} y2="40" stroke="#334155" strokeWidth="3.4" strokeLinecap="round" />
+        <path d={`M ${W - pad + 10} 40 l -9 -5 v 10 Z`} fill="#334155" />
+        {Array.from({ length: to - from + 1 }, (_, i) => {
+          const n = from + i
+          const active = n === mark
+          return (
+            <g key={n}>
+              <line x1={x(n)} y1={active ? 30 : 34} x2={x(n)} y2="46" stroke={active ? '#e11d48' : '#64748b'} strokeWidth={active ? 4 : 2.6} strokeLinecap="round" />
+              <text x={x(n)} y="64" textAnchor="middle" className="font-display" fontSize={active ? 17 : 13} fontWeight="800" fill={active ? '#e11d48' : '#94a3b8'}>
+                {n}
+              </text>
+              {active && (
+                <g>
+                  <circle cx={x(n)} cy="18" r="9" fill="#fbbf24" stroke="#d97706" strokeWidth="2.4" />
+                  <text x={x(n)} y="22.5" textAnchor="middle" fontSize="11" fontWeight="900" fill="#7c2d12">?</text>
+                </g>
+              )}
+            </g>
+          )
+        })}
+      </svg>
+    </div>
   )
 }
 
@@ -68,6 +103,8 @@ function Visual({ v }: { v: NonNullable<Question['visual']> }) {
           ))}
         </div>
       )
+    case 'number-line':
+      return <NumberLineVisual from={v.from} to={v.to} mark={v.mark} />
     case 'fraction': {
       const R = 52
       const cx = 60
@@ -403,7 +440,7 @@ export function LessonScreen({ lessonId, onExit }: { lessonId: string; onExit: (
             <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
               className="mb-2 flex items-center gap-3 overflow-hidden">
               <div className="h-12 w-12 shrink-0 gpu animate-bob">
-                <Mascot id={feedback === 'correct' ? player.mascot : 'sonic'} expression={feedback === 'correct' ? 'excited' : 'sad'} />
+                <Mascot id={feedback === 'correct' ? player.mascot : 'eggman'} expression={feedback === 'correct' ? 'excited' : 'cheer'} />
               </div>
               <div>
                 <p className={`font-display text-lg font-extrabold ${feedback === 'correct' ? 'text-emerald-600' : 'text-rose-500'}`}>

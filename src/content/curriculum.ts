@@ -41,7 +41,7 @@ const u1Lessons: LessonDef[] = [
   makeLesson('u1l5', 'What Comes Next?', ['2Nc.06'], 'amy', 'Sequence sleuth!', 'Spot the rule and extend the number sequence!', [G.gSkipSequence, G.gPatternNext], G.gSkipSequence),
   makeLesson('u1l6', 'Estimate It!', ['2Nc.03'], 'shadow', 'Quick guess!', 'About how many? Group into fives and tens to estimate!', [G.gEstimateCount], G.gEstimateCount),
 ]
-const u1Boss = makeLesson('u1boss', 'Counting Boss', ['2Nc.01'], 'shadow', 'BOSS TIME!', 'Prove you can count, estimate and sequence anything!', [G.gCountObjects, G.gOneMoreLess, G.gSkipSequence, G.gOddEven], G.gSkipSequence)
+const u1Boss = makeLesson('u1boss', 'Counting Boss', ['2Nc.01'], 'eggman', 'BOSS TIME!', 'Prove you can count, estimate and sequence anything!', [G.gCountObjects, G.gOneMoreLess, G.gSkipSequence, G.gOddEven], G.gSkipSequence)
 
 /* ===== UNIT 2 · Place value, ordering & rounding (2Np) ============= */
 const u2Lessons: LessonDef[] = [
@@ -52,7 +52,7 @@ const u2Lessons: LessonDef[] = [
   makeLesson('u2l5', 'Ordinal Numbers', ['2Np.04'], 'amy', 'Race positions!', 'First, second, third - who finished where?', [G.gOrdinals], G.gOrdinals),
   makeLesson('u2l6', 'Round to the Nearest 10', ['2Np.05'], 'shadow', 'Round the corner!', '45 rounds UP to 50! Ones digit 5 or more means round up!', [G.gRoundTen], G.gRoundTen),
 ]
-const u2Boss = makeLesson('u2boss', 'Place Value Boss', ['2Np.01'], 'shadow', 'BOSS TIME!', 'Compose, compare, order and round like a champion!', [G.gTensOnes, G.gTenMoreLess, G.gCompare, G.gOrderNumbers, G.gOrdinals, G.gRoundTen], G.gRoundTen)
+const u2Boss = makeLesson('u2boss', 'Place Value Boss', ['2Np.01'], 'eggman', 'BOSS TIME!', 'Compose, compare, order and round like a champion!', [G.gTensOnes, G.gTenMoreLess, G.gCompare, G.gOrderNumbers, G.gOrdinals, G.gRoundTen], G.gRoundTen)
 
 /* ===== UNIT 3 · Number names & complements (2Ni.01-.03) ============ */
 const u3Lessons: LessonDef[] = [
@@ -62,7 +62,7 @@ const u3Lessons: LessonDef[] = [
   makeLesson('u3l4', 'Complements to 100', ['2Ni.03'], 'tails', 'All the way to 100!', '43 + ? = 100. Ones make ten, tens make ninety!', [G.gTensBond100], G.gTensBond100),
   makeLesson('u3l5', 'Inverse Detective', ['2Ni.02'], 'shadow', 'Flip it!', 'Addition and subtraction undo each other. Use one to solve the other!', [G.gMissingPart, G.gMissingAddend], G.gMissingPart),
 ]
-const u3Boss = makeLesson('u3boss', 'Complements Boss', ['2Ni.03'], 'shadow', 'BOSS TIME!', 'Names, bonds and inverses - complete the set!', [G.gNumWords, G.gBonds10, G.gBondsTo20, G.gTensBond100, G.gMissingPart], G.gTensBond100)
+const u3Boss = makeLesson('u3boss', 'Complements Boss', ['2Ni.03'], 'eggman', 'BOSS TIME!', 'Names, bonds and inverses - complete the set!', [G.gNumWords, G.gBonds10, G.gBondsTo20, G.gTensBond100, G.gMissingPart], G.gTensBond100)
 
 /* ===== UNIT 4 · Addition & subtraction (2Ni.04) ==================== */
 const u4Lessons: LessonDef[] = [
@@ -74,7 +74,7 @@ const u4Lessons: LessonDef[] = [
   makeLesson('u4l6', 'Difference Stories', ['2Ni.04'], 'shadow', 'How many more?', '"How many more?" asks for the DIFFERENCE.', [G.gDifferenceProblem]),
   makeLesson('u4l7', 'Which is More?', ['2Ni.02'], 'shadow', 'Sum showdown!', 'Which side wins WITHOUT working everything out?', [G.gCompareSums], G.gCompareSums),
 ]
-const u4Boss = makeLesson('u4boss', 'Calculation Boss', ['2Ni.04'], 'shadow', 'BOSS TIME!', 'Estimate, add and subtract every kind of number!', [G.gAddTwoDigitPairs, G.gSubTwoDigit, G.gAddWordProblem, G.gDifferenceProblem], G.gSubTwoDigit)
+const u4Boss = makeLesson('u4boss', 'Calculation Boss', ['2Ni.04'], 'eggman', 'BOSS TIME!', 'Estimate, add and subtract every kind of number!', [G.gAddTwoDigitPairs, G.gSubTwoDigit, G.gAddWordProblem, G.gDifferenceProblem], G.gSubTwoDigit)
 
 /* ===== UNIT 5 · Multiplication (2Ni.05, 2Ni.07) ==================== */
 const u5Lessons: LessonDef[] = [
@@ -83,7 +83,7 @@ const u5Lessons: LessonDef[] = [
   makeLesson('u5l3', 'Times Tables', ['2Ni.07'], 'tails', 'Fast adding!', 'Know your 1, 2, 5 and 10 times tables by heart!', [G.gTimesTable]),
   makeLesson('u5l4', 'Table Challenge', ['2Ni.07'], 'knuckles', 'Table tamer!', 'Mixed tables up to 10 groups - how fast are you?', [G.gTimesTableExtended], G.gTimesTableExtended),
 ]
-const u5Boss = makeLesson('u5boss', 'Multiplication Boss', ['2Ni.07'], 'shadow', 'BOSS TIME!', 'The multiplication mega-mix. Ready, set, GO!', [G.gRepeatedAddition, G.gArrayVisual, G.gTimesTable, G.gTimesTableExtended], G.gTimesTableExtended)
+const u5Boss = makeLesson('u5boss', 'Multiplication Boss', ['2Ni.07'], 'eggman', 'BOSS TIME!', 'The multiplication mega-mix. Ready, set, GO!', [G.gRepeatedAddition, G.gArrayVisual, G.gTimesTable, G.gTimesTableExtended], G.gTimesTableExtended)
 
 /* ===== UNIT 6 · Division (2Ni.06) ================================== */
 const u6Lessons: LessonDef[] = [
@@ -92,7 +92,7 @@ const u6Lessons: LessonDef[] = [
   makeLesson('u6l3', 'Inverse Genius', ['2Ni.02'], 'shadow', 'Work backwards!', 'If 5 × 7 = 35, then 35 ÷ 5 = 7. Flip your tables!', [G.gInverseTimes], G.gInverseTimes),
   makeLesson('u6l4', 'Divide Like a Pro', ['2Ni.06'], 'sonic', 'Share and group!', 'Sharing AND grouping together - division mastery!', [G.gSharing, G.gGroupingDivision, G.gInverseTimes], G.gInverseTimes),
 ]
-const u6Boss = makeLesson('u6boss', 'Division Boss', ['2Ni.06'], 'shadow', 'BOSS TIME!', 'Divide everything - share it out!', [G.gSharing, G.gGroupingDivision, G.gInverseTimes], G.gInverseTimes)
+const u6Boss = makeLesson('u6boss', 'Division Boss', ['2Ni.06'], 'eggman', 'BOSS TIME!', 'Divide everything - share it out!', [G.gSharing, G.gGroupingDivision, G.gInverseTimes], G.gInverseTimes)
 
 /* ===== UNIT 7 · Fractions (2Nf) ==================================== */
 const u7Lessons: LessonDef[] = [
@@ -102,7 +102,7 @@ const u7Lessons: LessonDef[] = [
   makeLesson('u7l4', 'Fraction Twins', ['2Nf.05'], 'tails', 'Same amount, new name!', 'Two quarters equals one half! Meet equivalent fractions!', [G.gEquivFractions], G.gEquivFractions),
   makeLesson('u7l5', 'Combining Fractions', ['2Nf.06'], 'shadow', 'Fraction builder!', 'Wholes, halves and quarters combine to make new fractions!', [G.gCombineFractions], G.gCombineFractions),
 ]
-const u7Boss = makeLesson('u7boss', 'Fraction Boss', ['2Nf.05'], 'shadow', 'BOSS TIME!', 'The fraction finale - slice through it!', [G.gShadedFractionName, G.gHalfOfNumber, G.gQuarterOfNumber, G.gEquivFractions, G.gCombineFractions], G.gCombineFractions)
+const u7Boss = makeLesson('u7boss', 'Fraction Boss', ['2Nf.05'], 'eggman', 'BOSS TIME!', 'The fraction finale - slice through it!', [G.gShadedFractionName, G.gHalfOfNumber, G.gQuarterOfNumber, G.gEquivFractions, G.gCombineFractions], G.gCombineFractions)
 
 /* ===== UNIT 8 · Money (2Nm) ======================================== */
 const u8Lessons: LessonDef[] = [
@@ -110,7 +110,7 @@ const u8Lessons: LessonDef[] = [
   makeLesson('u8l2', 'Compare Combinations', ['2Nm.02'], 'tails', 'Which pile wins?', 'Is 50p more than 20p + 20p + 5p? Add up to find out!', [G.gMoneyCompare], G.gMoneyCompare),
   makeLesson('u8l3', 'Giving Change', ['2Nm.02'], 'sonic', 'Shop keeper!', 'Change from 20p, 50p or even £1!', [G.gChangeFrom], G.gCoinsTotal),
 ]
-const u8Boss = makeLesson('u8boss', 'Money Boss', ['2Nm.02'], 'shadow', 'BOSS TIME!', 'Count it, compare it, change it!', [G.gCoinsTotal, G.gMoneyCompare, G.gChangeFrom], G.gChangeFrom)
+const u8Boss = makeLesson('u8boss', 'Money Boss', ['2Nm.02'], 'eggman', 'BOSS TIME!', 'Count it, compare it, change it!', [G.gCoinsTotal, G.gMoneyCompare, G.gChangeFrom], G.gChangeFrom)
 
 /* ===== UNIT 9 · Time (2Gt) ========================================= */
 const u9Lessons: LessonDef[] = [
@@ -119,7 +119,7 @@ const u9Lessons: LessonDef[] = [
   makeLesson('u9l3', 'Calendars', ['2Gt.03'], 'knuckles', 'Calendar kid!', 'Seven days a week, twelve months a year - in order!', [G.gDayOrder, G.gMonthsBetween], G.gMonthsBetween),
   makeLesson('u9l4', 'Time Champion', ['2Gt.02'], 'shadow', 'Beat the clock!', 'Every time skill mixed into one race!', [G.gClockRead, G.gTimeFiveMin, G.gDayOrder], G.gTimeFiveMin),
 ]
-const u9Boss = makeLesson('u9boss', 'Time Boss', ['2Gt.02'], 'shadow', 'BOSS TIME!', 'Outread Father Time himself!', [G.gTimeUnitsFacts, G.gDurationUnits, G.gClockRead, G.gTimeFiveMin, G.gMonthsBetween], G.gTimeFiveMin)
+const u9Boss = makeLesson('u9boss', 'Time Boss', ['2Gt.02'], 'eggman', 'BOSS TIME!', 'Outread Father Time himself!', [G.gTimeUnitsFacts, G.gDurationUnits, G.gClockRead, G.gTimeFiveMin, G.gMonthsBetween], G.gTimeFiveMin)
 
 /* ===== UNIT 10 · Shapes (2Gg.01-.05, .08, .02) ===================== */
 const u10Lessons: LessonDef[] = [
@@ -127,7 +127,7 @@ const u10Lessons: LessonDef[] = [
   makeLesson('u10l2', '3D Shapes', ['2Gg.05'], 'shadow', 'Solid shapes!', 'Faces, edges and vertices - balls, boxes and cans!', [G.gShapeFacts], G.gShapeFacts),
   makeLesson('u10l3', 'Circles & Everyday Shapes', ['2Gg.02', '2Gg.08'], 'tails', 'Shapes everywhere!', 'Every point of a circle sits the same distance from its centre!', [G.gShapeFacts], G.gShapeFacts),
 ]
-const u10Boss = makeLesson('u10boss', 'Shape Boss', ['2Gg.01'], 'shadow', 'BOSS TIME!', 'Flat and solid shapes - name them all!', [G.gShapeFacts], G.gShapeFacts)
+const u10Boss = makeLesson('u10boss', 'Shape Boss', ['2Gg.01'], 'eggman', 'BOSS TIME!', 'Flat and solid shapes - name them all!', [G.gShapeFacts], G.gShapeFacts)
 
 /* ===== UNIT 11 · Symmetry, turns & position (2Gg.09-.11, 2Gp) ====== */
 const u11Lessons: LessonDef[] = [
@@ -136,7 +136,7 @@ const u11Lessons: LessonDef[] = [
   makeLesson('u11l3', 'Spinning Shapes', ['2Gg.10'], 'knuckles', 'Spin counter!', 'How many times does a square look identical in one full turn?', [G.gRotationalTurns], G.gRotationalTurns),
   makeLesson('u11l4', 'Mirrors & Movement', ['2Gp.01', '2Gp.02'], 'sonic', 'Left becomes right!', 'Describe movement AND predict mirror reflections!', [G.gMirrorReflections, G.gPositionWords], G.gPositionWords),
 ]
-const u11Boss = makeLesson('u11boss', 'Position Boss', ['2Gg.09'], 'shadow', 'BOSS TIME!', 'Turn, reflect, spin and move - conquer space itself!', [G.gSymmetry, G.gTurnsDirections, G.gRotationalTurns, G.gPositionWords], G.gSymmetry)
+const u11Boss = makeLesson('u11boss', 'Position Boss', ['2Gg.09'], 'eggman', 'BOSS TIME!', 'Turn, reflect, spin and move - conquer space itself!', [G.gSymmetry, G.gTurnsDirections, G.gRotationalTurns, G.gPositionWords], G.gSymmetry)
 
 /* ===== UNIT 12 · Length, mass & capacity (2Gg.03/.06/.07/.12) ===== */
 const u12Lessons: LessonDef[] = [
@@ -145,7 +145,7 @@ const u12Lessons: LessonDef[] = [
   makeLesson('u12l3', 'Hot & Cold', ['2Gg.12'], 'tails', 'Thermometer time!', 'A scale is a number line - read between the marks!', [G.gTemperature], G.gTemperature),
   makeLesson('u12l4', 'Measure Stories', ['2Gg.03', '2Gg.06'], 'amy', 'Measuring tales!', 'Word problems about rulers, ribbons and jugs!', [G.gMeasureWordProblem]),
 ]
-const u12Boss = makeLesson('u12boss', 'Measure Boss', ['2Gg.03'], 'shadow', 'BOSS TIME!', 'The measure marathon!', [G.gMeasureFacts, G.gTemperature, G.gMeasureWordProblem], G.gMeasureWordProblem)
+const u12Boss = makeLesson('u12boss', 'Measure Boss', ['2Gg.03'], 'eggman', 'BOSS TIME!', 'The measure marathon!', [G.gMeasureFacts, G.gTemperature, G.gMeasureWordProblem], G.gMeasureWordProblem)
 
 /* ===== UNIT 13 · Statistics & probability (2Ss, 2Sp) =============== */
 const u13Lessons: LessonDef[] = [
@@ -155,7 +155,7 @@ const u13Lessons: LessonDef[] = [
   makeLesson('u13l4', 'Venn & Carroll Sorting', ['2Ss.02'], 'amy', 'Circle sorter!', 'Sort by TWO rules at once - even AND less than 50!', [G.gSortingDiagrams], G.gSortingDiagrams),
   makeLesson('u13l5', 'Random or Regular?', ['2Sp.01', '2Sp.02'], 'sonic', 'Chance experiments!', 'Some things are certain, some impossible - most are random!', [G.gChanceLanguage], G.gChanceLanguage),
 ]
-const u13Boss = makeLesson('u13boss', 'Data Boss', ['2Ss.03'], 'shadow', 'BOSS TIME!', 'Every chart. Every puzzle. GO!', [G.gTallyRead, G.gPictogram, G.gChartCompare, G.gSortingDiagrams, G.gChanceLanguage], G.gSortingDiagrams)
+const u13Boss = makeLesson('u13boss', 'Data Boss', ['2Ss.03'], 'eggman', 'BOSS TIME!', 'Every chart. Every puzzle. GO!', [G.gTallyRead, G.gPictogram, G.gChartCompare, G.gSortingDiagrams, G.gChanceLanguage], G.gSortingDiagrams)
 
 export const UNITS: UnitDef[] = [
   { id: 'u1', order: 1, title: 'Counting & Sequences', subtitle: 'Cambridge 2Nc · estimate · odd/even', color: '#58cc02', icon: '🔢', lessons: [...u1Lessons, u1Boss], bossLessonIds: [u1Boss.id] },

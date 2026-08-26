@@ -73,7 +73,18 @@ export interface IntroCard {
   body: string
 }
 
-export type MascotId = 'sonic' | 'tails' | 'knuckles' | 'amy' | 'shadow' | 'silver' | 'metal'
+export type MascotId =
+  | 'sonic'
+  | 'tails'
+  | 'knuckles'
+  | 'amy'
+  | 'shadow'
+  | 'silver'
+  | 'metal'
+  | 'cream'
+  | 'blaze'
+  | 'rouge'
+  | 'eggman'
 
 export interface LessonDef {
   id: string

@@ -38,7 +38,7 @@ export function ProfileScreen() {
             {s.name} <span className="text-sm text-slate-400">✏️</span>
           </button>
         )}
-        <div className="mt-2 flex gap-2">
+        <div className="mt-2 flex flex-wrap justify-center gap-2 px-2">
           {(Object.keys(MASCOTS) as MascotId[]).map((id) => (
             <button key={id} onClick={() => { sfx.tap(id); s.setMascot(id) }} title={`Play as ${id}`}
               className={`h-10 w-10 rounded-full p-0.5 transition-transform hover:scale-110 ${s.mascot === id ? 'bg-speed-blue' : 'bg-slate-200'}`}>

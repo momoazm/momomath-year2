@@ -3,17 +3,34 @@ import { motion } from 'framer-motion'
 import {
   LEAGUES,
   LEAGUE_META,
-  LEAGUE_RIVALS,
   STAY_FACTOR,
   msUntilWeekEnd,
   rivalXp,
   weekKey,
   weeklyGoal,
 } from '../engine/gamification'
+import {
+  botsForPlayerCount,
+  fetchSharedPlayers,
+  pushSharedPlayer,
+  weeklyXpOf,
+  type SharedPlayer,
+} from '../engine/leaderboard'
 import { usePlayer } from '../engine/store'
+import { useAuth } from '../engine/auth'
 import { Mascot } from '../components/mascots/Mascots'
 
 type Zone = 'promo' | 'stay' | 'danger'
+
+type Row = {
+  id: string
+  name: string
+  xp: number
+  isYou: boolean
+  kind: 'you' | 'real' | 'bot'
+  mascotId?: string
+  icon?: string
+}
 
 function zoneOf(xp: number, goal: number, stayGoal: number): Zone {
   if (xp >= goal) return 'promo'
@@ -38,7 +55,14 @@ function formatCountdown(msLeft: number): string {
 
 export function LeaguesScreen() {
   const s = usePlayer()
+  const authUser = useAuth((a) => a.user)
   const [nowMs, setNowMs] = useState(() => Date.now())
+  const [shared, setShared] = useState<SharedPlayer[]>([])
+
+  const myId = authUser?.sub
+    ? `g:${authUser.sub}`
+    : `name:${s.name.trim().toLowerCase()}`
+  const wk = weekKey()
 
   // tick every second for the live countdown + rival progress
   useEffect(() => {
@@ -46,20 +70,74 @@ export function LeaguesScreen() {
     return () => clearInterval(t)
   }, [])
 
+  // pull everyone else's progress, then keep polling
+  useEffect(() => {
+    let alive = true
+    const load = () =>
+      fetchSharedPlayers().then((entries) => {
+        if (alive) setShared(entries)
+      })
+    load()
+    const t = setInterval(load, 30_000)
+    return () => {
+      alive = false
+      clearInterval(t)
+    }
+  }, [])
+
+  // share my progress whenever it changes (and once on entry)
+  useEffect(() => {
+    if (!s.name.trim()) return
+    let alive = true
+    pushSharedPlayer({
+      id: myId,
+      name: s.name.trim(),
+      xp: s.weeklyXp,
+      league: s.currentLeague,
+      mascot: s.mascot,
+      week: wk,
+    }).then((entries) => {
+      if (alive && entries.length) setShared(entries)
+    })
+    return () => {
+      alive = false
+    }
+  }, [myId, s.name, s.weeklyXp, s.currentLeague, s.mascot, wk])
+
   const meta = LEAGUE_META[s.currentLeague]
   const goal = weeklyGoal(s.currentLeague)
   const stayGoal = Math.round(goal * STAY_FACTOR)
   const countdown = formatCountdown(msUntilWeekEnd(new Date(nowMs)))
 
-  const standings = [
-    ...LEAGUE_RIVALS.map((r) => ({
+  const others = shared.filter((p) => p.id !== myId)
+  const realCount = 1 + others.length
+  const bots = botsForPlayerCount(realCount)
+
+  const standings: Row[] = [
+    ...others.map((p) => ({
+      id: p.id,
+      name: p.name,
+      xp: weeklyXpOf(p, wk),
+      isYou: false,
+      kind: 'real' as const,
+      mascotId: p.mascot,
+    })),
+    ...bots.map((r) => ({
       id: r.id,
       name: r.name,
-      icon: r.icon as string | null,
-      xp: rivalXp(r, s.currentLeague, weekKey(), new Date(nowMs)),
+      xp: rivalXp(r, s.currentLeague, wk, new Date(nowMs)),
       isYou: false,
+      kind: 'bot' as const,
+      icon: r.icon,
     })),
-    { id: 'you', name: s.name, icon: null, xp: s.weeklyXp, isYou: true },
+    {
+      id: myId,
+      name: s.name,
+      xp: s.weeklyXp,
+      isYou: true,
+      kind: 'you' as const,
+      mascotId: s.mascot,
+    },
   ].sort((a, b) => b.xp - a.xp)
 
   const myRank = standings.findIndex((p) => p.isYou) + 1
@@ -139,13 +217,13 @@ export function LeaguesScreen() {
                     {rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : rank}
                   </span>
                   <span className="flex h-10 w-10 shrink-0 items-center justify-center text-2xl">
-                    {p.isYou ? (
+                    {p.kind === 'bot' ? (
+                      p.icon
+                    ) : (
                       <Mascot
-                        id={s.mascot}
+                        id={p.mascotId ?? 'sonic'}
                         expression={zoneOf(p.xp, goal, stayGoal) === 'promo' ? 'cheer' : 'happy'}
                       />
-                    ) : (
-                      p.icon
                     )}
                   </span>
                   <span
@@ -165,7 +243,9 @@ export function LeaguesScreen() {
           })}
         </ol>
         <p className="mt-3 border-t border-slate-100 pt-2 text-center text-xs font-bold text-slate-300">
-          Practice rivals for now — real players arriving soon
+          {realCount <= 1
+            ? 'Playing solo — one bot steps aside for every friend who joins'
+            : `${realCount} real players this week — bots fill the rest`}
         </p>
       </section>
 

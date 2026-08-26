@@ -62,6 +62,10 @@ export default {
           '0%': { transform: 'scale(1)', opacity: '0.7' },
           '100%': { transform: 'scale(1.65)', opacity: '0' },
         },
+        'quill-sway': {
+          '0%,100%': { transform: 'rotate(-1.2deg)' },
+          '50%': { transform: 'rotate(1.2deg)' },
+        },
       },
       animation: {
         'float-y': 'float-y 2.4s ease-in-out infinite',
@@ -74,6 +78,7 @@ export default {
         'drift': 'drift 120s linear infinite',
         'ring-bob': 'ring-bob 4s ease-in-out infinite',
         'pulse-ring': 'pulse-ring 1.5s ease-out infinite',
+        'quill-sway': 'quill-sway 3.2s ease-in-out infinite',
       },
     },
   },
