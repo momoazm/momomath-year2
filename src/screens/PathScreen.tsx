@@ -2,6 +2,7 @@ import { useMemo, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { UNITS, ALL_LESSONS } from '../content/curriculum'
 import { usePlayer } from '../engine/store'
+import { isLessonUnlocked, nextActiveLesson } from '../engine/path'
 import { Mascot } from '../components/mascots/Mascots'
 import { sfx } from '../engine/sfx'
 import type { LessonDef, UnitDef } from '../content/types'
@@ -19,16 +20,6 @@ function shade(hex: string, amt = 42) {
 
 type ProgressMap = Record<string, { completions: number; bestAccuracy: number }>
 
-/** A lesson unlocks only when the previous lesson was finished PERFECTLY (100%). */
-function isUnlocked(unitIdx: number, lessonIdx: number, progress: ProgressMap) {
-  if (unitIdx === 0 && lessonIdx === 0) return true
-  const flat = UNITS.flatMap((u) => u.lessons.map((l) => l.id))
-  const idx = flat.indexOf(UNITS[unitIdx].lessons[lessonIdx].id)
-  if (idx <= 0) return true
-  const prevId = flat[idx - 1]
-  return (progress[prevId]?.bestAccuracy ?? 0) >= 100
-}
-
 function unitDone(u: UnitDef, progress: ProgressMap) {
   return u.lessons.every((l) => (progress[l.id]?.bestAccuracy ?? 0) >= 100)
 }
@@ -37,13 +28,13 @@ export function PathScreen({ onStartLesson }: { onStartLesson: (lessonId: string
   const player = usePlayer()
   const nextRef = useRef<HTMLButtonElement | null>(null)
 
-  const active = useMemo(() => {
-    for (const u of UNITS)
-      for (let i = 0; i < u.lessons.length; i++)
-        if ((player.lessonProgress[u.lessons[i].id]?.completions ?? 0) === 0)
-          return { u, i }
-    return null
-  }, [player.lessonProgress])
+  // pulse the first lesson that is unlocked and not yet mastered — never a
+  // locked node, so finishing lesson 6 below 100% keeps lesson 6 active
+  // (replay) until the boss unlocks
+  const active = useMemo(
+    () => nextActiveLesson(player.lessonProgress),
+    [player.lessonProgress],
+  )
 
   return (
     <div className="mx-auto w-full max-w-xl px-4 pb-28 pt-4">
@@ -91,10 +82,10 @@ export function PathScreen({ onStartLesson }: { onStartLesson: (lessonId: string
 
             <ol className="flex flex-col items-center gap-4">
               {u.lessons.map((l: LessonDef, li) => {
-                const unlocked = isUnlocked(ui, li, player.lessonProgress)
+                const unlocked = isLessonUnlocked(ui, li, player.lessonProgress)
                 const prog = player.lessonProgress[l.id]
                 const crowns = prog?.crown ?? 0
-                const isActive = active?.u.id === u.id && active.i === li
+                const isActive = active?.unitIdx === ui && active.lessonIdx === li
                 const offset = OFFSETS[(ui * 3 + li) % OFFSETS.length]
                 const isBoss = l.id.endsWith('boss')
                 return (

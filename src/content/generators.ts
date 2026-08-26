@@ -189,7 +189,7 @@ export function gDoubles(rand: Rand): Question {
 export function gAddTwoDigitPlus1(rand: Rand): Question {
   const a = randInt(rand, 11, 88)
   const b = randInt(rand, 1, 9)
-  if (a % 10 + b > 10) return gAddTwoDigitPlus1(rand)
+  if (a % 10 + b >= 10) return gAddTwoDigitPlus1(rand) // lesson promises: no crossing tens
   return { kind: 'type-number', prompt: `${a} + ${b} = ?`, answer: a + b }
 }
 
@@ -427,6 +427,7 @@ export function gSymmetry(rand: Rand): Question {
 /** Carroll-diagram style sorting with computed answers. */
 export function gSortingDiagrams(rand: Rand): Question {
   const n = randInt(rand, 11, 98)
+  if (n === 50) return gSortingDiagrams(rand) // 50 is neither less nor greater than 50
   const even = n % 2 === 0
   const small = n < 50
   const parity = even ? 'even' : 'odd'
@@ -593,7 +594,8 @@ export function gShadedFractionName(rand: Rand): Question {
   const labels: Record<number, string[]> = {
     2: ['one third', 'one quarter'],
     3: ['one half', 'one quarter'],
-    4: ['one half', 'one third'],
+    // 2/4 IS one half - never offer the equivalent fraction as a wrong choice
+    4: filled === 2 ? ['one third', 'three quarters'] : ['one half', 'one third'],
   }
   return mcq(
     rand,
@@ -680,20 +682,29 @@ export function gTurnsDirections(rand: Rand): Question {
   )
 }
 
-const PATTERN_BANK = [
-  { seq: ['🔺', '🔵', '🔺', '🔵'], next: '🔺', wrong: ['🔵', '🟢', '🟡'] },
-  { seq: ['🍎', '🍎', '🍌', '🍎'], next: '🍎', wrong: ['🍌', '🍇', '🍓'] },
-  { seq: ['⭐', '🌙', '🌙', '⭐'], next: '🌙', wrong: ['⭐', '☁️', '☀️'] },
-  { seq: ['🔴', '🔴', '🔴', '🟢'], next: '🔴', wrong: ['🟢', '🔵', '🟡'] },
+const PATTERN_UNITS: { unit: string[]; wrong: string[] }[] = [
+  { unit: ['🔺', '🔵'], wrong: ['🔺', '🟢', '🟡'] },
+  { unit: ['🟧', '🟪'], wrong: ['🟧', '🟢', '🟡'] },
+  { unit: ['🍎', '🍎', '🍌'], wrong: ['🍎', '🍇', '🍓'] },
+  { unit: ['⭐', '🌙', '🌙'], wrong: ['⭐', '☁️', '☀️'] },
+  { unit: ['🐶', '🐱'], wrong: ['🐶', '🐰', '🐔'] },
+  { unit: ['🔴', '🔴', '🔴', '🟢'], wrong: ['🔴', '🔵', '🟡'] },
+  { unit: ['🚗', '🚗', '🚙'], wrong: ['🚗', '🚕', '🚓'] },
 ]
 
 export function gPatternNext(rand: Rand): Question {
-  const p = pick(rand, PATTERN_BANK)
+  const p = pick(rand, PATTERN_UNITS)
+  // Show one full cycle plus about half of the next, so the repeating unit is
+  // unmistakable and the continuation is unique.
+  const shownCount = p.unit.length + Math.max(1, Math.floor(p.unit.length / 2))
+  const shown = Array.from({ length: shownCount }, (_, i) => p.unit[i % p.unit.length])
+  const next = p.unit[shownCount % p.unit.length]
+  const wrong = p.wrong.filter((w) => w !== next)
   return mcq(
     rand,
-    `${[...p.seq, ...p.seq.slice(0, 3)].join(' ')} … what comes next?`,
-    p.next,
-    shuffle(rand, p.wrong),
+    `${shown.join(' ')} … what comes next?`,
+    next,
+    shuffle(rand, wrong),
     { hint: 'Say the pattern out loud and find the repeating part.' },
   )
 }
@@ -950,7 +961,7 @@ const CHANCE_MCQ: { prompt: string; answer: string; wrong: string[] }[] = [
   { prompt: '🔴🔵🔴🔵🔴🔵 - what kind of pattern is this?', answer: 'A regular pattern', wrong: ['A random pattern', 'No pattern at all', 'A mistake'] },
   { prompt: 'Which event is CERTAIN to happen?', answer: 'The sun rises tomorrow', wrong: ['You roll a 6 next throw', 'It rains on your birthday', 'Your toy turns into gold'] },
   { prompt: 'Which event is IMPOSSIBLE?', answer: 'A cat barks like a dog tomorrow', wrong: ['You eat food today', 'The sun sets tonight', 'You blink soon'] },
-  { prompt: 'Tossing a coin gives heads or tails. This outcome is�', answer: 'Random', wrong: ['Regular', 'Certain to be heads', 'Impossible'] },
+  { prompt: 'Tossing a coin gives heads or tails. This outcome is…', answer: 'Random', wrong: ['Regular', 'Certain to be heads', 'Impossible'] },
 ]
 export function gChanceLanguage(rand: Rand): Question {
   const f = pick(rand, CHANCE_MCQ)
@@ -997,9 +1008,10 @@ export function gMoneyCompare(rand: Rand): Question {
 const COMBINE_BANK: { prompt: string; answer: string; wrong: string[] }[] = [
   { prompt: 'One half + one quarter = ?', answer: 'three quarters', wrong: ['one half', 'one whole', 'two thirds'] },
   { prompt: 'One half + one half = ?', answer: 'one whole', wrong: ['one quarter', 'three quarters', 'one third'] },
-  { prompt: 'Two quarters + two quarters = ?', answer: 'one whole', wrong: ['one half', 'three quarters', 'two halves'] },
+  // 2/4 = 1/2, so "two halves" would also be correct - never offer equivalents
+  { prompt: 'Two quarters + two quarters = ?', answer: 'one whole', wrong: ['one half', 'three quarters', 'two thirds'] },
   { prompt: 'One whole - one half = ?', answer: 'one half', wrong: ['one quarter', 'nothing at all', 'three quarters'] },
-  { prompt: 'Three quarters - one quarter = ?', answer: 'one half', wrong: ['one whole', 'two quarters', 'nothing at all'] },
+  { prompt: 'Three quarters - one quarter = ?', answer: 'one half', wrong: ['one whole', 'two thirds', 'nothing at all'] },
 ]
 export function gCombineFractions(rand: Rand): Question {
   const f = pick(rand, COMBINE_BANK)
@@ -1012,7 +1024,7 @@ const POSITION_MCQ: { prompt: string; answer: string; wrong: string[] }[] = [
   { prompt: 'You walk towards the door. You are moving ___ the door.', answer: 'towards', wrong: ['away from', 'under', 'above'] },
   { prompt: 'The kite flies ___ the trees.', answer: 'above', wrong: ['below', 'between', 'behind'] },
   { prompt: 'The shoes are ___ the bed, on the floor under it.', answer: 'below', wrong: ['above', 'beside', 'around'] },
-  { prompt: 'If you take two steps BACKWARDS you move�', answer: 'away from where you were facing', wrong: ['closer to where you were facing', 'in a circle only', 'upwards'] },
+  { prompt: 'If you take two steps BACKWARDS you move…', answer: 'away from where you were facing', wrong: ['closer to where you were facing', 'in a circle only', 'upwards'] },
 ]
 export function gPositionWords(rand: Rand): Question {
   const f = pick(rand, POSITION_MCQ)
@@ -1022,8 +1034,8 @@ export function gPositionWords(rand: Rand): Question {
 /** 2Gp.02 Mirror reflections swap left and right. */
 const MIRROR_MCQ: { prompt: string; answer: string; wrong: string[] }[] = [
   { prompt: 'You wave your RIGHT hand at a mirror. Which hand does your reflection wave?', answer: 'Its left hand', wrong: ['Its right hand', 'Both hands', 'No hands'] },
-  { prompt: 'In a mirror, a shape and its reflection are�', answer: 'The same size', wrong: ['Different sizes', 'Always upside down', 'Always spinning'] },
-  { prompt: 'Hold the letter F up to a mirror. The reflection faces�', answer: 'The opposite way', wrong: ['Exactly the same way', 'Upside down only', 'It disappears'] },
+  { prompt: 'In a mirror, a shape and its reflection are…', answer: 'The same size', wrong: ['Different sizes', 'Always upside down', 'Always spinning'] },
+  { prompt: 'Hold the letter F up to a mirror. The reflection faces…', answer: 'The opposite way', wrong: ['Exactly the same way', 'Upside down only', 'It disappears'] },
 ]
 export function gMirrorReflections(rand: Rand): Question {
   const f = pick(rand, MIRROR_MCQ)
