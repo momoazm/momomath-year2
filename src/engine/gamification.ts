@@ -37,6 +37,17 @@ export const LEAGUE_GOALS: Record<LeagueName, number> = {
   Diamond: 550,
 }
 
+function mulberry32(seed: number): () => number {
+  let a = seed >>> 0
+  return () => {
+    a |= 0
+    a = (a + 0x6d2b79f5) | 0
+    let t = Math.imul(a ^ (a >>> 15), 1 | a)
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
+
 export function weeklyGoal(league: LeagueName): number {
   return LEAGUE_GOALS[league]
 }
@@ -89,6 +100,66 @@ export function advanceLeague(current: LeagueName, outcome: 'promoted' | 'demote
   return current
 }
 
+/* ---------------- League standings: practice rivals (bots for now) ---------------- */
+
+export interface LeagueRival {
+  id: string
+  name: string
+  icon: string
+  /** fraction of the league goal this rival tends to reach by the end of a week */
+  drive: number
+}
+
+export const LEAGUE_RIVALS: LeagueRival[] = [
+  { id: 'zara', name: 'Zara', icon: '🦊', drive: 1.45 },
+  { id: 'max', name: 'Max', icon: '🐯', drive: 1.2 },
+  { id: 'layla', name: 'Layla', icon: '🐰', drive: 1.05 },
+  { id: 'omar', name: 'Omar', icon: '🐻', drive: 0.9 },
+  { id: 'sara', name: 'Sara', icon: '🐨', drive: 0.75 },
+  { id: 'yusuf', name: 'Yusuf', icon: '🦁', drive: 0.6 },
+  { id: 'mia', name: 'Mia', icon: '🐼', drive: 0.5 },
+  { id: 'ali', name: 'Ali', icon: '🐸', drive: 0.38 },
+  { id: 'nora', name: 'Nora', icon: '🐧', drive: 0.28 },
+  { id: 'adam', name: 'Adam', icon: '🐷', drive: 0.18 },
+]
+
+function hashStr(str: string): number {
+  let h = 2166136261
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i)
+    h = Math.imul(h, 16777619)
+  }
+  return h >>> 0
+}
+
+/** Deterministic rival XP for a given week: grows through the week at a
+ *  personality-specific pace, so standings shuffle daily but stay stable
+ *  across reloads. Scales with the league goal, so higher leagues feel harder. */
+export function rivalXp(
+  rival: LeagueRival,
+  league: LeagueName,
+  wk: string,
+  now: Date = new Date(),
+): number {
+  const rand = mulberry32(hashStr(`${wk}:${rival.id}`))
+  const jitter = 0.75 + rand() * 0.5 // some weeks a rival over/under-performs
+  const paceExp = 0.7 + rand() * 0.9 // sprinters front-load, grinders finish strong
+  const target = LEAGUE_GOALS[league] * Math.min(rival.drive * jitter, 1.7)
+
+  const startMs = new Date(wk + 'T00:00:00').getTime()
+  const frac = Math.min(1, Math.max(0, (now.getTime() - startMs) / (7 * 86400000)))
+  return Math.round(target * Math.pow(frac, paceExp))
+}
+
+/** Live countdown helper: ms until the given Monday-based week key ends. */
+export function msUntilWeekEnd(now: Date = new Date()): number {
+  const d = new Date(now)
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7)) // back to this Monday
+  d.setDate(d.getDate() + 7) // next Monday
+  d.setHours(0, 0, 0, 0)
+  return d.getTime() - now.getTime()
+}
+
 /** Gems inside the end-of-lesson chest. Perfect lessons give bigger loot. */
 export function lessonChestPrize(isBoss: boolean, mistakes: number, rand: () => number = Math.random): number {
   const base = isBoss ? 15 : 8
@@ -116,8 +187,8 @@ export interface ChestLoot {
 
 /** Weighted loot table - weights sum to 100 for easy percentage math */
 const LOOT_TABLE: { weight: number; roll: (rand: () => number) => ChestLoot }[] = [
-  // ── COMMON (weight 55): small gem amounts ──
-  { weight: 30, roll: (r) => ({ rarity: 'common', type: 'gems', amount: 5 + Math.floor(r() * 6), label: `${5 + Math.floor(r() * 6)} gems`, icon: '💎' }) },
+  // ── COMMON (weight 60): small gem amounts ──
+  { weight: 35, roll: (r) => ({ rarity: 'common', type: 'gems', amount: 5 + Math.floor(r() * 6), label: `${5 + Math.floor(r() * 6)} gems`, icon: '💎' }) },
   { weight: 25, roll: (r) => ({ rarity: 'common', type: 'gems', amount: 10 + Math.floor(r() * 6), label: `${10 + Math.floor(r() * 6)} gems`, icon: '💎' }) },
 
   // ── UNCOMMON (weight 25): medium gems or small XP potion ──

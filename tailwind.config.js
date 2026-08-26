@@ -50,6 +50,18 @@ export default {
           '0%,100%': { transform: 'scaleY(1) scaleX(1)' },
           '50%': { transform: 'scaleY(1.15) scaleX(0.92)' },
         },
+        'drift': {
+          from: { transform: 'translateX(-30vw)' },
+          to: { transform: 'translateX(130vw)' },
+        },
+        'ring-bob': {
+          '0%,100%': { transform: 'translateY(0)' },
+          '50%': { transform: 'translateY(-12px)' },
+        },
+        'pulse-ring': {
+          '0%': { transform: 'scale(1)', opacity: '0.7' },
+          '100%': { transform: 'scale(1.65)', opacity: '0' },
+        },
       },
       animation: {
         'float-y': 'float-y 2.4s ease-in-out infinite',
@@ -59,6 +71,9 @@ export default {
         'dash-run': 'dash-run 14s linear infinite',
         'spin-slow': 'spin-slow 9s linear infinite',
         'flame-flicker': 'flame-flicker 0.5s ease-in-out infinite',
+        'drift': 'drift 120s linear infinite',
+        'ring-bob': 'ring-bob 4s ease-in-out infinite',
+        'pulse-ring': 'pulse-ring 1.5s ease-out infinite',
       },
     },
   },

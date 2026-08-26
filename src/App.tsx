@@ -9,19 +9,27 @@ import { QuestsScreen } from './screens/QuestsScreen'
 import { ProfileScreen } from './screens/ProfileScreen'
 import { ShopScreen } from './screens/ShopScreen'
 import { WelcomeGate } from './components/ui/WelcomeGate'
+import { Scenery } from './components/ui/Scenery'
+import { MascotGallery } from './components/mascots/Gallery'
 
 export default function App() {
   const [tab, setTab] = useState<Tab>('path')
   const [activeLesson, setActiveLesson] = useState<string | null>(null)
+
+  if (new URLSearchParams(window.location.search).has('gallery')) {
+    return <MascotGallery />
+  }
 
   if (activeLesson) {
     return <LessonScreen lessonId={activeLesson} onExit={() => setActiveLesson(null)} />
   }
 
   return (
-    <div className="min-h-[100dvh] pb-20">
-      <WelcomeGate />
-      <TopBar onLeagueClick={() => setTab('leagues')} />
+    <div className="relative min-h-[100dvh] pb-20">
+      <Scenery />
+      <div className="relative z-10">
+        <WelcomeGate />
+        <TopBar onLeagueClick={() => setTab('leagues')} />
       <AnimatePresence mode="wait">
         <motion.main
           key={tab}
@@ -36,8 +44,9 @@ export default function App() {
       {tab === 'quests' && <QuestsScreen />}
       {tab === 'profile' && <ProfileScreen />}
         </motion.main>
-      </AnimatePresence>
-      <BottomNav tab={tab} onTab={setTab} />
+        </AnimatePresence>
+        <BottomNav tab={tab} onTab={setTab} />
+      </div>
     </div>
   )
 }

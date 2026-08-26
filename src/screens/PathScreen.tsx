@@ -8,6 +8,15 @@ import type { LessonDef, UnitDef } from '../content/types'
 
 const OFFSETS = [0, 44, 64, 0, -44, -64] // zigzag x-offsets like Duolingo's winding path
 
+/** Darken a hex color for gradient bottoms. */
+function shade(hex: string, amt = 42) {
+  const n = parseInt(hex.slice(1), 16)
+  const r = Math.max(0, (n >> 16) - amt)
+  const g = Math.max(0, ((n >> 8) & 0xff) - amt)
+  const b = Math.max(0, (n & 0xff) - amt)
+  return `rgb(${r},${g},${b})`
+}
+
 type ProgressMap = Record<string, { completions: number; bestAccuracy: number }>
 
 /** A lesson unlocks only when the previous lesson was finished PERFECTLY (100%). */
@@ -47,9 +56,9 @@ export function PathScreen({ onStartLesson }: { onStartLesson: (lessonId: string
           <p className="font-display text-sm font-bold text-slate-500">
             Daily goal · <span className="text-orange-500">🔥 streak day {player.streakCurrent || 'new!'}</span>
           </p>
-          <div className="mt-1 h-3 w-full overflow-hidden rounded-full bg-slate-200">
+          <div className="mt-1 h-3.5 w-full overflow-hidden rounded-full border border-orange-100 bg-slate-100">
             <div
-              className="h-full rounded-full bg-orange-400 transition-[width] duration-700"
+              className="h-full rounded-full bg-gradient-to-r from-amber-400 to-orange-500 transition-[width] duration-700"
               style={{ width: `${Math.min(100, (player.todayXp / player.dailyGoal) * 100)}%` }}
             />
           </div>
@@ -98,32 +107,42 @@ export function PathScreen({ onStartLesson }: { onStartLesson: (lessonId: string
                         onStartLesson(l.id)
                       }}
                       className={`gpu group relative flex flex-col items-center transition-transform duration-150 ${
-                        unlocked ? 'hover:scale-105 active:scale-95' : 'cursor-not-allowed opacity-50'
+                        unlocked ? 'hover:scale-105 active:scale-95' : 'cursor-not-allowed opacity-55'
                       }`}
                       title={unlocked ? l.title : 'Finish the previous lesson with 100% to unlock!'}
                     >
-                      <span
-                        className={`relative flex items-center justify-center rounded-full border-b-[6px] font-display text-xl shadow-pop ${
-                          isBoss ? 'h-24 w-24 text-3xl' : 'h-16 w-16'
-                        } ${unlocked ? 'border-slate-900/20 text-white' : 'border-slate-300/40 bg-slate-300 text-white'}`}
-                        style={
-                          unlocked
-                            ? {
-                                backgroundColor:
-                                  crowns >= 3 ? '#f59e0b' : isActive ? '#58cc02' : u.color,
-                              }
-                            : undefined
-                        }
-                      >
-                        {isBoss ? '👑' : unlocked ? '⭐' : '🔒'}
+                      <span className="relative rounded-full bg-white p-1.5 shadow-pop">
                         {isActive && (
-                          <span className="absolute -top-9 whitespace-nowrap rounded-xl bg-white px-2 py-0.5 font-display text-xs font-extrabold text-emerald-600 shadow">
-                            START
-                          </span>
+                          <span className="animate-pulse-ring absolute inset-0 rounded-full border-4 border-emerald-400" />
                         )}
+                        <span
+                          className={`relative flex items-center justify-center rounded-full border-b-4 font-display ${
+                            isBoss ? 'h-20 w-20 text-3xl' : 'h-14 w-14 text-xl'
+                          } ${unlocked ? 'border-black/15 text-white' : 'border-black/5 bg-slate-300 text-white'}`}
+                          style={
+                            unlocked
+                              ? {
+                                  backgroundImage:
+                                    crowns >= 3
+                                      ? 'linear-gradient(180deg,#fbbf24,#d97706)'
+                                      : isActive
+                                        ? 'linear-gradient(180deg,#6ee84a,#3fb50a)'
+                                        : `linear-gradient(180deg, ${u.color}, ${shade(u.color)})`,
+                                }
+                              : undefined
+                          }
+                        >
+                          {isBoss ? '👑' : unlocked ? '⭐' : '🔒'}
+                          {isActive && (
+                            <span className="animate-pop-in absolute -top-9 whitespace-nowrap rounded-xl border-2 border-emerald-100 bg-white px-2.5 py-0.5 font-display text-xs font-extrabold text-emerald-600 shadow-md">
+                              START ▶
+                            </span>
+                          )}
+                        </span>
                       </span>
-                      <span className="mt-1 max-w-36 truncate text-center font-display text-xs font-bold text-slate-500">
-                        {crowns > 0 && !isBoss ? '★'.repeat(crowns) : ''} {l.title}
+                      <span className="mt-1.5 max-w-36 truncate rounded-full bg-white/80 px-2 py-0.5 text-center font-display text-xs font-bold text-slate-500 shadow-sm">
+                        {crowns > 0 && !isBoss ? '★'.repeat(crowns) + ' ' : ''}
+                        {l.title}
                       </span>
                     </button>
                   </li>

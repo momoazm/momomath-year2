@@ -15,45 +15,9 @@ body,
 body {
   @apply font-body text-ink antialiased;
   overscroll-behavior-y: none;
-  background-color: #cfeaff;
-  background-image:
-    radial-gradient(46px 15px at 12% 10%, rgba(255, 255, 255, 0.95) 49%, transparent 51%),
-    radial-gradient(32px 12px at 17.5% 12%, rgba(255, 255, 255, 0.95) 49%, transparent 51%),
-    radial-gradient(56px 17px at 84% 7%, rgba(255, 255, 255, 0.85) 49%, transparent 51%),
-    radial-gradient(36px 13px at 78% 9.5%, rgba(255, 255, 255, 0.85) 49%, transparent 51%),
-    linear-gradient(#4aa8ff 0%, #8fd0ff 38%, #d6f1ff 62%, #eaf8ff 100%);
+  background-color: #bfe7ff;
+  background-image: linear-gradient(#3f9dfb 0%, #6db9ff 34%, #a8dcff 60%, #e3f6ff 100%);
   background-attachment: fixed;
-}
-
-/* rolling Green Hill zone hills */
-body::before {
-  content: '';
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 16px;
-  height: 34vh;
-  z-index: -1;
-  pointer-events: none;
-  background-image:
-    radial-gradient(58vw 58vh at 12% 132%, #58cc02 61%, transparent 62%),
-    radial-gradient(72vw 74vh at 88% 138%, #3f9e04 61%, transparent 62%),
-    radial-gradient(52vw 54vh at 55% 128%, #6ed41d 61%, transparent 62%);
-}
-
-/* classic checkered dirt band under the hills */
-body::after {
-  content: '';
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 18px;
-  z-index: -1;
-  pointer-events: none;
-  opacity: 0.5;
-  background: repeating-conic-gradient(#b98a55 0% 25%, #92663c 0% 50%);
-  background-size: 44px 44px;
 }
 
 *,
@@ -116,10 +80,10 @@ body::after {
   }
 
   .card-white {
-    @apply rounded-2xl border-2 border-slate-200 bg-white p-4;
+    @apply rounded-2xl border-2 border-[#e3eaf3] bg-white/95 p-4 backdrop-blur-[2px];
     box-shadow:
-      0 2px 0 0 rgba(15, 23, 42, 0.06),
-      0 12px 32px -12px rgba(15, 23, 42, 0.18);
+      0 2px 0 0 rgba(15, 23, 42, 0.05),
+      0 14px 36px -14px rgba(9, 42, 91, 0.25);
   }
 
   .card-gate {

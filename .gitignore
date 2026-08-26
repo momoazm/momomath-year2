@@ -6,3 +6,6 @@ clips/
 .playwright-cli/
 dev-server.log
 fps-preview.log
+leagues-dev.log
+shots/
+before-*.png

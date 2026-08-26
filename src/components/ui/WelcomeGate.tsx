@@ -13,6 +13,8 @@ const CHARACTERS: { id: MascotId; label: string }[] = [
   { id: 'knuckles', label: 'Knuckles' },
   { id: 'amy', label: 'Amy' },
   { id: 'shadow', label: 'Shadow' },
+  { id: 'silver', label: 'Silver' },
+  { id: 'metal', label: 'Metal' },
 ]
 
 export function WelcomeGate() {
@@ -22,7 +24,8 @@ export function WelcomeGate() {
   const setName = usePlayer((s) => s.setName)
   const setMascot = usePlayer((s) => s.setMascot)
   const setOnboarded = usePlayer((s) => s.setOnboarded)
-  const [step, setStep] = useState<1 | 2 | 3>(1)
+  const qaStep = Number(new URLSearchParams(window.location.search).get('gate') ?? 0)
+  const [step, setStep] = useState<1 | 2 | 3>(qaStep === 2 || qaStep === 3 ? qaStep : 1)
   const [draft, setDraft] = useState('')
   const [picked, setPicked] = useState<MascotId>('sonic')
   const [failed, setFailed] = useState(false)
@@ -50,8 +53,8 @@ export function WelcomeGate() {
     }
   }, [signIn, failed, user])
 
-  if (onboarded) return null
-  if (user && step === 1) return null
+  if (onboarded && !qaStep) return null
+  if (user && step === 1 && !qaStep) return null
 
   const finish = () => {
     sfx.complete()
@@ -160,16 +163,16 @@ export function WelcomeGate() {
             <p className="mt-1 font-body text-sm font-bold text-slate-400">
               Tap a character to play as {draft || 'them'}!
             </p>
-            <div className="mt-4 grid grid-cols-5 gap-2">
+            <div className="mt-4 grid grid-cols-4 gap-2">
               {CHARACTERS.map((c) => (
                 <button
                   key={c.id}
                   onClick={() => { sfx.tap(c.id); setPicked(c.id) }}
                   className={`flex flex-col items-center rounded-2xl border-2 p-2 transition-transform hover:scale-105 ${
-                    picked === c.id ? 'border-speed-blue bg-speed-bluelight' : 'border-slate-100'
+                    picked === c.id ? 'border-speed-blue bg-speed-bluelight shadow-pop' : 'border-slate-100'
                   }`}
                 >
-                  <div className="h-12 w-12">
+                  <div className="h-14 w-14">
                     <Mascot id={c.id} expression={picked === c.id ? 'excited' : 'happy'} />
                   </div>
                   <span className={`mt-1 font-display text-[10px] font-extrabold ${picked === c.id ? 'text-speed-blue' : 'text-slate-400'}`}>
