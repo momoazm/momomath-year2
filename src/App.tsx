@@ -8,6 +8,7 @@ import { LeaguesScreen } from './screens/LeaguesScreen'
 import { QuestsScreen } from './screens/QuestsScreen'
 import { ProfileScreen } from './screens/ProfileScreen'
 import { ShopScreen } from './screens/ShopScreen'
+import { LibraryScreen } from './screens/LibraryScreen'
 import { WelcomeGate } from './components/ui/WelcomeGate'
 import { Scenery } from './components/ui/Scenery'
 import { MascotGallery } from './components/mascots/Gallery'
@@ -18,6 +19,10 @@ export default function App() {
 
   if (new URLSearchParams(window.location.search).has('gallery')) {
     return <MascotGallery />
+  }
+
+  if (new URLSearchParams(window.location.search).has('library')) {
+    return <LibraryScreen />
   }
 
   if (activeLesson) {
