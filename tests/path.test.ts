@@ -8,6 +8,12 @@ function perfectAll(ids: string[]): ProgressMap {
   return p
 }
 
+function completedAll(ids: string[]): ProgressMap {
+  const p: ProgressMap = {}
+  for (const id of ids) p[id] = { completions: 1, bestAccuracy: 50 }
+  return p
+}
+
 function flatIds(): string[] {
   return UNITS.flatMap((u) => u.lessons.map((l) => l.id))
 }
@@ -17,17 +23,20 @@ describe('path progression', () => {
     expect(nextActiveLesson({})).toEqual({ unitIdx: 0, lessonIdx: 0 })
   })
 
-  it('after finishing the LAST regular lesson below 100%, that lesson stays active - never the locked boss', () => {
+  it('after completing the LAST regular lesson (any accuracy), the boss unlocks but last regular stays active until mastered', () => {
     for (let ui = 0; ui < UNITS.length; ui++) {
       const lessons = UNITS[ui].lessons
       const lastRegular = lessons.length - 2 // boss is last
       const before = flatIds().slice(0, flatIds().indexOf(lessons[lastRegular].id))
+      // mark all before as mastered (100%) so nextActiveLesson reaches the last regular
       const progress = perfectAll(before)
-      progress[lessons[lastRegular].id] = { completions: 1, bestAccuracy: 90 }
+      // complete the last regular lesson with any accuracy
+      progress[lessons[lastRegular].id] = { completions: 1, bestAccuracy: 50 }
       const active = nextActiveLesson(progress)
+      // active stays on the last regular (not yet mastered)
       expect(active, `unit ${UNITS[ui].id}`).toEqual({ unitIdx: ui, lessonIdx: lastRegular })
-      // the boss must still be locked
-      expect(isLessonUnlocked(ui, lessons.length - 1, progress)).toBe(false)
+      // but the boss should now be unlocked
+      expect(isLessonUnlocked(ui, lessons.length - 1, progress)).toBe(true)
     }
   })
 

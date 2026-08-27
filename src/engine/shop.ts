@@ -45,6 +45,15 @@ export const SHOP_ITEMS: ShopItem[] = [
     category: 'boost',
     maxStack: 3,
   },
+  {
+    id: 'lucky-ticket',
+    name: 'Lucky Ticket',
+    description: 'Boosts your next chest: way better odds of a Rare, Epic or Legendary card!',
+    price: 120,
+    icon: '🎟️',
+    category: 'boost',
+    maxStack: 5,
+  },
 ]
 
 export const ITEM_IDS = SHOP_ITEMS.map((i) => i.id)

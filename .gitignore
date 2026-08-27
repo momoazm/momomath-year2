@@ -9,3 +9,9 @@ fps-preview.log
 leagues-dev.log
 shots/
 before-*.png
+deploy-log.txt
+shots-log.txt
+vite.log
+vite-err.log
+deploy-out.txt
+deploy-err.txt

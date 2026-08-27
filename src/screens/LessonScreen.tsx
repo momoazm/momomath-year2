@@ -1,19 +1,26 @@
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import confetti from 'canvas-confetti'
-import { ALL_LESSONS, QUESTIONS_PER_LESSON } from '../content/curriculum'
+import { QUESTIONS_PER_LESSON } from '../content/curriculum'
+import { getCurriculum } from '../content/registry'
 import { usePlayer } from '../engine/store'
 import { lessonChestPrize } from '../engine/gamification'
 import { SHOP_ITEMS } from '../engine/shop'
+import { speak, speakSlow, stopSpeaking, ttsAvailable } from '../engine/tts'
 import { Mascot } from '../components/mascots/Mascots'
 import { sfx } from '../engine/sfx'
 import { hashString, mulberry32, shuffle } from '../content/rng'
+import { layoutMatchColumns } from '../content/matchLayout'
 import type {
+  LetterTilesQuestion,
   MatchQuestion,
   McqQuestion,
   OrderQuestion,
   Question,
+  SpeakQuestion,
+  StoryPanel,
   TapCountQuestion,
+  TrueFalseQuestion,
   TypeNumberQuestion,
 } from '../content/types'
 
@@ -162,17 +169,20 @@ function NumberPad({ value, onChange }: { value: string; onChange: (v: string) =
 type Phase = 'intro' | 'playing' | 'done'
 
 export function LessonScreen({ lessonId, onExit }: { lessonId: string; onExit: () => void }) {
-  const entry = ALL_LESSONS[lessonId]
+  const subject = usePlayer((s) => s.subject)
+  const entry = getCurriculum(subject).allLessons[lessonId]
   const player = usePlayer()
   const [attempt, setAttempt] = useState(1)
   const [phase, setPhase] = useState<Phase>('intro')
   const [queue, setQueue] = useState<Question[]>([])
   const [qIdx, setQIdx] = useState(0)
   const [feedback, setFeedback] = useState<null | 'correct' | 'wrong'>(null)
-  const [mistakes, setMistakes] = useState(0)
+  const [firstAttemptCorrect, setFirstAttemptCorrect] = useState(0)
+  const [totalFirstAttempts, setTotalFirstAttempts] = useState(0)
   const [xpEarned, setXpEarned] = useState(0)
   const [prize, setPrize] = useState(0)
   const [chestOpen, setChestOpen] = useState(false)
+  const [firstAttemptMistakes, setFirstAttemptMistakes] = useState(0)
 
   // per-question UI state
   const [choiceIdx, setChoiceIdx] = useState<number | null>(null)
@@ -182,19 +192,33 @@ export function LessonScreen({ lessonId, onExit }: { lessonId: string; onExit: (
   const [matched, setMatched] = useState<Set<string>>(new Set())
   const [matchErrors, setMatchErrors] = useState(0)
   const [orderPick, setOrderPick] = useState<number[]>([])
+  // letter tiles
+  const [tilePicks, setTilePicks] = useState<number[]>([])
+  // speak
+  const [speakPhase, setSpeakPhase] = useState<'idle' | 'listening' | 'heard'>('idle')
+  // track first-attempt state per queue index
+  const [firstAttemptDone, setFirstAttemptDone] = useState<Set<number>>(new Set())
 
   const q: Question | undefined = queue[qIdx]
 
   const startLesson = useCallback(() => {
     setQueue(entry.lesson.generate(QUESTIONS_PER_LESSON, attempt))
-    setQIdx(0); setPhase('playing'); setFeedback(null); setMistakes(0)
+    setQIdx(0); setPhase('playing'); setFeedback(null)
+    setFirstAttemptCorrect(0); setTotalFirstAttempts(0); setFirstAttemptDone(new Set())
     resetQState()
   }, [entry, attempt])
 
   function resetQState() {
     setChoiceIdx(null); setTyped(''); setTapped(new Set())
     setPendingLeft(null); setMatched(new Set()); setMatchErrors(0); setOrderPick([])
+    setTilePicks([]); setSpeakPhase('idle')
   }
+
+  // auto-play audio prompts once per question; stop any speech on unmount
+  useEffect(() => {
+    if (q && 'audioText' in q && q.audioText) speak(q.audioText)
+    return () => stopSpeaking()
+  }, [q])
 
   const canCheck = useMemo(() => {
     if (!q) return false
@@ -204,8 +228,11 @@ export function LessonScreen({ lessonId, onExit }: { lessonId: string; onExit: (
       case 'tap-count': return true
       case 'match': return matched.size === q.pairs.length
       case 'order': return orderPick.length === q.items.length
+      case 'letter-tiles': return tilePicks.length === q.targetWord.length
+      case 'truefalse': return true
+      case 'speak': return true
     }
-  }, [q, choiceIdx, typed, tapped, matched, orderPick])
+  }, [q, choiceIdx, typed, tapped, matched, orderPick, tilePicks])
 
   const isCorrectNow = useCallback((): boolean => {
     if (!q) return false
@@ -219,15 +246,28 @@ export function LessonScreen({ lessonId, onExit }: { lessonId: string; onExit: (
       case 'match': return matchErrors === 0
       case 'order':
         return orderPick.every((cellIdx, pos) => cellIdx === pos)
+      case 'letter-tiles':
+        return tilePicks.every((tileIdx, pos) => q.targetWord[tileIdx] === q.targetWord[pos])
+      case 'truefalse': {
+        const saidTrue = choiceIdx === 0
+        return saidTrue === q.answer
+      }
+      case 'speak':
+        return speakPhase !== 'idle' // self-affirmed or recognised - forgiving by design
     }
-  }, [q, choiceIdx, typed, tapped, matched.size, matchErrors, orderPick])
+  }, [q, choiceIdx, typed, tapped, matched.size, matchErrors, orderPick, tilePicks, speakPhase])
 
   function handleCheck() {
     if (!canCheck || !q || feedback) return
+    const isFirstAttempt = !firstAttemptDone.has(qIdx)
     const ok = isCorrectNow()
     if (ok) sfx.correct()
     else sfx.wrong()
-    if (!ok) setMistakes((m) => m + 1)
+    if (isFirstAttempt) {
+      setFirstAttemptDone((s) => new Set(s).add(qIdx))
+      setTotalFirstAttempts((n) => n + 1)
+      if (ok) setFirstAttemptCorrect((n) => n + 1)
+    }
     setFeedback(ok ? 'correct' : 'wrong')
   }
 
@@ -248,7 +288,7 @@ export function LessonScreen({ lessonId, onExit }: { lessonId: string; onExit: (
   function finishLesson() {
     const isBoss = entry.lesson.id.endsWith('boss')
     const base = isBoss ? 20 : 10
-    const bonus = mistakes === 0 ? 5 : 0
+    const bonus = firstAttemptCorrect === QUESTIONS_PER_LESSON ? 5 : 0
     let gained = base + bonus
 
     // Apply double XP boost
@@ -257,11 +297,14 @@ export function LessonScreen({ lessonId, onExit }: { lessonId: string; onExit: (
       player.useDoubleXp()
     }
 
-    const totalAnswered = QUESTIONS_PER_LESSON + mistakes
-    const accuracy = Math.round(((totalAnswered - mistakes) / totalAnswered) * 100)
+    const accuracy = totalFirstAttempts > 0
+      ? Math.round((firstAttemptCorrect / totalFirstAttempts) * 100)
+      : 100
 
-    // Calculate chest prize
-    let chest = lessonChestPrize(isBoss, mistakes)
+    // Calculate chest prize based on first-attempt mistakes
+    const firstAttemptMistakes = totalFirstAttempts - firstAttemptCorrect
+    setFirstAttemptMistakes(firstAttemptMistakes)
+    let chest = lessonChestPrize(isBoss, firstAttemptMistakes)
 
     // Apply chest boost
     if (player.chestBoost) {
@@ -278,19 +321,19 @@ export function LessonScreen({ lessonId, onExit }: { lessonId: string; onExit: (
     player.completeLesson({
       lessonId,
       xp: gained,
-      correct: QUESTIONS_PER_LESSON - mistakes,
-      totalQuestions: totalAnswered,
-      crownsGained: mistakes === 0 ? 1 : 0,
+      correct: firstAttemptCorrect,
+      totalQuestions: totalFirstAttempts,
+      crownsGained: firstAttemptMistakes === 0 ? 1 : 0,
       accuracy,
     })
 
     // Handle streak saver
-    if (mistakes > 0 && player.streakSavers > 0) {
+    if (firstAttemptMistakes > 0 && player.streakSavers > 0) {
       // Could add logic here to protect streak
     }
 
     sfx.complete()
-    confetti({ particleCount: mistakes === 0 ? 120 : 60, spread: 75, origin: { y: 0.7 }, disableForReducedMotion: true })
+    confetti({ particleCount: firstAttemptMistakes === 0 ? 120 : 60, spread: 75, origin: { y: 0.7 }, disableForReducedMotion: true })
     setChestOpen(false)
     setPhase('done')
   }
@@ -337,14 +380,14 @@ export function LessonScreen({ lessonId, onExit }: { lessonId: string; onExit: (
         <motion.div initial={{ scale: 0.5, rotate: -8, opacity: 0 }} animate={{ scale: 1, rotate: 0, opacity: 1 }}
           transition={{ type: 'spring', stiffness: 220, damping: 14 }}
           className="h-40 w-40 gpu">
-          <Mascot id={entry.unit.id === 'u5' ? 'amy' : player.mascot} expression="cheer" />
+          <Mascot id={player.mascot} expression="cheer" />
         </motion.div>
         <motion.h1 initial={{ y: 12, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.15 }}
           className="mt-3 text-center font-display text-4xl font-extrabold text-yellow-500 drop-shadow">
-          {mistakes === 0 ? 'PERFECT!' : 'Lesson complete!'}
+          {firstAttemptMistakes === 0 ? 'PERFECT!' : 'Lesson complete!'}
         </motion.h1>
         <p className="mt-1 text-center font-body text-sm font-bold text-slate-400">
-          {mistakes === 0 ? 'Flawless run - every answer right!' : `${mistakes} mistake${mistakes === 1 ? '' : 's'} corrected. Practice makes perfect!`}
+          {firstAttemptMistakes === 0 ? 'Flawless run - every answer right!' : `${firstAttemptMistakes} mistake${firstAttemptMistakes === 1 ? '' : 's'} on first try. Practice makes perfect!`}
         </p>
 
         <motion.button
@@ -419,6 +462,18 @@ export function LessonScreen({ lessonId, onExit }: { lessonId: string; onExit: (
                 setPendingLeft(null)
               }
             }} /> :
+            q.kind === 'letter-tiles' ? (
+              <LetterTilesView q={q} picks={tilePicks} onToggleTile={(i) => {
+                sfx.tap(String(i))
+                setTilePicks((p) => p.includes(i) ? p.filter((x) => x !== i) : p.length < q.targetWord.length ? [...p, i] : p)
+              }} />
+            ) :
+            q.kind === 'truefalse' ? (
+              <TrueFalseView q={q} choice={choiceIdx} onChoice={(c) => { sfx.tap(c === 0 ? 'true' : 'false'); setChoiceIdx(c) }} />
+            ) :
+            q.kind === 'speak' ? (
+              <SpeakView q={q} phase={speakPhase} onPhase={setSpeakPhase} onHeard={() => { sfx.correct(); setSpeakPhase('heard') }} />
+            ) :
             <OrderView q={q} picks={orderPick} onPick={(i) => {
               sfx.tap(String(i))
               setOrderPick((p) => p.includes(i) ? p.filter((x) => x !== i) : p.length < q.items.length ? [...p, i] : p)
@@ -481,6 +536,9 @@ function correctText(q: Question): string {
     case 'tap-count': return `There were ${q.target}`
     case 'order': return `Order: ${q.items.join(', ')}`
     case 'match': return 'Look again and try the rematch!'
+    case 'letter-tiles': return `Spelling: ${q.targetWord}`
+    case 'truefalse': return q.answer ? 'It was TRUE' : 'It was FALSE'
+    case 'speak': return `Try again slowly: "${q.targetText}"`
   }
 }
 
@@ -493,10 +551,205 @@ function Prompt({ children, visual }: { children: React.ReactNode; visual?: Ques
   )
 }
 
-function McqView({ q, selected, onSelect }: { q: McqQuestion; selected: number | null; onSelect: (i: number) => void }) {
+/* ------------------------- english extras ------------------------- */
+
+function StoryPanelView({ panel }: { panel: StoryPanel }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+      className="card-white mx-auto mt-3 max-w-md px-4 py-3"
+    >
+      <p className="text-center font-display text-sm font-extrabold uppercase tracking-wide text-violet-500">
+        📖 {panel.title}
+      </p>
+      <div className="mt-1 flex justify-center gap-1 text-3xl">
+        {panel.scene.map((e, i) => (
+          <span key={i} className="gpu animate-bob" style={{ animationDelay: `${i * 0.12}s` }}>{e}</span>
+        ))}
+      </div>
+      <div className="mt-2 space-y-1">
+        {panel.lines.map((line, i) => (
+          <p key={i} className="text-center font-body text-base font-semibold leading-relaxed text-slate-600">
+            {line}
+          </p>
+        ))}
+      </div>
+    </motion.div>
+  )
+}
+
+function AudioBar({ audioText }: { audioText: string }) {
+  if (!ttsAvailable()) return null
+  return (
+    <div className="mx-auto mt-2 flex w-fit items-center gap-2">
+      <button
+        onClick={() => { sfx.tap('audio'); speak(audioText) }}
+        className="btn3d btn-blue flex items-center gap-2 !px-5 !py-3 text-xl"
+        title="Play again"
+      >
+        🔊 Listen
+      </button>
+      <button
+        onClick={() => { sfx.tap('slow'); speakSlow(audioText) }}
+        className="btn3d btn-grey !px-4 !py-3 text-xl"
+        title="Slow replay (turtle mode)"
+      >
+        🐢
+      </button>
+    </div>
+  )
+}
+
+function LetterTilesView({ q, picks, onToggleTile }: {
+  q: LetterTilesQuestion; picks: number[]; onToggleTile: (i: number) => void
+}) {
+  const tiles = useMemo(() => {
+    const rand = mulberry32(hashString(q.targetWord + '|' + q.prompt))
+    const idx = shuffle(rand, q.targetWord.split('').map((_, i) => i))
+    if (idx.every((v, i) => v === i)) idx.push(idx.shift()!)
+    return idx
+  }, [q])
+  const answerSoFar = picks.map((i) => q.targetWord[i]).join('')
   return (
     <div>
       <Prompt visual={q.visual}>{q.prompt}</Prompt>
+      {/* answer slots */}
+      <div className="mx-auto flex w-fit flex-wrap justify-center gap-1.5 px-2">
+        {q.targetWord.split('').map((_, slot) => {
+          const tileIdx = picks[slot]
+          return (
+            <div key={slot}
+              className={`flex h-12 w-11 items-center justify-center rounded-xl border-2 border-b-4 font-display text-2xl font-extrabold ${
+                tileIdx !== undefined ? 'border-speed-blue bg-speed-bluelight text-slate-700' : 'border-dashed border-slate-300 bg-slate-50'
+              }`}>
+              {tileIdx !== undefined ? (
+                <button onClick={() => onToggleTile(tileIdx)} aria-label={`remove letter ${q.targetWord[tileIdx]}`}>
+                  {q.targetWord[tileIdx]}
+                </button>
+              ) : ''}
+            </div>
+          )
+        })}
+      </div>
+      {/* shuffled tiles */}
+      <div className="mt-6 flex flex-wrap justify-center gap-2 px-2">
+        {tiles.map((charIdx) => {
+          const usedAt = picks.indexOf(charIdx)
+          return (
+            <motion.button key={charIdx} whileTap={{ scale: 0.85 }} disabled={usedAt >= 0}
+              onClick={() => onToggleTile(charIdx)}
+              className={`flex h-14 w-12 items-center justify-center rounded-xl border-2 border-b-4 font-display text-3xl font-extrabold transition-colors ${
+                usedAt >= 0 ? 'border-slate-200 bg-slate-100 text-slate-300' : 'border-slate-200 bg-white'
+              }`}>
+              {q.targetWord[charIdx]}
+            </motion.button>
+          )
+        })}
+      </div>
+      <p className="pt-3 text-center font-display font-bold text-slate-400">{answerSoFar || '\u00a0'}</p>
+    </div>
+  )
+}
+
+function TrueFalseView({ q, choice, onChoice }: {
+  q: TrueFalseQuestion; choice: number | null; onChoice: (c: number) => void
+}) {
+  return (
+    <div>
+      {q.story && <StoryPanelView panel={q.story} />}
+      <h2 className="py-4 text-center font-display text-2xl font-extrabold leading-snug">{q.prompt}</h2>
+      <div className="card-white mx-auto max-w-md px-4 py-4 text-center font-body text-lg font-bold leading-relaxed text-slate-700">
+        {q.statement}
+      </div>
+      <div className="mt-5 grid grid-cols-2 gap-3 px-1">
+        <ChoiceButton label="TRUE ✔" selected={choice === 0} onSelect={() => onChoice(0)} />
+        <ChoiceButton label="FALSE ✘" selected={choice === 1} onSelect={() => onChoice(1)} />
+      </div>
+    </div>
+  )
+}
+
+/** Normalises words so forgiving ASR comparison works ("dog." ~ "dog"). */
+const normWords = (s: string): string[] =>
+  s.toLowerCase().replace(/[^a-z' ]/g, ' ').split(/\s+/).filter(Boolean)
+
+function wordMatchScore(said: string[], target: string[]): number {
+  if (!target.length) return 0
+  let hits = 0
+  for (const w of target) if (said.includes(w)) hits++
+  return hits / target.length
+}
+
+function SpeakView({ q, phase, onPhase, onHeard }: {
+  q: SpeakQuestion
+  phase: 'idle' | 'listening' | 'heard'
+  onPhase: (p: 'idle' | 'listening' | 'heard') => void
+  onHeard: () => void
+}) {
+  function startListening() {
+    onPhase('listening')
+    const SR = (window as unknown as Record<string, unknown>).webkitSpeechRecognition ??
+      (window as unknown as Record<string, unknown>).SpeechRecognition
+    if (typeof SR !== 'function') return // no ASR: self-check path stays available
+    try {
+      const rec = new (SR as new () => {
+        lang: string; interimResults: boolean; maxAlternatives: number
+        start: () => void; stop: () => void
+        onresult: ((e: { results: { transcript: string }[][] }) => void) | null
+        onend: (() => void) | null
+      })()
+      rec.lang = 'en-GB'; rec.interimResults = false; rec.maxAlternatives = 3
+      rec.onresult = (e) => {
+        const said = normWords(String(e.results[0]?.[0]?.transcript ?? ''))
+        if (wordMatchScore(said, normWords(q.targetText)) >= 0.6) {
+          sfx.correct()
+          onHeard()
+        }
+      }
+      rec.onend = () => onPhase(phase === 'heard' ? 'heard' : 'idle')
+      rec.start()
+    } catch {
+      /* fall back to self-check */
+    }
+  }
+
+  return (
+    <div>
+      {q.story && <StoryPanelView panel={q.story} />}
+      <Prompt visual={q.visual}>{q.prompt}</Prompt>
+      <div className="card-white mx-auto max-w-md px-5 py-5 text-center">
+        <p className="font-body text-2xl font-extrabold leading-relaxed text-slate-700">“{q.targetText}”</p>
+        <AudioBar audioText={q.targetText} />
+      </div>
+      <div className="mt-5 flex flex-col items-center gap-3">
+        {phase !== 'heard' && (
+          <button onClick={startListening} className="btn3d btn-green !px-8 !py-4 text-xl gpu">
+            🎤 Read it aloud!
+          </button>
+        )}
+        {phase !== 'heard' && (
+          <button onClick={() => onHeard()}
+            className="font-display text-sm font-bold text-sky-400 hover:text-sky-500">
+            I read it out loud ✅
+          </button>
+        )}
+        {phase === 'heard' && (
+          <motion.p initial={{ scale: 0.7, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+            className="font-display text-xl font-extrabold text-emerald-500">
+            Lovely reading! 🌟
+          </motion.p>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function McqView({ q, selected, onSelect }: { q: McqQuestion; selected: number | null; onSelect: (i: number) => void }) {
+  return (
+    <div>
+      {q.story && <StoryPanelView panel={q.story} />}
+      <Prompt visual={q.visual}>{q.prompt}</Prompt>
+      {q.audioText && <AudioBar audioText={q.audioText} />}
       <div className={`grid gap-3 ${q.choices.some((c) => c.length > 14) ? 'grid-cols-1' : 'grid-cols-2'}`}>
         {q.choices.map((c, i) => (
           <ChoiceButton key={i} label={c} selected={selected === i} onSelect={() => {
@@ -549,11 +802,17 @@ function TapView({ q, tapped, onTap }: { q: TapCountQuestion; tapped: Set<number
 function MatchView({ q, pendingLeft, matched, onPick }: {
   q: MatchQuestion; pendingLeft: string | null; matched: Set<string>; onPick: (side: 'left' | 'right', key: string) => void
 }) {
-  const lefts = useMemo(() => [...new Set(q.pairs.map((p) => p.left))], [q])
-  const rights = useMemo(() => [...new Set(q.pairs.map((p) => p.right))], [q])
+  // De-align the columns: the right column is shuffled into a derangement so a
+  // correct pair never sits side by side on the same row. Grading still keys
+  // off q.pairs below, so this only affects presentation order.
+  const { lefts, rights } = useMemo(() => {
+    const key = `${q.prompt}|${q.pairs.map((p) => `${p.left}~${p.right}`).join('|')}`
+    return layoutMatchColumns(q.pairs, key)
+  }, [q])
   return (
     <div>
       <Prompt>{q.prompt}</Prompt>
+      {q.audioText && <AudioBar audioText={q.audioText} />}
       <div className="grid grid-cols-2 gap-3 px-1">
         <div className="flex flex-col gap-2">
           {lefts.map((l) => (
@@ -586,7 +845,9 @@ function OrderView({ q, picks, onPick }: { q: OrderQuestion; picks: number[]; on
   }, [q])
   return (
     <div>
+      {q.story && <StoryPanelView panel={q.story} />}
       <Prompt>{q.prompt}</Prompt>
+      {q.audioText && <AudioBar audioText={q.audioText} />}
       <div className="flex flex-wrap justify-center gap-2">
         {shuffled.map((i) => {
           const pos = picks.indexOf(i)

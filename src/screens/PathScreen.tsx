@@ -1,8 +1,8 @@
 import { useMemo, useRef } from 'react'
 import { motion } from 'framer-motion'
-import { UNITS, ALL_LESSONS } from '../content/curriculum'
-import { usePlayer } from '../engine/store'
+import { getCurriculum } from '../content/registry'
 import { isLessonUnlocked, nextActiveLesson } from '../engine/path'
+import { usePlayer } from '../engine/store'
 import { Mascot } from '../components/mascots/Mascots'
 import { sfx } from '../engine/sfx'
 import type { LessonDef, UnitDef } from '../content/types'
@@ -27,13 +27,21 @@ function unitDone(u: UnitDef, progress: ProgressMap) {
 export function PathScreen({ onStartLesson }: { onStartLesson: (lessonId: string) => void }) {
   const player = usePlayer()
   const nextRef = useRef<HTMLButtonElement | null>(null)
+  const { units, lessonCount, subjectLabel } = useMemo(() => {
+    const c = getCurriculum(player.subject)
+    return {
+      units: c.units,
+      lessonCount: Object.keys(c.allLessons).length,
+      subjectLabel: player.subject === 'english' ? 'English' : 'Maths',
+    }
+  }, [player.subject])
 
   // pulse the first lesson that is unlocked and not yet mastered — never a
   // locked node, so finishing lesson 6 below 100% keeps lesson 6 active
   // (replay) until the boss unlocks
   const active = useMemo(
-    () => nextActiveLesson(player.lessonProgress),
-    [player.lessonProgress],
+    () => nextActiveLesson(player.lessonProgress, units),
+    [player.lessonProgress, units],
   )
 
   return (
@@ -59,7 +67,7 @@ export function PathScreen({ onStartLesson }: { onStartLesson: (lessonId: string
         </div>
       </div>
 
-      {UNITS.map((u, ui) => {
+      {units.map((u, ui) => {
         const done = unitDone(u, player.lessonProgress)
         return (
           <section key={u.id} className="mb-8">
@@ -82,7 +90,7 @@ export function PathScreen({ onStartLesson }: { onStartLesson: (lessonId: string
 
             <ol className="flex flex-col items-center gap-4">
               {u.lessons.map((l: LessonDef, li) => {
-                const unlocked = isLessonUnlocked(ui, li, player.lessonProgress)
+                const unlocked = isLessonUnlocked(ui, li, player.lessonProgress, units)
                 const prog = player.lessonProgress[l.id]
                 const crowns = prog?.crown ?? 0
                 const isActive = active?.unitIdx === ui && active.lessonIdx === li
@@ -151,7 +159,7 @@ export function PathScreen({ onStartLesson }: { onStartLesson: (lessonId: string
         )
       })}
       <footer className="pb-4 text-center text-xs font-bold text-slate-300">
-        Momo Year 2 Cambridge · Maths ·  {Object.keys(ALL_LESSONS).length} lessons
+        Momo Year 2 Cambridge · {subjectLabel} · {lessonCount} lessons
       </footer>
     </div>
   )

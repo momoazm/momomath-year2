@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { MascotId } from '../content/types'
+import type { MascotId, Subject } from '../content/types'
 import {
   ACHIEVEMENTS,
   DAILY_QUESTS,
@@ -14,6 +14,7 @@ import {
 } from './gamification'
 import { SHOP_ITEMS } from './shop'
 import { setMuted, sfx } from './sfx'
+import type { ChestResult } from './cards'
 
 export interface LessonProgress {
   crown: number
@@ -35,6 +36,7 @@ export const ENERGY_IS_UNLIMITED = true
 interface PlayerState {
   name: string
   mascot: MascotId
+  subject: Subject
   xpTotal: number
   gems: number
   streakCurrent: number
@@ -61,6 +63,14 @@ interface PlayerState {
   doubleXpLessons: number
   chestBoost: boolean
   megaChest: boolean
+  /** collected card ids (unique) */
+  cardCollection: string[]
+  /** consecutive chests without a card - drives hidden card pity (see cards.ts) */
+  cardPity: number
+  /** shop Lucky Ticket stack; consumed on the next chest */
+  luckyTickets: number
+  /** timestamp (ms) of last successful cloud sync */
+  lastSyncedAt: number | null
 
   // actions
   completeLesson: (args: {
@@ -74,6 +84,7 @@ interface PlayerState {
   setDailyGoal: (g: number) => void
   setName: (n: string) => void
   setMascot: (m: MascotId) => void
+  setSubject: (s: Subject) => void
   setOnboarded: () => void
   addGems: (n: number) => void
   toggleSound: () => void
@@ -87,6 +98,12 @@ interface PlayerState {
   useChestBoost: () => void
   setMegaChest: (v: boolean) => void
   useMegaChest: () => void
+  grantChest: (chest: ChestResult) => void
+  addLuckyTickets: (n: number) => void
+  /** consume one Lucky Ticket if available; returns true if it was active */
+  consumeLuckyTicket: () => boolean
+  applySyncedSnapshot: (snap: Partial<PlayerState>) => void
+  setLastSyncedAt: (t: number | null) => void
 }
 
 function rollDay(s: PlayerState) {
@@ -167,6 +184,11 @@ export const usePlayer = create<PlayerState>()(
     (set) => ({
       name: 'Champion',
       mascot: 'sonic' as MascotId,
+      subject:
+        typeof window !== 'undefined' &&
+        new URLSearchParams(window.location.search).get('subject') === 'english'
+          ? ('english' as Subject)
+          : ('math' as Subject),
       xpTotal: 0,
       gems: 50,
       streakCurrent: 0,
@@ -193,6 +215,10 @@ export const usePlayer = create<PlayerState>()(
       doubleXpLessons: 0,
       chestBoost: false,
       megaChest: false,
+      cardCollection: [],
+      cardPity: 0,
+      luckyTickets: 0,
+      lastSyncedAt: null,
 
       completeLesson: ({ lessonId, xp, correct, totalQuestions, crownsGained, accuracy }) =>
         set((state) => {
@@ -234,6 +260,15 @@ export const usePlayer = create<PlayerState>()(
       setDailyGoal: (g) => set({ dailyGoal: g }),
       setName: (n) => set({ name: n.trim() || 'Champion' }),
       setMascot: (m) => set({ mascot: m }),
+      setSubject: (s) => {
+        if (typeof window !== 'undefined') {
+          const url = new URL(window.location.href)
+          if (s === 'english') url.searchParams.set('subject', 'english')
+          else url.searchParams.delete('subject')
+          window.history.replaceState(null, '', url)
+        }
+        set({ subject: s })
+      },
       setOnboarded: () => set({ onboarded: true }),
       addGems: (n) => set((state) => ({ gems: state.gems + n })),
       toggleSound: () =>
@@ -310,8 +345,72 @@ export const usePlayer = create<PlayerState>()(
       useChestBoost: () => set({ chestBoost: false }),
       setMegaChest: (v) => set({ megaChest: v }),
       useMegaChest: () => set({ megaChest: false }),
+      grantChest: (chest) =>
+        set((state) => {
+          let cardCollection = state.cardCollection
+          let cardPity = state.cardPity
+          if (chest.card) {
+            if (!cardCollection.includes(chest.card.id)) {
+              cardCollection = [...cardCollection, chest.card.id]
+            }
+            cardPity = 0
+          } else {
+            cardPity = state.cardPity + 1
+          }
+          return { gems: state.gems + chest.gems, cardCollection, cardPity }
+        }),
+      addLuckyTickets: (n) => set((state) => ({ luckyTickets: state.luckyTickets + n })),
+      consumeLuckyTicket: () => {
+        let active = false
+        set((state) => {
+          if (state.luckyTickets <= 0) return state
+          active = true
+          return { luckyTickets: state.luckyTickets - 1 }
+        })
+        return active
+      },
+      applySyncedSnapshot: (snap) =>
+        set((state) => {
+          // Conservative field-by-field merge (see sync.ts mergeStates for the
+          // authoritative union/max rules). Only touches fields present in snap.
+          const next: Partial<PlayerState> = {}
+          if (typeof snap.name === 'string') next.name = snap.name
+          if (snap.mascot) next.mascot = snap.mascot
+          if (typeof snap.xpTotal === 'number') next.xpTotal = Math.max(state.xpTotal, snap.xpTotal)
+          if (typeof snap.gems === 'number') next.gems = Math.max(state.gems, snap.gems)
+          if (typeof snap.streakLongest === 'number')
+            next.streakLongest = Math.max(state.streakLongest, snap.streakLongest)
+          if (typeof snap.streakCurrent === 'number')
+            next.streakCurrent = Math.max(state.streakCurrent, snap.streakCurrent)
+          if (snap.achievements?.length)
+            next.achievements = [...new Set([...state.achievements, ...snap.achievements])]
+          if (snap.cardCollection?.length)
+            next.cardCollection = [...new Set([...state.cardCollection, ...snap.cardCollection])]
+          if (snap.lessonProgress)
+            next.lessonProgress = { ...state.lessonProgress, ...snap.lessonProgress }
+          if (snap.shopInventory) next.shopInventory = { ...state.shopInventory, ...snap.shopInventory }
+          return next
+        }),
+      setLastSyncedAt: (t) => set({ lastSyncedAt: t }),
     }),
-    { name: 'momomath-year2-player-v2' },
+    {
+      name: 'momomath-year2-player-v2',
+      version: 3,
+      migrate: (persisted, version) => {
+        const p = persisted as PlayerState
+        if (version < 3) {
+          // Backfill any fields added after v2.
+          return {
+            ...p,
+            cardCollection: Array.isArray(p.cardCollection) ? p.cardCollection : [],
+            cardPity: typeof p.cardPity === 'number' ? p.cardPity : 0,
+            luckyTickets: typeof p.luckyTickets === 'number' ? p.luckyTickets : 0,
+            lastSyncedAt: typeof p.lastSyncedAt === 'number' ? p.lastSyncedAt : null,
+          }
+        }
+        return p
+      },
+    },
   ),
 )
 
