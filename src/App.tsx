@@ -16,13 +16,14 @@ import { MascotGallery } from './components/mascots/Gallery'
 export default function App() {
   const [tab, setTab] = useState<Tab>('path')
   const [activeLesson, setActiveLesson] = useState<string | null>(null)
+  const [showLibrary, setShowLibrary] = useState(false)
 
   if (new URLSearchParams(window.location.search).has('gallery')) {
     return <MascotGallery />
   }
 
-  if (new URLSearchParams(window.location.search).has('library')) {
-    return <LibraryScreen />
+  if (new URLSearchParams(window.location.search).has('library') || showLibrary) {
+    return <LibraryScreen onClose={() => setShowLibrary(false)} />
   }
 
   if (activeLesson) {
@@ -34,7 +35,7 @@ export default function App() {
       <Scenery />
       <div className="relative z-10">
         <WelcomeGate />
-        <TopBar onLeagueClick={() => setTab('leagues')} />
+        <TopBar onLeagueClick={() => setTab('leagues')} onLibraryClick={() => setShowLibrary(true)} />
       <AnimatePresence mode="wait">
         <motion.main
           key={tab}

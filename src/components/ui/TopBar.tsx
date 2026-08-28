@@ -47,7 +47,7 @@ function Pill({ icon, iconBg, value, title, valueClass }: { icon: string; iconBg
   )
 }
 
-export function TopBar({ onLeagueClick }: { onLeagueClick?: () => void }) {
+export function TopBar({ onLeagueClick, onLibraryClick }: { onLeagueClick?: () => void; onLibraryClick?: () => void }) {
   const s = usePlayer()
   const user = useAuth((a) => a.user)
   const league = LEAGUE_META[s.currentLeague]
@@ -80,6 +80,14 @@ export function TopBar({ onLeagueClick }: { onLeagueClick?: () => void }) {
             ∞
           </div>
         )}
+        <button
+          onClick={onLibraryClick}
+          className="grid h-9 w-9 place-items-center rounded-full border border-white bg-white/90 text-xl shadow-sm transition-colors hover:bg-white hover:scale-105"
+          title="Card Library"
+          aria-label="Card Library"
+        >
+          🃏
+        </button>
       </div>
     </header>
   )

@@ -15,7 +15,7 @@ const TIER_TO_RARITY: Record<ChestTier, ChestRarity> = {
 
 const TIER_ORDER: ChestTier[] = ['common', 'rare', 'epic', 'legendary', 'exclusive']
 
-export function LibraryScreen() {
+export function LibraryScreen({ onClose }: { onClose?: () => void }) {
   const { cardCollection } = usePlayer()
   const [filterTier, setFilterTier] = useState<ChestTier | 'all'>('all')
   const [selectedCard, setSelectedCard] = useState<CardDef | null>(null)
@@ -54,7 +54,7 @@ export function LibraryScreen() {
 
   return (
     <div className="mx-auto max-w-5xl p-4 pb-24">
-      <LibraryHeader ownedCount={owned.size} totalCount={allCards.length} />
+      <LibraryHeader ownedCount={owned.size} totalCount={allCards.length} onClose={onClose} />
       <TierFilterTabs filterTier={filterTier} setFilterTier={setFilterTier} />
       <CardGrid
         cards={filteredCards}
@@ -77,12 +77,23 @@ export function LibraryScreen() {
 
 /* --- Sub-components below --- */
 
-function LibraryHeader({ ownedCount, totalCount }: { ownedCount: number; totalCount: number }) {
+function LibraryHeader({ ownedCount, totalCount, onClose }: { ownedCount: number; totalCount: number; onClose?: () => void }) {
   return (
     <div className="flex items-center justify-between mb-6">
       <h1 className="font-display text-3xl font-extrabold text-slate-800">Card Library</h1>
-      <div className="text-sm text-slate-500">
-        {ownedCount} / {totalCount} collected
+      <div className="flex items-center gap-4">
+        <div className="text-sm text-slate-500">
+          {ownedCount} / {totalCount} collected
+        </div>
+        {onClose && (
+          <button
+            onClick={onClose}
+            className="grid h-9 w-9 place-items-center rounded-full border border-white bg-white/90 text-xl shadow-sm transition-colors hover:bg-white hover:scale-105"
+            aria-label="Close Library"
+          >
+            ✕
+          </button>
+        )}
       </div>
     </div>
   )
