@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type CSSProperties } from 'react'
 import { usePlayer } from '../engine/store'
-import { CARDS, type CardDef, type ChestTier } from '../engine/cards'
+import { CARDS, cardImageUrl, type CardDef, type ChestTier } from '../engine/cards'
 import { RARITY_META, type ChestRarity } from '../engine/gamification'
 import { AnimatePresence, motion } from 'framer-motion'
 
@@ -37,8 +37,8 @@ export function LibraryScreen({ onClose }: { onClose?: () => void }) {
       setSelectedCard(card)
     } else {
       const rarity = TIER_TO_RARITY[card.tier]
+      // LockedCardToast handles its own 2.5s auto-dismiss via onDone
       setLockedToast({ card, rarity })
-      setTimeout(() => setLockedToast(null), 2500)
     }
   }
 
@@ -66,11 +66,12 @@ export function LibraryScreen({ onClose }: { onClose?: () => void }) {
       <CardModal
         selectedCard={selectedCard}
         setSelectedCard={setSelectedCard}
-        allCards={allCards}
       />
-      {lockedToast && (
-        <LockedCardToast card={lockedToast.card} rarity={lockedToast.rarity} />
-      )}
+      <LockedCardToast
+        card={lockedToast?.card ?? null}
+        rarity={lockedToast?.rarity ?? null}
+        onDone={() => setLockedToast(null)}
+      />
     </div>
   )
 }
@@ -128,7 +129,7 @@ interface CardGridProps {
   cards: CardDef[]
   isOwned: (id: string) => boolean
   onCardClick: (card: CardDef) => void
-  getHiddenCardStyle: (tier: ChestTier) => React.CSSProperties
+  getHiddenCardStyle: (tier: ChestTier) => CSSProperties
 }
 
 function CardGrid({ cards, isOwned, onCardClick, getHiddenCardStyle }: CardGridProps) {
@@ -190,7 +191,7 @@ function CardGrid({ cards, isOwned, onCardClick, getHiddenCardStyle }: CardGridP
 
             <div className={`absolute inset-0 flex flex-col ${owned_ ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
               <div className="absolute inset-0" style={{
-                background: 'linear-gradient(180deg, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.7) 100%)',
+                background: 'linear-gradient(180deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.12) 100%)',
                 boxShadow: `inset 0 0 60px ${meta.glowColor}`,
               }} />
 
@@ -207,7 +208,13 @@ function CardGrid({ cards, isOwned, onCardClick, getHiddenCardStyle }: CardGridP
 
               <div className="relative z-10 flex-1 flex items-center justify-center p-4">
                 <div className="w-full h-full max-w-48 max-h-48 flex items-center justify-center">
-                  <span className="text-8xl opacity-80">🃏</span>
+                  <img
+                    src={cardImageUrl(card)}
+                    alt={card.name}
+                    loading="lazy"
+                    onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
+                    className="h-full w-full object-contain drop-shadow-md"
+                  />
                 </div>
               </div>
 
@@ -215,7 +222,7 @@ function CardGrid({ cards, isOwned, onCardClick, getHiddenCardStyle }: CardGridP
                 <h3 className="font-display text-base font-extrabold text-slate-800">
                   {card.name}
                 </h3>
-                <p className="text-xs text-slate-500 mt-1 line-clamp-2">
+                <p className="text-xs text-slate-500 mt-1">
                   {card.flavor}
                 </p>
               </div>
@@ -251,125 +258,143 @@ function EmptyState({ filterTier }: { filterTier: ChestTier | 'all' }) {
 interface CardModalProps {
   selectedCard: CardDef | null
   setSelectedCard: (card: CardDef | null) => void
-  allCards: CardDef[]
 }
 
-function CardModal({ selectedCard, setSelectedCard, allCards }: CardModalProps) {
-  if (!selectedCard) return null
-
-  const rarity = TIER_TO_RARITY[selectedCard.tier]
-  const meta = RARITY_META[rarity]
-
+function CardModal({ selectedCard, setSelectedCard }: CardModalProps) {
   return (
     <AnimatePresence>
-      <motion.div
-        key={selectedCard.id}
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
-        onClick={() => setSelectedCard(null)}
-      >
+      {selectedCard && (() => {
+        const rarity = TIER_TO_RARITY[selectedCard.tier]
+        const meta = RARITY_META[rarity]
+        return (
         <motion.div
-          initial={{ scale: 0.9, y: 20 }}
-          animate={{ scale: 1, y: 0 }}
-          exit={{ scale: 0.9, y: 20 }}
-          className="relative w-full max-w-md card-white rounded-2xl overflow-hidden"
-          onClick={(e) => e.stopPropagation()}
+          key={selectedCard.id}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          onClick={() => setSelectedCard(null)}
         >
-          <div className="relative overflow-hidden" style={{
-            background: `linear-gradient(180deg, ${meta.color}15, transparent 60%)`,
-          }}>
-            <div className="h-48 flex items-center justify-center p-6" style={{
-              boxShadow: `inset 0 0 80px ${meta.glowColor}`,
+          <motion.div
+            initial={{ scale: 0.9, y: 20 }}
+            animate={{ scale: 1, y: 0 }}
+            exit={{ scale: 0.9, y: 20 }}
+            className="relative w-full max-w-md card-white rounded-2xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="relative overflow-hidden" style={{
+              background: `linear-gradient(180deg, ${meta.color}15, transparent 60%)`,
             }}>
-              <span className="text-12xl">🃏</span>
+              <div className="h-64 flex items-center justify-center p-6" style={{
+                boxShadow: `inset 0 0 80px ${meta.glowColor}`,
+              }}>
+                <img
+                  src={cardImageUrl(selectedCard)}
+                  alt={selectedCard.name}
+                  onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
+                  className="h-full w-full object-contain drop-shadow-lg"
+                />
+              </div>
+              <div className="absolute top-4 left-4 right-4 flex justify-between">
+                <span className="font-display text-xs font-extrabold px-2 py-1 rounded-full"
+                      style={{ background: meta.color, color: 'white' }}>
+                  {meta.label}
+                </span>
+                <button
+                  onClick={() => setSelectedCard(null)}
+                  className="w-8 h-8 rounded-full bg-white/90 text-slate-500 flex items-center justify-center hover:bg-white"
+                >
+                  ✕
+                </button>
+              </div>
             </div>
-            <div className="absolute top-4 left-4 right-4 flex justify-between">
-              <span className="font-display text-xs font-extrabold px-2 py-1 rounded-full"
-                    style={{ background: meta.color, color: 'white' }}>
-                {meta.label}
-              </span>
+
+            <div className="p-6 text-center">
+              <h2 className="font-display text-2xl font-extrabold text-slate-800">
+                {selectedCard.name}
+              </h2>
+              <p className="mt-2 text-slate-600">{selectedCard.flavor}</p>
+
+              <div className="mt-4 flex items-center justify-center gap-2">
+                {['common', 'rare', 'epic', 'legendary', 'exclusive']
+                  .slice(0, TIER_ORDER.indexOf(selectedCard.tier) + 1)
+                  .map((t, i) => (
+                    <motion.span
+                      key={t}
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      transition={{ delay: i * 0.05 }}
+                      className="w-2 h-2 rounded-full"
+                      style={{ background: RARITY_META[TIER_TO_RARITY[t as ChestTier]].color }}
+                    />
+                  ))}
+              </div>
+
+              <div className="mt-6 p-4 rounded-xl bg-slate-50">
+                <p className="text-sm text-slate-600">
+                  Obtained from <strong className="font-display capitalize">{selectedCard.tier}</strong> chests
+                  {selectedCard.tier === 'legendary' || selectedCard.tier === 'exclusive'
+                    ? ' (guaranteed card drop)'
+                    : ' (~10% chance per chest)'}
+                </p>
+              </div>
+
               <button
                 onClick={() => setSelectedCard(null)}
-                className="w-8 h-8 rounded-full bg-white/90 text-slate-500 flex items-center justify-center hover:bg-white"
+                className="mt-6 w-full bg-speed-blue text-white font-display font-extrabold py-3 rounded-xl hover:bg-blue-600 transition"
               >
-                ✕
+                Close
               </button>
             </div>
-          </div>
-
-          <div className="p-6 text-center">
-            <h2 className="font-display text-2xl font-extrabold text-slate-800">
-              {selectedCard.name}
-            </h2>
-            <p className="mt-2 text-slate-600">{selectedCard.flavor}</p>
-
-            <div className="mt-4 flex items-center justify-center gap-2">
-              {['common', 'rare', 'epic', 'legendary', 'exclusive']
-                .slice(0, TIER_ORDER.indexOf(selectedCard.tier) + 1)
-                .map((t, i) => (
-                  <motion.span
-                    key={t}
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    transition={{ delay: i * 0.05 }}
-                    className="w-2 h-2 rounded-full"
-                    style={{ background: RARITY_META[TIER_TO_RARITY[t as ChestTier]].color }}
-                  />
-                ))}
-            </div>
-
-            <div className="mt-6 p-4 rounded-xl bg-slate-50">
-              <p className="text-sm text-slate-600">
-                Obtained from <strong className="font-display capitalize">{selectedCard.tier}</strong> chests
-                {selectedCard.tier === 'legendary' || selectedCard.tier === 'exclusive'
-                  ? ' (guaranteed card drop)'
-                  : ' (~10% chance per chest)'}
-              </p>
-            </div>
-
-            <button
-              onClick={() => setSelectedCard(null)}
-              className="mt-6 w-full bg-speed-blue text-white font-display font-extrabold py-3 rounded-xl hover:bg-blue-600 transition"
-            >
-              Close
-            </button>
-          </div>
+          </motion.div>
         </motion.div>
-      </motion.div>
-        </AnimatePresence>
+        )
+      })()}
+    </AnimatePresence>
   )
 }
 
-function LockedCardToast({ card, rarity }: { card: CardDef; rarity: ChestRarity }) {
-  const meta = RARITY_META[rarity]
+function LockedCardToast({ card, rarity, onDone }: { card: CardDef | null; rarity: ChestRarity | null; onDone: () => void }) {
+  // Auto-dismiss the toast after 2.5s; reset the timer if a new toast arrives.
+  useEffect(() => {
+    if (!card) return
+    const t = setTimeout(onDone, 2500)
+    return () => clearTimeout(t)
+  }, [card, onDone])
   return (
     <AnimatePresence>
-      <motion.div
-        initial={{ opacity: 0, y: 20, scale: 0.9 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        exit={{ opacity: 0, y: 10, scale: 0.95 }}
-        className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 max-w-sm"
-      >
-        <div className="card-white rounded-xl shadow-xl px-4 py-3 flex items-center gap-3"
-             style={{ border: `2px solid ${meta.color}` }}>
-          <div
-            className="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center"
-            style={{ background: meta.color, boxShadow: `0 0 12px ${meta.glowColor}` }}
-          >
-            <span className="text-xl">🔒</span>
-          </div>
-          <div className="flex-1">
-            <p className="font-display text-sm font-extrabold text-slate-800">
-              {card.name}
-            </p>
-            <p className="text-xs text-slate-500">
-              Win from a <span style={{ color: meta.color, fontWeight: 700 }}>{meta.label}</span> chest
-            </p>
-          </div>
-        </div>
-      </motion.div>
+      {card && rarity && (
+        <motion.div
+          key="locked"
+          initial={{ opacity: 0, y: 20, scale: 0.9 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: 10, scale: 0.95 }}
+          className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 max-w-sm"
+        >
+          {(() => {
+            const meta = RARITY_META[rarity]
+            return (
+              <div className="card-white rounded-xl shadow-xl px-4 py-3 flex items-center gap-3"
+                   style={{ border: `2px solid ${meta.color}` }}>
+                <div
+                  className="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center"
+                  style={{ background: meta.color, boxShadow: `0 0 12px ${meta.glowColor}` }}
+                >
+                  <span className="text-xl">🔒</span>
+                </div>
+                <div className="flex-1">
+                  <p className="font-display text-sm font-extrabold text-slate-800">
+                    {card.name}
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    Win from a <span style={{ color: meta.color, fontWeight: 700 }}>{meta.label}</span> chest
+                  </p>
+                </div>
+              </div>
+            )
+          })()}
+        </motion.div>
+      )}
     </AnimatePresence>
   )
 }

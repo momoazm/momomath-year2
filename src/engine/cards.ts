@@ -14,8 +14,11 @@ import type { MascotId } from '../content/types'
  *   - 4 "kick" taps can each upgrade the tier chain (Common->Rare->Epic->Legendary).
  *     EXCLUSIVE is only ever a start roll - it can never be upgraded into.
  *   - Gems scale by FINAL tier and stay far below shop item prices.
- *   - Cards appear ~10% of the time, rarity matches the final tier exactly,
- *     EXCEPT Legendary/Exclusive chests always give their card.
+ *   - Cards appear ~10% of the time in ANY chest (even Legendary/Exclusive -
+ *     90% of those are just gems), and the card's rarity matches the final
+ *     tier exactly. Since Common chests are the most frequent tier, common
+ *     cards still dominate overall drops - just like Brawl Stars, where each
+ *     character belongs to exactly one chest rarity.
  *   - Hard no-duplicates: a card is always chosen from cards you do not own.
  *   - Hidden card pity: PITY_LIMIT cardless chests in a row -> next is guaranteed.
  * ========================================================================== */
@@ -30,29 +33,36 @@ export interface CardDef {
   tier: ChestTier
   name: string
   flavor: string
+  /** URL of this character's "real" render, served from the public folder. */
+  image: string
 }
 
 /** The full 11-card collection - one card per playable character. */
 export const CARDS: CardDef[] = [
   // Common
-  { id: 'tails', tier: 'common', name: 'Tails', flavor: 'Two tails are faster than one!' },
-  { id: 'amy', tier: 'common', name: 'Amy', flavor: 'A friend with a big heart!' },
-  { id: 'cream', tier: 'common', name: 'Cream', flavor: 'Sweet as honey and cakes!' },
+  { id: 'tails', tier: 'common', name: 'Tails', flavor: 'Two tails are faster than one!', image: 'cards/tails.webp' },
+  { id: 'amy', tier: 'common', name: 'Amy', flavor: 'A friend with a big heart!', image: 'cards/amy.webp' },
+  { id: 'cream', tier: 'common', name: 'Cream', flavor: 'Sweet as honey and cakes!', image: 'cards/cream.webp' },
   // Rare
-  { id: 'knuckles', tier: 'rare', name: 'Knuckles', flavor: 'The master of the fist!' },
-  { id: 'blaze', tier: 'rare', name: 'Blaze', flavor: 'Faster than the fire!' },
-  { id: 'rouge', tier: 'rare', name: 'Rouge', flavor: 'A jewel thief with style!' },
+  { id: 'knuckles', tier: 'rare', name: 'Knuckles', flavor: 'The master of the fist!', image: 'cards/knuckles.webp' },
+  { id: 'blaze', tier: 'rare', name: 'Blaze', flavor: 'Faster than the fire!', image: 'cards/blaze.webp' },
+  { id: 'rouge', tier: 'rare', name: 'Rouge', flavor: 'A jewel thief with style!', image: 'cards/rouge.webp' },
   // Epic
-  { id: 'shadow', tier: 'epic', name: 'Shadow', flavor: 'The ultimate lifeform!' },
-  { id: 'silver', tier: 'epic', name: 'Silver', flavor: 'Psychic power of the future!' },
-  { id: 'metal', tier: 'epic', name: 'Metal Sonic', flavor: 'A copy built to win!' },
+  { id: 'shadow', tier: 'epic', name: 'Shadow', flavor: 'The ultimate lifeform!', image: 'cards/shadow.webp' },
+  { id: 'silver', tier: 'epic', name: 'Silver', flavor: 'Psychic power of the future!', image: 'cards/silver.webp' },
+  { id: 'metal', tier: 'epic', name: 'Metal Sonic', flavor: 'A copy built to win!', image: 'cards/metal.webp' },
   // Legendary
-  { id: 'sonic', tier: 'legendary', name: 'Sonic', flavor: 'The fastest thing alive!' },
+  { id: 'sonic', tier: 'legendary', name: 'Sonic', flavor: 'The fastest thing alive!', image: 'cards/sonic.webp' },
   // Exclusive
-  { id: 'eggman', tier: 'exclusive', name: 'Dr. Eggman', flavor: 'The mad scientist of mayhem!' },
+  { id: 'eggman', tier: 'exclusive', name: 'Dr. Eggman', flavor: 'The mad scientist of mayhem!', image: 'cards/eggman.webp' },
 ]
 
 export const CARD_BY_ID: Record<string, CardDef> = Object.fromEntries(CARDS.map((c) => [c.id, c]))
+
+/** Resolves a card's character render to an absolute URL under the Vite base path. */
+export function cardImageUrl(card: CardDef): string {
+  return `${import.meta.env.BASE_URL}${card.image}`
+}
 
 export const tierIndex = (t: ChestTier) => TIER_ORDER.indexOf(t)
 
@@ -130,14 +140,15 @@ export const TIER_META: Record<ChestTier, { label: string; color: string; glow: 
 /** 4-kick ritual - each kick's chance to upgrade to the NEXT tier (capped at Legendary). */
 export const KICKS = 4
 export const KICK_UPGRADE: Record<ChestTier, number> = {
-  common: 0.12,
-  rare: 0.18,
-  epic: 0.25,
+  common: 0.22,
+  rare: 0.30,
+  epic: 0.40,
   legendary: 0,
   exclusive: 0,
 }
 
-/** Cards drop ~10% of the time; Legendary/Exclusive always carry their card. */
+/** Cards drop exactly ~10% of the time in EVERY chest tier - a Legendary chest
+ *  is NOT guaranteed its card (90% of the time it is just gems). */
 export const CARD_CHANCE = 0.1
 
 /** Hidden mercy: this many consecutive cardless tries forces a card. */
@@ -186,9 +197,10 @@ export function rollChest(
   const [gMin, gMax] = GEM_RANGE[tier]
   const gems = randInt(rand, gMin, gMax)
 
-  const alwaysCard = tier === 'legendary' || tier === 'exclusive'
+  // Flat 10% card chance in every tier - Legendary/Exclusive are NOT guaranteed.
+  // Pity still forces a card after PITY_LIMIT cardless chests.
   const forced = cardPity >= PITY_LIMIT
-  const dropsCard = alwaysCard || forced || rand() < CARD_CHANCE
+  const dropsCard = forced || rand() < CARD_CHANCE
 
   if (!dropsCard) {
     return { startTier, finalTier: tier, upgradesAt, gems, card: null, jackpot: false }

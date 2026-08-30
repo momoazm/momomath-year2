@@ -315,10 +315,24 @@ export const usePlayer = create<PlayerState>()(
             return state
           }
           result = { success: true, message: 'Purchase successful!' }
-          return {
+          // Activate the item's effect on the engine state in the SAME set
+          // callback so the inventory + the effect are committed atomically.
+          const next: Partial<PlayerState> = {
             gems: state.gems - item.price,
             shopInventory: { ...state.shopInventory, [itemId]: current + 1 },
           }
+          if (itemId === 'streak-saver') {
+            next.streakSavers = state.streakSavers + 1
+          } else if (itemId === 'chest-boost') {
+            next.chestBoost = true
+          } else if (itemId === 'mega-chest') {
+            next.megaChest = true
+          } else if (itemId === 'double-xp') {
+            next.doubleXpLessons = state.doubleXpLessons + 3
+          } else if (itemId === 'lucky-ticket') {
+            next.luckyTickets = state.luckyTickets + 1
+          }
+          return next
         })
         return result
       },
