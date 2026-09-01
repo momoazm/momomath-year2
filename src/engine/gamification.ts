@@ -77,6 +77,41 @@ export function leagueOutcomeByXp(
   return 'demoted'
 }
 
+/**
+ * Rank-based league outcome (used for the shared board, where XP varies per
+ * league and rank is what matters). Bands are tuned for the target 10-player
+ * board, but scale down naturally for smaller boards:
+ *   - total >= 10: top 3 promote, middle 4-7 stay, bottom 3 demote
+ *   - total 5-9:   top ceil(30%) promote, middle stays, bottom ceil(30%) demote
+ *   - total <= 4:  rank 1 promotes, rank 2 stays, ranks 3-4 demote
+ *
+ * 1-based `rank`. `total` is the number of ranked players.
+ */
+export function leagueOutcomeByRank(
+  rank: number,
+  total: number,
+): 'promoted' | 'demoted' | 'stayed' {
+  if (total <= 0) return 'stayed'
+  // 1-based: clamp rank into [1, total]
+  const r = Math.max(1, Math.min(rank, total))
+  if (total >= 10) {
+    if (r <= 3) return 'promoted'
+    if (r <= 7) return 'stayed'
+    return 'demoted'
+  }
+  if (total >= 5) {
+    const promoteCutoff = Math.max(1, Math.ceil(total * 0.3))
+    const demoteCutoff = total - Math.max(1, Math.ceil(total * 0.3)) + 1
+    if (r <= promoteCutoff) return 'promoted'
+    if (r >= demoteCutoff) return 'demoted'
+    return 'stayed'
+  }
+  // total 1-4: rank 1 promotes, 2 stays, 3+ demote
+  if (r === 1) return 'promoted'
+  if (r === 2) return 'stayed'
+  return 'demoted'
+}
+
 /** local-date "YYYY-MM-DD" (never uses UTC, so +04:00-style timezones stay correct) */
 function localISO(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(

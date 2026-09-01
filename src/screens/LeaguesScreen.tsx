@@ -10,6 +10,7 @@ import {
   rivalXp,
   weekKey,
   weeklyGoal,
+  type LeagueName,
 } from '../engine/gamification'
 import {
   botsForPlayerCount,
@@ -160,21 +161,50 @@ export function LeaguesScreen() {
 
   const myRank = standings.findIndex((p) => p.isYou) + 1
 
+  // Secondary board: other real players whose `league` differs from ours.
+  // When the API has >10 real players on the same week, the primary board
+  // shows the top 10 and the rest are grouped here by their own league.
+  type SecondaryRow = { id: string; name: string; xp: number; mascot: string }
+  const secondaryLeagues: [LeagueName, SecondaryRow[]][] = (() => {
+    const groups = new Map<LeagueName, SecondaryRow[]>()
+    for (const p of others) {
+      if (p.league === s.currentLeague) continue
+      const list = groups.get(p.league) ?? []
+      list.push({
+        id: p.id,
+        name: p.name,
+        xp: weeklyXpOf(p, anchorBoardWeek),
+        mascot: p.mascot,
+      })
+      groups.set(p.league, list)
+    }
+    // sort each league's rows by XP desc
+    for (const rows of groups.values()) rows.sort((a, b) => b.xp - a.xp)
+    // order leagues by the canonical order (Bronze -> Diamond)
+    return Array.from(groups.entries()).sort(
+      (a, b) => LEAGUES.indexOf(a[0]) - LEAGUES.indexOf(b[0]),
+    )
+  })()
+
   // banner copy: at the top/bottom league the move is a no-op, so say so
   const settle = s.lastLeagueSettle
   const settleNext = settle ? advanceLeague(settle.league, settle.outcome) : null
   const settleMoved = settle != null && settleNext !== settle.league
 
-  // When the 7-day league week ends, the leader (rank #1) advances into the
-  // next league; everyone else settles by XP rules. Either way XP resets to 0
-  // and the timer restarts at 12:00 AM of the new week. Idempotent.
+  // When the 7-day league week ends, the whole board settles by rank:
+  //   - top 3   promote (clamped to Diamond)
+  //   - middle  stay
+  //   - bottom  demote (clamped to Bronze)
+  // XP resets to 0 and the timer restarts at 12:00 AM of the new week.
+  // The board is padded to 10 by bots when fewer real players are present;
+  // any extras (>10) appear in a secondary leaderboard grouped by league
+  // (rendered below). Idempotent.
   useEffect(() => {
     if (!needsSettle) return
-    if (myRank === 1) s.promoteLeader()
-    else s.syncLeagueWeek()
+    s.syncLeagueWeekByRank(myRank, standings.length)
     // re-run only when the settle state or the final rank changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [needsSettle, myRank])
+  }, [needsSettle, myRank, standings.length])
 
   const pct = Math.min(100, Math.round((s.weeklyXp / goal) * 100))
 
@@ -312,6 +342,50 @@ export function LeaguesScreen() {
             : `${realCount} real players this week — bots fill the rest`}
         </p>
       </section>
+
+      {/* secondary boards: extras from other leagues (only when >10 real
+          players are present on the API). Each league's extras are rendered
+          in a small card; empty leagues are skipped. */}
+      {secondaryLeagues.length > 0 && (
+        <section className="card-white mt-5">
+          <h2 className="mb-3 font-display text-sm font-bold uppercase tracking-wide text-slate-400">
+            Other leagues ({secondaryLeagues.length})
+          </h2>
+          <ul className="space-y-2">
+            {secondaryLeagues.map(([lg, rows]) => (
+              <li key={lg}>
+                <div className="mb-1 flex items-baseline justify-between">
+                  <span
+                    className="font-display text-xs font-extrabold"
+                    style={{ color: LEAGUE_META[lg].color }}
+                  >
+                    {LEAGUE_META[lg].icon} {lg}
+                  </span>
+                  <span className="text-[10px] font-bold text-slate-400">
+                    {rows.length} player{rows.length === 1 ? '' : 's'}
+                  </span>
+                </div>
+                <ol>
+                  {rows.map((p, i) => (
+                    <li
+                      key={p.id}
+                      className={`flex items-center gap-2 rounded-md px-2 py-1 text-sm ${
+                        i % 2 === 0 ? 'bg-slate-50' : ''
+                      }`}
+                    >
+                      <span className="w-5 text-center text-xs font-bold text-slate-400">{i + 1}</span>
+                      <span className="min-w-0 flex-1 truncate font-body font-bold text-slate-600">{p.name}</span>
+                      <span className="font-display text-xs font-extrabold tabular-nums text-orange-400">
+                        {p.xp} XP
+                      </span>
+                    </li>
+                  ))}
+                </ol>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {/* league ladder */}
       <section className="card-white mt-6">

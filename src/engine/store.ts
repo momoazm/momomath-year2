@@ -5,6 +5,7 @@ import {
   ACHIEVEMENTS,
   DAILY_QUESTS,
   advanceLeague,
+  leagueOutcomeByRank,
   leagueOutcomeByXp,
   leagueWeekElapsed,
   streakMilestoneFor,
@@ -114,6 +115,10 @@ interface PlayerState {
   setLastSyncedAt: (t: number | null) => void
   /** settle last week's league (promote/demote) if the 7-day week has elapsed */
   syncLeagueWeek: () => void
+  /** rank-based settle: top 3 promote, middle stay, bottom 3 demote (clamps
+   *  at Bronze / Diamond). `totalRanks` is the primary board size (defaults
+   *  to 10 if you don't know). */
+  syncLeagueWeekByRank: (myRank: number, totalRanks?: number) => void
   /** promote the league leader into the next league when the week ends */
   promoteLeader: () => void
   dismissLeagueSettle: () => void
@@ -190,6 +195,50 @@ export function settleLeagueWeek<T extends LeagueWeekFields>(
   // a non-leader who hits the goal stays instead of promoting.
   const raw = leagueOutcomeByXp(prevLeague, earned)
   const outcome = raw === 'promoted' ? 'stayed' : raw
+  s.currentLeague = advanceLeague(prevLeague, outcome)
+  s.leagueHistory = [
+    ...history.slice(-9),
+    { weekKey: prevWeek, league: prevLeague, outcome, xp: earned },
+  ]
+  s.weeklyXpWeek = todayISO(now) // new week starts 12:00 AM today
+  s.weeklyXp = 0
+  s.lastLeagueSettle =
+    outcome === 'stayed' ? null : s.leagueHistory[s.leagueHistory.length - 1]
+  return true
+}
+
+/**
+ * Rank-based settlement for the shared board. The board is partitioned into
+ * bands (see `leagueOutcomeByRank`):
+ *   - top 3   -> promote (clamped to Diamond)
+ *   - middle  -> stay
+ *   - bottom  -> demote (clamped to Bronze)
+ *
+ * The board is padded to 10 via `botsForPlayerCount` when fewer than 10 real
+ * players are present. If more than 10 real players join, the "extras" appear
+ * in a secondary leaderboard for their current league; this function only
+ * settles the player's own rank in the **primary** board.
+ *
+ * Returns true on any state change (settlement or fresh-start repair).
+ */
+export function settleLeagueWeekByRank<T extends LeagueWeekFields>(
+  s: T,
+  myRank: number,
+  totalRanks: number,
+  now: Date = new Date(),
+): boolean {
+  const anchor = s.weeklyXpWeek
+  if (!isValidAnchor(anchor)) {
+    s.weeklyXpWeek = todayISO(now)
+    s.weeklyXp = 0
+    return true
+  }
+  if (!leagueWeekElapsed(anchor, now)) return false
+  const prevWeek = anchor
+  const prevLeague = s.currentLeague
+  const history = Array.isArray(s.leagueHistory) ? s.leagueHistory : []
+  const earned = Number.isFinite(s.weeklyXp) ? s.weeklyXp : 0
+  const outcome = leagueOutcomeByRank(myRank, totalRanks)
   s.currentLeague = advanceLeague(prevLeague, outcome)
   s.leagueHistory = [
     ...history.slice(-9),
@@ -537,6 +586,12 @@ export const usePlayer = create<PlayerState>()(
           const s: PlayerState = { ...state }
           // no settlement → return the same state (no re-render/persist write)
           return settleLeagueWeek(s) ? s : state
+        }),
+      syncLeagueWeekByRank: (myRank, totalRanks = 10) =>
+        set((state) => {
+          const s: PlayerState = { ...state }
+          // no settlement → return the same state (no re-render/persist write)
+          return settleLeagueWeekByRank(s, myRank, totalRanks) ? s : state
         }),
       promoteLeader: () =>
         set((state) => {

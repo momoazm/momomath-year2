@@ -3,6 +3,7 @@ import {
   LEAGUES,
   STREAK_CHEST_EVERY,
   advanceLeague,
+  leagueOutcomeByRank,
   leagueOutcomeByXp,
   leagueWeekElapsed,
   lessonChestPrize,
@@ -12,7 +13,7 @@ import {
   weekKey,
   weeklyGoal,
 } from '../src/engine/gamification'
-import { isValidAnchor, promoteLeaderWeek, settleLeagueWeek, updateStreak } from '../src/engine/store'
+import { isValidAnchor, promoteLeaderWeek, settleLeagueWeek, settleLeagueWeekByRank, updateStreak } from '../src/engine/store'
 import type { LeagueHistoryEntry } from '../src/engine/store'
 
 describe('lesson chest prizes', () => {
@@ -338,5 +339,112 @@ describe('league leader promotion', () => {
     expect(s.weeklyXpWeek).toBe('2026-08-31')
     expect(s.weeklyXp).toBe(0)
     expect(s.currentLeague).toBe('Gold') // fresh week, not a promotion
+  })
+})
+
+describe('league outcome by rank (shared board)', () => {
+  const START = '2026-08-24'
+  const END = new Date('2026-08-31T00:00:00')
+  const NEXT = '2026-08-31'
+
+  function leagueState(overrides: Partial<{
+    weeklyXpWeek: string
+    weeklyXp: number
+    currentLeague: (typeof LEAGUES)[number]
+    leagueHistory: LeagueHistoryEntry[]
+    lastLeagueSettle: LeagueHistoryEntry | null
+  }> = {}) {
+    return {
+      weeklyXpWeek: START,
+      weeklyXp: 0,
+      currentLeague: 'Silver' as const,
+      leagueHistory: [] as LeagueHistoryEntry[],
+      lastLeagueSettle: null,
+      ...overrides,
+    }
+  }
+
+  // ---------- leagueOutcomeByRank (pure) ----------
+  it('top 3 of 10 promote', () => {
+    expect(leagueOutcomeByRank(1, 10)).toBe('promoted')
+    expect(leagueOutcomeByRank(2, 10)).toBe('promoted')
+    expect(leagueOutcomeByRank(3, 10)).toBe('promoted')
+  })
+  it('middle 4-7 of 10 stay', () => {
+    expect(leagueOutcomeByRank(4, 10)).toBe('stayed')
+    expect(leagueOutcomeByRank(5, 10)).toBe('stayed')
+    expect(leagueOutcomeByRank(6, 10)).toBe('stayed')
+    expect(leagueOutcomeByRank(7, 10)).toBe('stayed')
+  })
+  it('bottom 3 of 10 demote', () => {
+    expect(leagueOutcomeByRank(8, 10)).toBe('demoted')
+    expect(leagueOutcomeByRank(9, 10)).toBe('demoted')
+    expect(leagueOutcomeByRank(10, 10)).toBe('demoted')
+  })
+  it('scales down for smaller boards', () => {
+    // 5-9: top 30% promote, bottom 30% demote
+    expect(leagueOutcomeByRank(1, 6)).toBe('promoted') // top 30% = ceil(6*0.3) = 2
+    expect(leagueOutcomeByRank(2, 6)).toBe('promoted')
+    expect(leagueOutcomeByRank(3, 6)).toBe('stayed')
+    expect(leagueOutcomeByRank(4, 6)).toBe('stayed')
+    expect(leagueOutcomeByRank(5, 6)).toBe('demoted')
+    expect(leagueOutcomeByRank(6, 6)).toBe('demoted')
+  })
+  it('falls back to 1-promote/2-stay/rest-demote for 1-4 players', () => {
+    expect(leagueOutcomeByRank(1, 1)).toBe('promoted')
+    expect(leagueOutcomeByRank(1, 3)).toBe('promoted')
+    expect(leagueOutcomeByRank(2, 3)).toBe('stayed')
+    expect(leagueOutcomeByRank(3, 3)).toBe('demoted')
+  })
+  it('clamps out-of-range ranks to the nearest valid position', () => {
+    expect(leagueOutcomeByRank(0, 10)).toBe('promoted') // -> 1
+    expect(leagueOutcomeByRank(99, 10)).toBe('demoted') // -> 10
+  })
+  it('empty board is a no-op (stayed)', () => {
+    expect(leagueOutcomeByRank(1, 0)).toBe('stayed')
+  })
+
+  // ---------- settleLeagueWeekByRank (engine) ----------
+  it('settles top-3 -> promotes Silver to Gold', () => {
+    const s = leagueState({ currentLeague: 'Silver', weeklyXp: 50 })
+    expect(settleLeagueWeekByRank(s, 2, 10, END)).toBe(true)
+    expect(s.currentLeague).toBe('Gold')
+    expect(s.weeklyXp).toBe(0)
+    expect(s.weeklyXpWeek).toBe(NEXT)
+    expect(s.leagueHistory[0].outcome).toBe('promoted')
+  })
+  it('settles middle (rank 5) -> stays Silver', () => {
+    const s = leagueState({ currentLeague: 'Silver', weeklyXp: 50 })
+    expect(settleLeagueWeekByRank(s, 5, 10, END)).toBe(true)
+    expect(s.currentLeague).toBe('Silver')
+    expect(s.lastLeagueSettle).toBeNull() // stayed -> no banner
+  })
+  it('settles bottom-3 -> demotes Silver to Bronze', () => {
+    const s = leagueState({ currentLeague: 'Silver', weeklyXp: 50 })
+    expect(settleLeagueWeekByRank(s, 9, 10, END)).toBe(true)
+    expect(s.currentLeague).toBe('Bronze')
+    expect(s.leagueHistory[0].outcome).toBe('demoted')
+  })
+  it('clamps to Bronze at the floor and Diamond at the ceiling', () => {
+    const low = leagueState({ currentLeague: 'Bronze', weeklyXp: 0 })
+    settleLeagueWeekByRank(low, 10, 10, END)
+    expect(low.currentLeague).toBe('Bronze')
+    const high = leagueState({ currentLeague: 'Diamond', weeklyXp: 0 })
+    settleLeagueWeekByRank(high, 1, 10, END)
+    expect(high.currentLeague).toBe('Diamond')
+  })
+  it('does not settle before the 7-day window ends', () => {
+    const s = leagueState({ currentLeague: 'Silver', weeklyXp: 50 })
+    const MID = new Date('2026-08-27T12:00:00')
+    expect(settleLeagueWeekByRank(s, 2, 10, MID)).toBe(false)
+    expect(s.currentLeague).toBe('Silver')
+    expect(s.weeklyXp).toBe(50)
+  })
+  it('repairs a missing anchor into a fresh 7-day week (no history entry)', () => {
+    const s = leagueState({ weeklyXpWeek: '' })
+    expect(settleLeagueWeekByRank(s, 2, 10, END)).toBe(true)
+    expect(s.weeklyXpWeek).toBe(NEXT)
+    expect(s.weeklyXp).toBe(0)
+    expect(s.leagueHistory).toHaveLength(0) // repair isn't a settlement
   })
 })
