@@ -1,6 +1,46 @@
 import { describe, expect, it } from 'vitest'
-import { SHOP_ITEMS, getItem, canAfford, formatPrice } from '../src/engine/shop'
+import { SHOP_ITEMS, getItem, canAfford, formatPrice, chestGemMultiplier } from '../src/engine/shop'
 import { usePlayer } from '../src/engine/store'
+import { getCurriculum } from '../src/content/registry'
+
+describe('chest gem multipliers (P3: shop dedup)', () => {
+  it('no boosts active = x1', () => {
+    expect(chestGemMultiplier(false, false)).toBe(1)
+  })
+  it('chest boost alone = x2', () => {
+    expect(chestGemMultiplier(true, false)).toBe(2)
+  })
+  it('mega chest alone = x3 (the pricier boost)', () => {
+    expect(chestGemMultiplier(false, true)).toBe(3)
+  })
+  it('both boosts stack to x6', () => {
+    expect(chestGemMultiplier(true, true)).toBe(6)
+  })
+  it('mega-chest costs more than chest-boost (better multiplier, higher price)', () => {
+    const boost = getItem('chest-boost')!
+    const mega = getItem('mega-chest')!
+    expect(mega.price).toBeGreaterThan(boost.price)
+  })
+  it('boost descriptions no longer promise XP (chests contain gems only)', () => {
+    for (const item of SHOP_ITEMS) {
+      if (item.id === 'chest-boost' || item.id === 'mega-chest') {
+        expect(item.description.toLowerCase()).not.toContain('xp')
+      }
+    }
+  })
+})
+
+describe('science subject stub (P4)', () => {
+  it('is registered in the curriculum registry with an empty unit list', () => {
+    const c = getCurriculum('science')
+    expect(c.units).toEqual([])
+    expect(Object.keys(c.allLessons)).toHaveLength(0)
+  })
+  it('does not break the math or english curricula', () => {
+    expect(getCurriculum('math').units.length).toBeGreaterThan(0)
+    expect(getCurriculum('english').units.length).toBeGreaterThan(0)
+  })
+})
 
 describe('shop configuration', () => {
   it('has all 5 items with correct prices and max stacks', () => {

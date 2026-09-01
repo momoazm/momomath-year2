@@ -1,0 +1,77 @@
+npm notice run momo-year2-cambridge@0.1.0 npx
+npm notice run vitest run
+
+[1m[46m RUN [49m[22m [36mv3.2.7 [39m[90mC:/Users/momo/momomath-year2[39m
+
+ [32m✓[39m tests/english/e11.test.ts [2m([22m[2m20 tests[22m[2m)[22m[33m 1560[2mms[22m[39m
+   [33m[2m✓[22m[39m english lesson e11l2[2m > [22mis valid across many seeds [33m 500[2mms[22m[39m
+   [33m[2m✓[22m[39m english lesson e11l3[2m > [22mis valid across many seeds [33m 343[2mms[22m[39m
+ [32m✓[39m tests/english/e10.test.ts [2m([22m[2m23 tests[22m[2m)[22m[33m 1746[2mms[22m[39m
+   [33m[2m✓[22m[39m english lesson e10l1[2m > [22mis valid across many seeds [33m 318[2mms[22m[39m
+   [33m[2m✓[22m[39m english lesson e10l2[2m > [22mis valid across many seeds [33m 413[2mms[22m[39m
+ [32m✓[39m tests/curriculum.test.ts [2m([22m[2m225 tests[22m[2m)[22m[33m 1558[2mms[22m[39m
+ [32m✓[39m tests/rng.test.ts [2m([22m[2m11 tests[22m[2m)[22m[33m 3527[2mms[22m[39m
+   [33m[2m✓[22m[39m mulberry32[2m > [22mproduces values in [0, 1) [33m 2720[2mms[22m[39m
+   [33m[2m✓[22m[39m randInt[2m > [22mstays within [min, max] inclusive [33m 698[2mms[22m[39m
+ [32m✓[39m tests/content.test.ts [2m([22m[2m149 tests[22m[2m)[22m[33m 3130[2mms[22m[39m
+   [33m[2m✓[22m[39m curriculum generators[2m > [22mtap-count cells contain exactly `target` target emojis [33m 367[2mms[22m[39m
+   [33m[2m✓[22m[39m curriculum generators[2m > [22mtype-number answers stay within Stage-2 bounds [33m 1045[2mms[22m[39m
+ [32m✓[39m tests/generators.test.ts [2m([22m[2m142 tests[22m[2m)[22m[33m 2401[2mms[22m[39m
+ [32m✓[39m tests/english/e05.test.ts [2m([22m[2m20 tests[22m[2m)[22m[33m 451[2mms[22m[39m
+ [32m✓[39m tests/english/e03.test.ts [2m([22m[2m20 tests[22m[2m)[22m[33m 546[2mms[22m[39m
+ [32m✓[39m tests/english/e13.test.ts [2m([22m[2m20 tests[22m[2m)[22m[33m 422[2mms[22m[39m
+ [32m✓[39m tests/english/e02.test.ts [2m([22m[2m17 tests[22m[2m)[22m[33m 440[2mms[22m[39m
+ [32m✓[39m tests/english/e04.test.ts [2m([22m[2m20 tests[22m[2m)[22m[33m 831[2mms[22m[39m
+ [32m✓[39m tests/english/e07.test.ts [2m([22m[2m20 tests[22m[2m)[22m[33m 561[2mms[22m[39m
+ [32m✓[39m tests/english/e12.test.ts [2m([22m[2m17 tests[22m[2m)[22m[33m 1069[2mms[22m[39m
+   [33m[2m✓[22m[39m english lesson e12boss[2m > [22mis valid across many seeds [33m 309[2mms[22m[39m
+ [32m✓[39m tests/english/e06.test.ts [2m([22m[2m20 tests[22m[2m)[22m[33m 1054[2mms[22m[39m
+ [32m✓[39m tests/english/e01.test.ts [2m([22m[2m20 tests[22m[2m)[22m[33m 743[2mms[22m[39m
+ [32m✓[39m tests/english/e09.test.ts [2m([22m[2m17 tests[22m[2m)[22m[33m 643[2mms[22m[39m
+ [32m✓[39m tests/english/e08.test.ts [2m([22m[2m14 tests[22m[2m)[22m[33m 690[2mms[22m[39m
+ [32m✓[39m tests/path.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 113[2mms[22m[39m
+ [32m✓[39m tests/patternNext.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 83[2mms[22m[39m
+[90mstderr[2m | tests/shop.test.ts[2m > [22m[2mbuyItem applies every item effect[2m > [22m[2mstreak-saver increments streakSavers (was broken on the deployed site)
+[22m[39m[zustand persist middleware] Unable to update item 'momomath-year2-player-v2', the given storage is currently unavailable.
+
+[90mstderr[2m | tests/shop.test.ts[2m > [22m[2mbuyItem applies every item effect[2m > [22m[2mchest-boost and mega-chest flip their flags
+[22m[39m[zustand persist middleware] Unable to update item 'momomath-year2-player-v2', the given storage is currently unavailable.
+[zustand persist middleware] Unable to update item 'momomath-year2-player-v2', the given storage is currently unavailable.
+
+[90mstderr[2m | tests/shop.test.ts[2m > [22m[2mbuyItem applies every item effect[2m > [22m[2mdouble-xp adds exactly 3 lessons per pack
+[22m[39m[zustand persist middleware] Unable to update item 'momomath-year2-player-v2', the given storage is currently unavailable.
+[zustand persist middleware] Unable to update item 'momomath-year2-player-v2', the given storage is currently unavailable.
+
+[90mstderr[2m | tests/shop.test.ts[2m > [22m[2mbuyItem applies every item effect[2m > [22m[2mlucky-ticket increments luckyTickets
+[22m[39m[zustand persist middleware] Unable to update item 'momomath-year2-player-v2', the given storage is currently unavailable.
+
+[90mstderr[2m | tests/shop.test.ts[2m > [22m[2mbuyItem applies every item effect[2m > [22m[2mrejects purchases when gems are insufficient and never mutates state
+[22m[39m[zustand persist middleware] Unable to update item 'momomath-year2-player-v2', the given storage is currently unavailable.
+
+[90mstderr[2m | tests/shop.test.ts[2m > [22m[2mbuyItem applies every item effect[2m > [22m[2menforces every maxStack so you can never own more than allowed
+[22m[39m[zustand persist middleware] Unable to update item 'momomath-year2-player-v2', the given storage is currently unavailable.
+[zustand persist middleware] Unable to update item 'momomath-year2-player-v2', the given storage is currently unavailable.
+[zustand persist middleware] Unable to update item 'momomath-year2-player-v2', the given storage is currently unavailable.
+[zustand persist middleware] Unable to update item 'momomath-year2-player-v2', the given storage is currently unavailable.
+[zustand persist middleware] Unable to update item 'momomath-year2-player-v2', the given storage is currently unavailable.
+[zustand persist middleware] Unable to update item 'momomath-year2-player-v2', the given storage is currently unavailable.
+
+ [32m✓[39m tests/shop.test.ts [2m([22m[2m16 tests[22m[2m)[22m[32m 40[2mms[22m[39m
+ [32m✓[39m tests/content/matchLayout.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 80[2mms[22m[39m
+ [32m✓[39m tests/chestCards.test.ts [2m([22m[2m14 tests[22m[2m)[22m[33m 13462[2mms[22m[39m
+   [33m[2m✓[22m[39m start tier tables[2m > [22mboss rolls can NEVER land on Common [33m 5527[2mms[22m[39m
+   [33m[2m✓[22m[39m start tier tables[2m > [22meven normal rolls can reach Exclusive (it is truly random) [33m 350[2mms[22m[39m
+   [33m[2m✓[22m[39m start tier tables[2m > [22mstreak milestone rolls are ALWAYS high rarity (Legendary or Exclusive) [33m 3797[2mms[22m[39m
+   [33m[2m✓[22m[39m rollChest gems[2m > [22mnever-gem ranges match the table bounds [33m 904[2mms[22m[39m
+   [33m[2m✓[22m[39m rollChest cards[2m > [22m Legendary/Exclusive chests are NOT guaranteed a card - flat 10% in every tier [33m 1263[2mms[22m[39m
+   [33m[2m✓[22m[39m rollChest cards[2m > [22mno duplicate is EVER granted, and jackpot pays out when complete [33m 332[2mms[22m[39m
+   [33m[2m✓[22m[39m rollChest cards[2m > [22mDr. Eggman only ever arrives from an EXCLUSIVE chest [33m 535[2mms[22m[39m
+ [32m✓[39m tests/engine.test.ts [2m([22m[2m51 tests[22m[2m)[22m[32m 298[2mms[22m[39m
+ [32m✓[39m tests/leaderboard.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 29[2mms[22m[39m
+ [32m✓[39m tests/englishRegistry.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 39[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m25 passed[39m[22m[90m (25)[39m
+[2m      Tests [22m [1m[32m880 passed[39m[22m[90m (880)[39m
+[2m   Start at [22m 23:41:29
+[2m   Duration [22m 20.71s[2m (transform 14.34s, setup 0ms, collect 29.09s, tests 35.51s, environment 42ms, prepare 17.45s)[22m
+

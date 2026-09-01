@@ -5,6 +5,7 @@ import { QUESTIONS_PER_LESSON } from '../content/curriculum'
 import { getCurriculum } from '../content/registry'
 import { usePlayer } from '../engine/store'
 import { rollChest, CARD_BY_ID, cardImageUrl, KICK_UPGRADE, type ChestContext, type ChestResult, type ChestTier } from '../engine/cards'
+import { chestGemMultiplier } from '../engine/shop'
 import { speak, speakSlow, stopSpeaking, ttsAvailable } from '../engine/tts'
 import { Mascot } from '../components/mascots/Mascots'
 import { sfx } from '../engine/sfx'
@@ -334,7 +335,7 @@ export function LessonScreen({ lessonId, onExit }: { lessonId: string; onExit: (
       ? 'streak'
       : player.consumeLuckyTicket() ? 'lucky' : isBoss ? 'boss' : 'normal'
     const chest = rollChest(Math.random, ctx, new Set(player.cardCollection), player.cardPity)
-    const finalGems = (player.chestBoost ? 2 : 1) * (player.megaChest ? 2 : 1) * chest.gems
+    const finalGems = chestGemMultiplier(player.chestBoost, player.megaChest) * chest.gems
     if (player.chestBoost) player.useChestBoost()
     if (player.megaChest) player.useMegaChest()
     const finalChest: ChestResult = { ...chest, gems: finalGems }

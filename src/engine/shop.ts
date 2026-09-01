@@ -30,7 +30,7 @@ export const SHOP_ITEMS: ShopItem[] = [
   {
     id: 'chest-boost',
     name: 'Chest Boost',
-    description: 'Your next lesson chest contains DOUBLE the gems and XP!',
+    description: 'Your next lesson chest contains DOUBLE the gems!',
     price: 75,
     icon: '🍀',
     category: 'boost',
@@ -39,7 +39,7 @@ export const SHOP_ITEMS: ShopItem[] = [
   {
     id: 'mega-chest',
     name: 'Mega Chest',
-    description: 'Your next lesson chest contains DOUBLE gems AND 2× XP!',
+    description: 'Your next lesson chest contains TRIPLE the gems! Stacks with Chest Boost.',
     price: 150,
     icon: '🎁',
     category: 'boost',
@@ -64,6 +64,16 @@ export function getItem(id: string): ShopItem | undefined {
 
 export function canAfford(gems: number, price: number): boolean {
   return gems >= price
+}
+
+/**
+ * Gem multiplier applied to the next lesson chest from the active shop boosts.
+ * - Chest Boost: ×2
+ * - Mega Chest: ×3 (the bigger, pricier boost)
+ * - Both active: they stack (×6)
+ */
+export function chestGemMultiplier(chestBoost: boolean, megaChest: boolean): number {
+  return (chestBoost ? 2 : 1) * (megaChest ? 3 : 1)
 }
 
 export function formatPrice(price: number): string {

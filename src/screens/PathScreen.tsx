@@ -33,7 +33,12 @@ export function PathScreen({ onStartLesson }: { onStartLesson: (lessonId: string
     return {
       units: c.units,
       lessonCount: Object.keys(c.allLessons).length,
-      subjectLabel: player.subject === 'english' ? 'English' : 'Maths',
+      subjectLabel:
+        player.subject === 'english'
+          ? 'English'
+          : player.subject === 'science'
+            ? 'Science'
+            : 'Maths',
     }
   }, [player.subject])
 
@@ -70,6 +75,21 @@ export function PathScreen({ onStartLesson }: { onStartLesson: (lessonId: string
           </p>
         </div>
       </div>
+
+      {/* Science is a stub for now — friendly empty state instead of a blank page */}
+      {units.length === 0 && (
+        <div className="card-white mb-5 p-6 text-center">
+          <div className="text-5xl">🔬</div>
+          <h2 className="mt-2 font-display text-lg font-extrabold text-slate-600">
+            Science is coming soon!
+          </h2>
+          <p className="mt-1 text-sm font-bold text-slate-400">
+            Cambridge Year 2 Science (plants, animals, materials, seasons and more)
+            is being built right now. Switch to Maths or English to keep playing
+            while we finish it!
+          </p>
+        </div>
+      )}
 
       {units.map((u, ui) => {
         const done = unitDone(u, player.lessonProgress)

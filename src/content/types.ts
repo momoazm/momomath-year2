@@ -1,7 +1,7 @@
 export type Expression = 'happy' | 'excited' | 'sad' | 'thinking' | 'cheer'
 
 /** Which curriculum the app is currently showing. */
-export type Subject = 'math' | 'english'
+export type Subject = 'math' | 'english' | 'science'
 
 export interface MascotProps {
   expression?: Expression

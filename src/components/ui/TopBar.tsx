@@ -9,6 +9,7 @@ import type { Subject } from '../../content/types'
 const SUBJECTS: { id: Subject; icon: string; label: string; activeBg: string }[] = [
   { id: 'math', icon: '🧮', label: 'Maths', activeBg: 'bg-speed-blue text-white' },
   { id: 'english', icon: '📚', label: 'English', activeBg: 'bg-[#ff9600] text-white' },
+  { id: 'science', icon: '🔬', label: 'Science', activeBg: 'bg-emerald-500 text-white' },
 ]
 
 function SubjectSwitch() {

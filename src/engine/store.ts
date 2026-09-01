@@ -340,8 +340,10 @@ export const usePlayer = create<PlayerState>()(
       mascot: 'sonic' as MascotId,
       subject:
         typeof window !== 'undefined' &&
-        new URLSearchParams(window.location.search).get('subject') === 'english'
-          ? ('english' as Subject)
+        ['english', 'science'].includes(
+          new URLSearchParams(window.location.search).get('subject') ?? '',
+        )
+          ? (new URLSearchParams(window.location.search).get('subject') as Subject)
           : ('math' as Subject),
       xpTotal: 0,
       gems: 50,
@@ -429,7 +431,7 @@ export const usePlayer = create<PlayerState>()(
       setSubject: (s) => {
         if (typeof window !== 'undefined') {
           const url = new URL(window.location.href)
-          if (s === 'english') url.searchParams.set('subject', 'english')
+          if (s === 'english' || s === 'science') url.searchParams.set('subject', s)
           else url.searchParams.delete('subject')
           window.history.replaceState(null, '', url)
         }
