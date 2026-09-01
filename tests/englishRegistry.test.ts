@@ -35,7 +35,7 @@ describe('english curriculum structure', () => {
     for (const id of ids) expect(english.allLessons[id]).toBeDefined()
   })
 
-  it('marks every unit with a consistent trailing boss lesson', () => {
+  it('english: marks every unit with a consistent trailing boss lesson', () => {
     for (const u of english.units) {
       expect(u.bossLessonIds).toEqual([`${u.id}boss`])
       expect(u.lessons.at(-1)?.id).toBe(`${u.id}boss`)
