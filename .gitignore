@@ -18,3 +18,7 @@ deploy-err.txt
 deploy.done
 build-log.txt
 vitest-log.txt
+
+# scratch logs/tools
+_*.log
+_*.vbs
