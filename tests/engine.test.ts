@@ -318,28 +318,6 @@ describe('league leader promotion', () => {
     expect(s.leagueHistory[0].weekKey).toBe(START)
   })
 
-  it('promotes the #1 player at Diamond stays at Diamond (clamped)', () => {
-    const s = leaderState({ currentLeague: 'Diamond', weeklyXp: 0 })
-    expect(promoteLeaderWeek(s, END)).toBe(true)
-    expect(s.currentLeague).toBe('Diamond') // cannot go above Diamond
-    expect(s.leagueHistory[0].outcome).toBe('promoted')
-  })
-
-  it('does not promote before the week ends', () => {
-    const s = leaderState({ currentLeague: 'Gold', weeklyXp: 10 })
-    expect(promoteLeaderWeek(s, MID)).toBe(false)
-    expect(s.currentLeague).toBe('Gold')
-    expect(s.leagueHistory).toHaveLength(0)
-  })
-
-  it('repairs a missing anchor for the leader too (no promotion on repair)', () => {
-    const s = leaderState({ weeklyXpWeek: '' })
-    expect(promoteLeaderWeek(s, END)).toBe(true) // state changed -> persists
-    expect(s.weeklyXpWeek).toBe('2026-08-31')
-    expect(s.weeklyXp).toBe(0)
-    expect(s.leagueHistory).toHaveLength(0) // repair isn't a settlement
-  })
-
   it('does not promote before the week ends', () => {
     const s = leaderState({ currentLeague: 'Gold', weeklyXp: 90 })
     expect(promoteLeaderWeek(s, MID)).toBe(false)

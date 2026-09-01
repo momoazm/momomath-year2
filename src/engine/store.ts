@@ -188,7 +188,8 @@ export function settleLeagueWeek<T extends LeagueWeekFields>(
   // Only the league leader may be promoted (handled separately by
   // promoteLeaderWeek). Everyone else settles by XP but can never move UP —
   // a non-leader who hits the goal stays instead of promoting.
-  const outcome = leagueOutcomeByXp(prevLeague, earned) === 'promoted' ? 'stayed' : leagueOutcomeByXp(prevLeague, earned)
+  const raw = leagueOutcomeByXp(prevLeague, earned)
+  const outcome = raw === 'promoted' ? 'stayed' : raw
   s.currentLeague = advanceLeague(prevLeague, outcome)
   s.leagueHistory = [
     ...history.slice(-9),
