@@ -1,5 +1,5 @@
 import { usePlayer } from '../../engine/store'
-import { LEAGUE_META } from '../../engine/gamification'
+import { LEAGUE_META, displayStreak, isStreakActive } from '../../engine/gamification'
 import { ENERGY_IS_UNLIMITED } from '../../engine/store'
 import { AuthBadge } from './AuthBadge'
 import { useAuth } from '../../engine/auth'
@@ -51,11 +51,25 @@ export function TopBar({ onLeagueClick, onLibraryClick }: { onLeagueClick?: () =
   const s = usePlayer()
   const user = useAuth((a) => a.user)
   const league = LEAGUE_META[s.currentLeague]
+  // Streak only lights up after a lesson is completed TODAY. Otherwise the
+  // pill shows "—" so yesterday's count doesn't carry over before the first
+  // lesson of the new day.
+  const streakOn = isStreakActive(s)
+  const streakValue = streakOn ? displayStreak(s) : 0
+  const streakTitle = streakOn
+    ? 'Daily streak'
+    : 'Streak lights up when you complete a lesson today'
   return (
     <header className="sticky top-0 z-30 mx-auto flex w-full max-w-xl items-center justify-between gap-2 border-b-2 border-white/60 bg-white/70 px-3 py-2 backdrop-blur-md">
       <div className="flex items-center gap-2">
         <SubjectSwitch />
-        <Pill icon="🔥" iconBg="bg-orange-100" value={s.streakCurrent} title="Daily streak" valueClass="text-orange-500" />
+        <Pill
+          icon="🔥"
+          iconBg={streakOn ? 'bg-orange-100' : 'bg-slate-100'}
+          value={streakOn ? streakValue : '—'}
+          title={streakTitle}
+          valueClass={streakOn ? 'text-orange-500' : 'text-slate-400'}
+        />
         <Pill icon="💎" iconBg="bg-yellow-100" value={s.gems} title="Gems" valueClass="text-yellow-500" />
       </div>
 

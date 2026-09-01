@@ -358,6 +358,31 @@ export interface AchievementSnapshot {
   crowns: number
 }
 
+/**
+ * What the streak UI should show RIGHT NOW, given the player's state.
+ *   - If the player has already completed a lesson today, show `streakCurrent`.
+ *   - Otherwise (new day, no lesson yet), show 0 so the indicator doesn't
+ *     carry yesterday's count over until the next `completeLesson`.
+ *
+ * Pure display helper. The underlying `streakCurrent` is only mutated by
+ * `updateStreak` (called from `completeLesson`).
+ */
+export function displayStreak(
+  s: { streakCurrent: number; lastActiveDay: string | null },
+  today: string = todayISO(),
+): number {
+  return s.lastActiveDay === today ? s.streakCurrent : 0
+}
+
+/** True when the streak indicator should "light up" (a lesson was completed
+ *  today). Use this to switch the UI between active/greyed states. */
+export function isStreakActive(
+  s: { lastActiveDay: string | null },
+  today: string = todayISO(),
+): boolean {
+  return s.lastActiveDay === today
+}
+
 export const ACHIEVEMENTS: AchievementDef[] = [
   { id: 'first-lesson', title: 'First Win!', desc: 'Finish your first lesson', icon: '🎉', test: (s) => s.lessonsCompleted >= 1 },
   { id: 'streak-3', title: 'On Fire', desc: 'Keep a 3-day streak', icon: '🔥', test: (s) => s.streakCurrent >= 3 },

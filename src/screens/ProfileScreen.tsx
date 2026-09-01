@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ACHIEVEMENTS, LEAGUES, LEAGUE_META } from '../engine/gamification'
+import { ACHIEVEMENTS, LEAGUES, LEAGUE_META, displayStreak, isStreakActive } from '../engine/gamification'
 import { usePlayer } from '../engine/store'
 import { MASCOTS, Mascot } from '../components/mascots/Mascots'
 import { GoogleSignInInline } from '../components/ui/AuthBadge'
@@ -51,7 +51,16 @@ export function ProfileScreen() {
       {/* stats grid */}
       <section className="card-white mt-6 grid grid-cols-2 gap-3 text-center sm:grid-cols-4">
         <Stat icon="⚡" label="Total XP" value={String(s.xpTotal)} />
-        <Stat icon="🔥" label="Streak" value={`${s.streakCurrent}`} sub={`best ${s.streakLongest}`} />
+        <Stat
+          icon="🔥"
+          label="Streak"
+          value={`${displayStreak(s)}`}
+          sub={
+            isStreakActive(s)
+              ? `best ${s.streakLongest}`
+              : `best ${s.streakLongest} · complete a lesson today to keep it going`
+          }
+        />
         <Stat icon="👑" label="Crowns" value={String(crowns)} />
         <Stat icon="📚" label="Lessons" value={String(lessonsCompleted)} />
       </section>
