@@ -61,6 +61,20 @@ describe('start tier tables', () => {
     }
     expect(exclusive).toBeGreaterThan(0) // 0.1% -> expect ~200
   })
+
+  it('streak milestone rolls are ALWAYS high rarity (Legendary or Exclusive)', () => {
+    for (let i = 0; i < 50000; i++) {
+      const tier = rollStartTier(rng(i), 'streak')
+      expect(tier === 'legendary' || tier === 'exclusive').toBe(true)
+    }
+    // ...and both tiers actually occur (~75% / ~25%)
+    let leg = 0
+    for (let i = 0; i < 20000; i++) {
+      if (rollStartTier(rng(i), 'streak') === 'legendary') leg++
+    }
+    expect(leg / 20000).toBeGreaterThan(0.6)
+    expect(leg / 20000).toBeLessThan(0.9)
+  })
 })
 
 describe('rollChest gems', () => {
@@ -96,36 +110,50 @@ describe('rollChest gems', () => {
 })
 
 describe('rollChest cards', () => {
-  it('drops cards around 10% of the time (excluding Legendary/Exclusive)', () => {
+  it('drops cards around 10% of the time in EVERY tier (flat chance)', () => {
     let cardDrops = 0
-    let eligible = 0
     for (let i = 0; i < 50000; i++) {
       const r = rollChest(rng(i), 'normal', new Set(), 0)
-      if (r.finalTier === 'legendary' || r.finalTier === 'exclusive') continue
-      eligible++
       if (r.card) cardDrops++
     }
-    const rate = cardDrops / eligible
-    expect(rate).toBeGreaterThan(CARD_CHANCE * 0.5) // generous band around 10%
-    expect(rate).toBeLessThan(CARD_CHANCE * 1.8)
+    const rate = cardDrops / 50000
+    expect(rate).toBeGreaterThan(CARD_CHANCE * 0.6) // generous band around 10%
+    expect(rate).toBeLessThan(CARD_CHANCE * 1.5)
   })
 
-  it('Legendary and Exclusive chests ALWAYS drop a card', () => {
+  it(' Legendary/Exclusive chests are NOT guaranteed a card - flat 10% in every tier', () => {
     let leg = 0
     let exc = 0
+    let legCards = 0
+    let excCards = 0
     for (let i = 0; i < 200000; i++) {
       const r = rollChest(rng(i), 'boss', new Set(), 0)
       if (r.finalTier === 'legendary') {
         leg++
-        expect(r.card).not.toBeNull()
+        if (r.card) {
+          legCards++
+          expect(r.card.id).toBe('sonic') // legendary tier -> sonic card only
+        }
       }
       if (r.finalTier === 'exclusive') {
         exc++
-        expect(r.card).not.toBeNull()
+        if (r.card) {
+          excCards++
+          expect(r.card.id).toBe('eggman') // exclusive tier -> eggman card only
+        }
       }
     }
-    expect(leg).toBeGreaterThan(0)
-    expect(exc).toBeGreaterThan(0)
+    // both tiers occurred in volume
+    expect(leg).toBeGreaterThan(1000)
+    expect(exc).toBeGreaterThan(100)
+    // SOME high-tier chests dropped no card at all (not guaranteed anymore)
+    expect(legCards).toBeLessThan(leg)
+    expect(excCards).toBeLessThan(exc)
+    // ...but the drop rate is still ~10% (flat CARD_CHANCE), not 0%
+    expect(legCards / leg).toBeGreaterThan(CARD_CHANCE * 0.4)
+    expect(legCards / leg).toBeLessThan(CARD_CHANCE * 1.8)
+    expect(excCards / exc).toBeGreaterThan(CARD_CHANCE * 0.3)
+    expect(excCards / exc).toBeLessThan(CARD_CHANCE * 1.9)
   })
 
   it('no duplicate is EVER granted, and jackpot pays out when complete', () => {

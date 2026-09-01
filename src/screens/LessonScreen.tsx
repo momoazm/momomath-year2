@@ -182,6 +182,8 @@ export function LessonScreen({ lessonId, onExit }: { lessonId: string; onExit: (
   const [firstAttemptMistakes, setFirstAttemptMistakes] = useState(0)
   // 4-kick chest ritual state (drives the new cards.ts chest engine UI)
   const [chestResult, setChestResult] = useState<ChestResult | null>(null)
+  /** streak milestone (7/14/21…) whose bonus high-rarity chest is in chestResult */
+  const [streakBonus, setStreakBonus] = useState<number | null>(null)
   const [kicksLeft, setKicksLeft] = useState(4)
   const [currentTier, setCurrentTier] = useState<ChestTier>('common')
   const [revealed, setRevealed] = useState(false)
@@ -311,8 +313,26 @@ export function LessonScreen({ lessonId, onExit }: { lessonId: string; onExit: (
     const firstAttemptMistakes = totalFirstAttempts - firstAttemptCorrect
     setFirstAttemptMistakes(firstAttemptMistakes)
 
+    // Commit lesson results FIRST: this advances the streak and may set a
+    // pending streak milestone (every 7 consecutive days) for THIS lesson.
+    player.completeLesson({
+      lessonId,
+      xp: gained,
+      correct: firstAttemptCorrect,
+      totalQuestions: totalFirstAttempts,
+      crownsGained: firstAttemptMistakes === 0 ? 1 : 0,
+      accuracy,
+    })
+
+    // Streak milestone bonus chest (HIGH rarity, guaranteed Legendary+).
+    // Streak Savers protect missed days automatically inside updateStreak().
+    const streakMilestone = player.consumeStreakChest()
+    setStreakBonus(streakMilestone)
+
     // New chest engine (cards.ts) - replaces the legacy lessonChestPrize
-    const ctx: ChestContext = player.consumeLuckyTicket() ? 'lucky' : isBoss ? 'boss' : 'normal'
+    const ctx: ChestContext = streakMilestone !== null
+      ? 'streak'
+      : player.consumeLuckyTicket() ? 'lucky' : isBoss ? 'boss' : 'normal'
     const chest = rollChest(Math.random, ctx, new Set(player.cardCollection), player.cardPity)
     const finalGems = (player.chestBoost ? 2 : 1) * (player.megaChest ? 2 : 1) * chest.gems
     if (player.chestBoost) player.useChestBoost()
@@ -328,19 +348,6 @@ export function LessonScreen({ lessonId, onExit }: { lessonId: string; onExit: (
     setFloater(null)
     setShaking(false)
     setXpEarned(gained)
-    player.completeLesson({
-      lessonId,
-      xp: gained,
-      correct: firstAttemptCorrect,
-      totalQuestions: totalFirstAttempts,
-      crownsGained: firstAttemptMistakes === 0 ? 1 : 0,
-      accuracy,
-    })
-
-    // Handle streak saver
-    if (firstAttemptMistakes > 0 && player.streakSavers > 0) {
-      // Could add logic here to protect streak
-    }
 
     sfx.complete()
     confetti({ particleCount: firstAttemptMistakes === 0 ? 120 : 60, spread: 75, origin: { y: 0.7 }, disableForReducedMotion: true })
@@ -459,6 +466,18 @@ export function LessonScreen({ lessonId, onExit }: { lessonId: string; onExit: (
         <p className="mt-1 text-center font-body text-sm font-bold text-slate-400">
           {firstAttemptMistakes === 0 ? 'Flawless run - every answer right!' : `${firstAttemptMistakes} mistake${firstAttemptMistakes === 1 ? '' : 's'} on first try. Practice makes perfect!`}
         </p>
+
+        {/* streak milestone bonus banner */}
+        {streakBonus !== null && (
+          <motion.div
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ type: 'spring', stiffness: 220, damping: 16 }}
+            className="mt-4 rounded-2xl border-2 border-amber-300 bg-amber-50 px-4 py-2 text-center font-display text-sm font-extrabold text-amber-600 shadow-pop"
+          >
+            🔥 {streakBonus}-DAY STREAK! BONUS HIGH-RARITY CHEST! 🎁
+          </motion.div>
+        )}
 
         {chestResult && (
           <motion.div

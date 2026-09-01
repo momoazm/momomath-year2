@@ -6,9 +6,9 @@ import {
   DAILY_QUESTS,
   advanceLeague,
   leagueOutcomeByXp,
-  nextWeekKey,
+  leagueWeekElapsed,
+  streakMilestoneFor,
   todayISO,
-  weekKey,
   yesterdayISO,
   type LeagueName,
 } from './gamification'
@@ -56,10 +56,16 @@ interface PlayerState {
   achievements: string[]
   currentLeague: LeagueName
   leagueHistory: LeagueHistoryEntry[]
+  /** most recent promotion/demotion — shown as a banner until dismissed */
+  lastLeagueSettle: LeagueHistoryEntry | null
   soundOn: boolean
   onboarded: boolean
   shopInventory: Record<string, number>
   streakSavers: number
+  /** streak value at which the last milestone chest was granted (7, 14, …) */
+  lastStreakReward: number
+  /** milestone (7/14/21…) whose HIGH-RARITY bonus chest is waiting to be shown */
+  pendingStreakMilestone: number | null
   doubleXpLessons: number
   chestBoost: boolean
   megaChest: boolean
@@ -99,11 +105,18 @@ interface PlayerState {
   setMegaChest: (v: boolean) => void
   useMegaChest: () => void
   grantChest: (chest: ChestResult) => void
+  /** Consume a pending streak milestone; returns the milestone (7/14/21…) or null. */
+  consumeStreakChest: () => number | null
   addLuckyTickets: (n: number) => void
   /** consume one Lucky Ticket if available; returns true if it was active */
   consumeLuckyTicket: () => boolean
   applySyncedSnapshot: (snap: Partial<PlayerState>) => void
   setLastSyncedAt: (t: number | null) => void
+  /** settle last week's league (promote/demote) if the 7-day week has elapsed */
+  syncLeagueWeek: () => void
+  /** promote the league leader into the next league when the week ends */
+  promoteLeader: () => void
+  dismissLeagueSettle: () => void
 }
 
 function rollDay(s: PlayerState) {
@@ -122,30 +135,106 @@ function rollDay(s: PlayerState) {
   }
 }
 
-/** Weekly league rollover (auto every Monday): settle last week by XP earned,
- *  promote/demote, then reset the weekly XP counter for the fresh league. */
-function rollWeek(s: PlayerState) {
-  const wk = weekKey()
-  if (s.weeklyXpWeek === wk) return
-  const prevWeek = s.weeklyXpWeek || wk
+/** Fields of PlayerState that weekly league settlement reads/writes. */
+export interface LeagueWeekFields {
+  weeklyXpWeek: string
+  weeklyXp: number
+  currentLeague: LeagueName
+  leagueHistory: LeagueHistoryEntry[]
+  lastLeagueSettle: LeagueHistoryEntry | null
+}
+
+/** Valid "YYYY-MM-DD" league-week anchor? */
+export function isValidAnchor(a: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}$/.test(a)
+}
+
+/**
+ * Weekly league settlement (standard XP rules).
+ *
+ * A league week runs from 12:00 AM of its anchor day (`weeklyXpWeek`) for
+ * exactly 7 days. When that window elapses: settle last week by XP earned —
+ * promote / demote / stay — record history, reset the XP counter, and anchor
+ * the fresh week at TODAY's 12:00 AM (so the timer reads ~7 days again).
+ * Returns true when a settlement happened. Pure: mutates only league fields.
+ */
+export function settleLeagueWeek<T extends LeagueWeekFields>(
+  s: T,
+  now: Date = new Date(),
+): boolean {
+  const anchor = s.weeklyXpWeek
+  if (!isValidAnchor(anchor)) {
+    // Legacy/corrupt state without a playable week: start fresh at 12 AM today.
+    s.weeklyXpWeek = todayISO(now)
+    s.weeklyXp = 0
+    return false
+  }
+  if (!leagueWeekElapsed(anchor, now)) return false
+  const prevWeek = anchor
   const prevLeague = s.currentLeague
-  const outcome = leagueOutcomeByXp(prevLeague, s.weeklyXp)
+  // Legacy persisted states can carry undefined/NaN XP — never let that
+  // poison the outcome (treat as 0, which means demote unless Bronze).
+  const earned = Number.isFinite(s.weeklyXp) ? s.weeklyXp : 0
+  const outcome = leagueOutcomeByXp(prevLeague, earned)
   s.currentLeague = advanceLeague(prevLeague, outcome)
   s.leagueHistory = [
     ...s.leagueHistory.slice(-9),
-    { weekKey: prevWeek, league: prevLeague, outcome, xp: s.weeklyXp },
+    { weekKey: prevWeek, league: prevLeague, outcome, xp: earned },
   ]
-  s.weeklyXpWeek = wk
+  s.weeklyXpWeek = todayISO(now) // new week starts 12:00 AM today
   s.weeklyXp = 0
+  s.lastLeagueSettle =
+    outcome === 'stayed' ? null : s.leagueHistory[s.leagueHistory.length - 1]
+  return true
+}
+
+/**
+ * The league leader's promotion: same 7-day anchor, but the #1 player always
+ * moves UP into the next league when the week ends (regardless of XP), with
+ * XP and the weekly timer restarted at today's 12:00 AM.
+ */
+export function promoteLeaderWeek<T extends LeagueWeekFields>(
+  s: T,
+  now: Date = new Date(),
+): boolean {
+  const anchor = s.weeklyXpWeek
+  if (!isValidAnchor(anchor)) {
+    s.weeklyXpWeek = todayISO(now)
+    s.weeklyXp = 0
+    return false
+  }
+  if (!leagueWeekElapsed(anchor, now)) return false
+  const prevWeek = anchor
+  const prevLeague = s.currentLeague
+  const earned = Number.isFinite(s.weeklyXp) ? s.weeklyXp : 0
+  s.currentLeague = advanceLeague(prevLeague, 'promoted')
+  s.leagueHistory = [
+    ...s.leagueHistory.slice(-9),
+    { weekKey: prevWeek, league: prevLeague, outcome: 'promoted', xp: earned },
+  ]
+  s.weeklyXpWeek = todayISO(now) // new week starts 12:00 AM today
+  s.weeklyXp = 0
+  s.lastLeagueSettle = s.leagueHistory[s.leagueHistory.length - 1]
+  return true
+}
+
+/** Weekly league rollover used by the live store (delegates to settleLeagueWeek). */
+function rollWeek(s: PlayerState) {
+  settleLeagueWeek(s)
 }
 
 export function updateStreak(
-  s: Pick<PlayerState, 'streakCurrent' | 'streakLongest' | 'lastActiveDay'>,
+  s: Pick<PlayerState, 'streakCurrent' | 'streakLongest' | 'lastActiveDay' | 'streakSavers'>,
   today: string = todayISO(),
   yesterday: string = yesterdayISO(),
 ) {
   if (s.lastActiveDay === today) return
   if (s.lastActiveDay === yesterday) {
+    s.streakCurrent += 1
+  } else if (s.streakSavers > 0) {
+    // A day was missed, but a Streak Saver absorbs the gap: the streak
+    // CONTINUES instead of resetting to 1 (saver is consumed automatically).
+    s.streakSavers -= 1
     s.streakCurrent += 1
   } else {
     s.streakCurrent = 1
@@ -201,17 +290,20 @@ export const usePlayer = create<PlayerState>()(
       lessonsToday: 0,
       correctTodayDay: firstDay,
       correctToday: 0,
-      weeklyXpWeek: weekKey(),
+      weeklyXpWeek: todayISO(), // league week anchored at 12:00 AM today
       weeklyXp: 0,
       lessonProgress: {},
       claimedQuests: { day: firstDay, questIds: [] },
       achievements: [],
       currentLeague: 'Bronze',
       leagueHistory: [],
+      lastLeagueSettle: null,
       soundOn: true,
       onboarded: false,
       shopInventory: {},
       streakSavers: 0,
+      lastStreakReward: 0,
+      pendingStreakMilestone: null,
       doubleXpLessons: 0,
       chestBoost: false,
       megaChest: false,
@@ -249,6 +341,15 @@ export const usePlayer = create<PlayerState>()(
 
           const wasStreakActive = state.lastActiveDay === todayISO()
           updateStreak(s)
+
+          // Streak milestone bonus: every 7 consecutive active days grants a
+          // HIGH-RARITY bonus chest (guaranteed Legendary/Exclusive), awarded
+          // once per milestone and shown on the next chest reveal.
+          const milestone = streakMilestoneFor(s.streakCurrent, s.lastStreakReward)
+          if (milestone !== null) {
+            s.lastStreakReward = milestone
+            s.pendingStreakMilestone = milestone
+          }
 
           checkAchievements(s)
 
@@ -374,6 +475,15 @@ export const usePlayer = create<PlayerState>()(
           return { gems: state.gems + chest.gems, cardCollection, cardPity }
         }),
       addLuckyTickets: (n) => set((state) => ({ luckyTickets: state.luckyTickets + n })),
+      consumeStreakChest: () => {
+        let milestone: number | null = null
+        set((state) => {
+          if (state.pendingStreakMilestone == null) return state
+          milestone = state.pendingStreakMilestone
+          return { pendingStreakMilestone: null }
+        })
+        return milestone
+      },
       consumeLuckyTicket: () => {
         let active = false
         set((state) => {
@@ -406,21 +516,40 @@ export const usePlayer = create<PlayerState>()(
           return next
         }),
       setLastSyncedAt: (t) => set({ lastSyncedAt: t }),
+      syncLeagueWeek: () =>
+        set((state) => {
+          const s: PlayerState = { ...state }
+          // no settlement → return the same state (no re-render/persist write)
+          return settleLeagueWeek(s) ? s : state
+        }),
+      promoteLeader: () =>
+        set((state) => {
+          const s: PlayerState = { ...state }
+          // no promotion → return the same state (no re-render/persist write)
+          return promoteLeaderWeek(s) ? s : state
+        }),
+      dismissLeagueSettle: () => set({ lastLeagueSettle: null }),
     }),
     {
       name: 'momomath-year2-player-v2',
-      version: 3,
+      version: 5,
       migrate: (persisted, version) => {
-        const p = persisted as PlayerState
-        if (version < 3) {
-          // Backfill any fields added after v2.
-          return {
-            ...p,
-            cardCollection: Array.isArray(p.cardCollection) ? p.cardCollection : [],
-            cardPity: typeof p.cardPity === 'number' ? p.cardPity : 0,
-            luckyTickets: typeof p.luckyTickets === 'number' ? p.luckyTickets : 0,
-            lastSyncedAt: typeof p.lastSyncedAt === 'number' ? p.lastSyncedAt : null,
+        const p = { ...(persisted as PlayerState) }
+        if (version < 4) {
+          // Backfill any fields added after v3 (streak milestone rewards).
+          p.lastStreakReward = typeof p.lastStreakReward === 'number' ? p.lastStreakReward : 0
+          p.pendingStreakMilestone = p.pendingStreakMilestone === undefined ? null : p.pendingStreakMilestone
+        }
+        if (version < 5) {
+          // League settlement: backfill the banner field and normalise the
+          // week key / XP so a stale or missing week always triggers a proper
+          // settlement (promote/demote) on next launch instead of silently
+          // carrying last week's XP into the new week.
+          p.lastLeagueSettle = p.lastLeagueSettle ?? null
+          if (typeof p.weeklyXpWeek !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(p.weeklyXpWeek)) {
+            p.weeklyXpWeek = ''
           }
+          if (!Number.isFinite(p.weeklyXp)) p.weeklyXp = 0
         }
         return p
       },

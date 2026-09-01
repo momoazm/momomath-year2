@@ -15,3 +15,5 @@ vite.log
 vite-err.log
 deploy-out.txt
 deploy-err.txt
+build-log.txt
+vitest-log.txt

@@ -4,6 +4,8 @@ import {
   LEAGUES,
   LEAGUE_META,
   STAY_FACTOR,
+  advanceLeague,
+  leagueWeekElapsed,
   msUntilWeekEnd,
   rivalXp,
   weekKey,
@@ -16,7 +18,7 @@ import {
   weeklyXpOf,
   type SharedPlayer,
 } from '../engine/leaderboard'
-import { usePlayer } from '../engine/store'
+import { isValidAnchor, usePlayer } from '../engine/store'
 import { useAuth } from '../engine/auth'
 import { Mascot } from '../components/mascots/Mascots'
 
@@ -62,7 +64,14 @@ export function LeaguesScreen() {
   const myId = authUser?.sub
     ? `g:${authUser.sub}`
     : `name:${s.name.trim().toLowerCase()}`
-  const wk = weekKey()
+
+  // League weeks are anchored at 12:00 AM of the day they began and run for
+  // exactly 7 days. `boardWeek` is the shared Monday-based key used on the
+  // leaderboard so all players' entries compare the same calendar week.
+  const anchor = s.weeklyXpWeek
+  const boardWeek = weekKey()
+  const weekLive = isValidAnchor(anchor) && !leagueWeekElapsed(anchor, new Date(nowMs))
+  const needsSettle = !weekLive
 
   // tick every second for the live countdown + rival progress
   useEffect(() => {
@@ -85,9 +94,11 @@ export function LeaguesScreen() {
     }
   }, [])
 
-  // share my progress whenever it changes (and once on entry)
+  // share my progress whenever it changes (and once on entry).
+  // Never push a stale or elapsed week: while `needsSettle` is true the XP still
+  // belongs to the finished week, so we wait for the settle/promote to reset it.
   useEffect(() => {
-    if (!s.name.trim()) return
+    if (!s.name.trim() || !weekLive) return
     let alive = true
     pushSharedPlayer({
       id: myId,
@@ -95,19 +106,19 @@ export function LeaguesScreen() {
       xp: s.weeklyXp,
       league: s.currentLeague,
       mascot: s.mascot,
-      week: wk,
+      week: boardWeek,
     }).then((entries) => {
       if (alive && entries.length) setShared(entries)
     })
     return () => {
       alive = false
     }
-  }, [myId, s.name, s.weeklyXp, s.currentLeague, s.mascot, wk])
+  }, [myId, s.name, s.weeklyXp, s.currentLeague, s.mascot, s.weeklyXpWeek, boardWeek, weekLive])
 
   const meta = LEAGUE_META[s.currentLeague]
   const goal = weeklyGoal(s.currentLeague)
   const stayGoal = Math.round(goal * STAY_FACTOR)
-  const countdown = formatCountdown(msUntilWeekEnd(new Date(nowMs)))
+  const countdown = formatCountdown(msUntilWeekEnd(anchor, new Date(nowMs)))
 
   const others = shared.filter((p) => p.id !== myId)
   const realCount = 1 + others.length
@@ -117,7 +128,7 @@ export function LeaguesScreen() {
     ...others.map((p) => ({
       id: p.id,
       name: p.name,
-      xp: weeklyXpOf(p, wk),
+      xp: weeklyXpOf(p, boardWeek),
       isYou: false,
       kind: 'real' as const,
       mascotId: p.mascot,
@@ -125,7 +136,7 @@ export function LeaguesScreen() {
     ...bots.map((r) => ({
       id: r.id,
       name: r.name,
-      xp: rivalXp(r, s.currentLeague, wk, new Date(nowMs)),
+      xp: rivalXp(r, s.currentLeague, anchor, new Date(nowMs)),
       isYou: false,
       kind: 'bot' as const,
       icon: r.icon,
@@ -141,6 +152,18 @@ export function LeaguesScreen() {
   ].sort((a, b) => b.xp - a.xp)
 
   const myRank = standings.findIndex((p) => p.isYou) + 1
+
+  // When the 7-day league week ends, the leader (rank #1) advances into the
+  // next league; everyone else settles by XP rules. Either way XP resets to 0
+  // and the timer restarts at 12:00 AM of the new week. Idempotent.
+  useEffect(() => {
+    if (!needsSettle) return
+    if (myRank === 1) s.promoteLeader()
+    else s.syncLeagueWeek()
+    // re-run only when the settle state or the final rank changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [needsSettle, myRank])
+
   const pct = Math.min(100, Math.round((s.weeklyXp / goal) * 100))
 
   return (
@@ -161,6 +184,31 @@ export function LeaguesScreen() {
         >
           ⏳ Resets in {countdown}
         </p>
+        {/* last week's promotion/demotion result — shown until dismissed */}
+        {s.lastLeagueSettle && (
+          <div
+            data-testid="league-settle-banner"
+            className={`mt-3 flex w-full items-center justify-between gap-2 rounded-xl px-3 py-2 font-body text-sm font-bold ${
+              s.lastLeagueSettle.outcome === 'promoted'
+                ? 'bg-emerald-50 text-emerald-600'
+                : 'bg-red-50 text-red-500'
+            }`}
+          >
+            <span>
+              {s.lastLeagueSettle.outcome === 'promoted'
+                ? `🎉 Promoted to ${advanceLeague(s.lastLeagueSettle.league, 'promoted')} League!`
+                : `💪 Demoted to ${advanceLeague(s.lastLeagueSettle.league, 'demoted')} League — climb back up!`}
+            </span>
+            <button
+              type="button"
+              onClick={() => s.dismissLeagueSettle()}
+              className="shrink-0 rounded-lg px-2 py-1 text-xs font-extrabold opacity-60 hover:opacity-100"
+              aria-label="Dismiss"
+            >
+              ✕
+            </button>
+          </div>
+        )}
       </div>
 
       {/* weekly XP progress toward promotion */}

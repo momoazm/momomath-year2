@@ -1,3 +1,18 @@
+/* ---------------- Streak milestone rewards ---------------- */
+
+/** Every N consecutive active days the player earns a HIGH-RARITY bonus chest. */
+export const STREAK_CHEST_EVERY = 7
+
+/**
+ * Returns the streak milestone (7, 14, 21 …) the player just reached, or null.
+ * `lastReward` is the streak value at which the previous milestone chest was
+ * granted, so replaying lessons on the same day never double-rewards.
+ */
+export function streakMilestoneFor(streak: number, lastReward: number): number | null {
+  const milestone = Math.floor(streak / STREAK_CHEST_EVERY) * STREAK_CHEST_EVERY
+  return milestone >= STREAK_CHEST_EVERY && milestone > lastReward ? milestone : null
+}
+
 export const LEAGUES = [
   'Bronze',
   'Silver',
@@ -69,7 +84,9 @@ function localISO(d: Date): string {
   ).padStart(2, '0')}`
 }
 
-/** Monday-based ISO week key, e.g. "2026-08-17" */
+/** Monday-based ISO week key, e.g. "2026-08-17".
+ *  Used as the SHARED identity across all players on the leaderboard so
+ *  everyone's entry is comparable for the same calendar week. */
 export function weekKey(d = new Date()): string {
   const date = new Date(d)
   const day = (date.getDay() + 6) % 7 // Mon=0..Sun=6
@@ -77,20 +94,46 @@ export function weekKey(d = new Date()): string {
   return localISO(date)
 }
 
+/** The date 7 days after `k` (used to roll shared-board week identity). */
 export function nextWeekKey(k: string): string {
   const d = new Date(k + 'T00:00:00')
   d.setDate(d.getDate() + 7)
   return localISO(d)
 }
 
-export function todayISO(): string {
-  return localISO(new Date())
+/** Local-date "YYYY-MM-DD" for the given moment (defaults to now). */
+export function todayISO(now: Date = new Date()): string {
+  return localISO(now)
 }
 
 export function yesterdayISO(): string {
   const d = new Date()
   d.setDate(d.getDate() - 1)
   return localISO(d)
+}
+
+/* -------- League weekly timer: anchored 7-day windows -------- */
+
+/** One league week = exactly 7 days (in ms). */
+export const LEAGUE_WEEK_MS = 7 * 86400000
+
+/**
+ * A league week runs from 12:00 AM of its anchor day and ends EXACTLY a week
+ * later. `weeklyXpWeek` stores that anchor, so the live countdown restarts at
+ * "12 AM of the day the week began" and reaches zero one week later.
+ */
+export function leagueWeekEndsAt(anchor: string): number {
+  return new Date(`${anchor}T00:00:00`).getTime() + LEAGUE_WEEK_MS
+}
+
+/** True once the 7-day league week anchored at `anchor` has fully elapsed. */
+export function leagueWeekElapsed(anchor: string, now: Date = new Date()): boolean {
+  return now.getTime() >= leagueWeekEndsAt(anchor)
+}
+
+/** Live countdown helper: ms until the anchored league week ends (0 once elapsed). */
+export function msUntilWeekEnd(anchor: string, now: Date = new Date()): number {
+  return Math.max(0, leagueWeekEndsAt(anchor) - now.getTime())
 }
 
 export function advanceLeague(current: LeagueName, outcome: 'promoted' | 'demoted' | 'stayed'): LeagueName {
@@ -149,15 +192,6 @@ export function rivalXp(
   const startMs = new Date(wk + 'T00:00:00').getTime()
   const frac = Math.min(1, Math.max(0, (now.getTime() - startMs) / (7 * 86400000)))
   return Math.round(target * Math.pow(frac, paceExp))
-}
-
-/** Live countdown helper: ms until the given Monday-based week key ends. */
-export function msUntilWeekEnd(now: Date = new Date()): number {
-  const d = new Date(now)
-  d.setDate(d.getDate() - ((d.getDay() + 6) % 7)) // back to this Monday
-  d.setDate(d.getDate() + 7) // next Monday
-  d.setHours(0, 0, 0, 0)
-  return d.getTime() - now.getTime()
 }
 
 /** Gems inside the end-of-lesson chest. Perfect lessons give bigger loot. */

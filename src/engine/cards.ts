@@ -76,7 +76,7 @@ const GEM_RANGE: Record<ChestTier, [number, number]> = {
 }
 
 /** Starting-tier probability tables (weights sum to 100 for easy %). */
-export type ChestContext = 'normal' | 'boss' | 'lucky'
+export type ChestContext = 'normal' | 'boss' | 'lucky' | 'streak'
 export const START_TABLES: Record<ChestContext, [ChestTier, number][]> = {
   normal: [
     ['common', 95],
@@ -97,6 +97,11 @@ export const START_TABLES: Record<ChestContext, [ChestTier, number][]> = {
     ['epic', 12],
     ['legendary', 5],
     ['exclusive', 1],
+  ],
+  // Streak milestone reward (every 7 consecutive days): ALWAYS high rarity.
+  streak: [
+    ['legendary', 75],
+    ['exclusive', 25],
   ],
 }
 
