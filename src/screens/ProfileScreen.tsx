@@ -5,6 +5,7 @@ import { MASCOTS, Mascot } from '../components/mascots/Mascots'
 import { GoogleSignInInline } from '../components/ui/AuthBadge'
 import { signOutGoogle, useAuth } from '../engine/auth'
 import { sfx } from '../engine/sfx'
+import { summariseSkill, type SkillSummary } from '../engine/adaptive'
 import type { MascotId } from '../content/types'
 
 export function ProfileScreen() {
@@ -16,6 +17,27 @@ export function ProfileScreen() {
 
   const lessonsCompleted = Object.values(s.lessonProgress).reduce((a, p) => a + p.completions, 0)
   const crowns = Object.values(s.lessonProgress).reduce((a, p) => a + p.crown, 0)
+
+  // Adaptive insights: per-skill summary, sorted by lowest mastery first.
+  const insights: SkillSummary[] = Object.keys(s.adaptive.snapshot.skills)
+    .map((code) => summariseSkill(code, s.adaptive.snapshot))
+    .filter((x): x is SkillSummary => x !== null)
+    .sort((a, b) => a.mastery - b.mastery)
+
+  function exportJson() {
+    const payload = {
+      exportedAt: new Date().toISOString(),
+      version: 4,
+      adaptive: s.adaptive,
+    }
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `momomath-adaptive-${Date.now()}.json`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
 
   return (
     <div className="mx-auto w-full max-w-xl px-4 pb-28 pt-4">
@@ -114,6 +136,53 @@ export function ProfileScreen() {
             ))}
           </ul>
         )}
+      </section>
+
+      {/* adaptive learning insights — parent/admin facing */}
+      <section className="card-white mt-4">
+        <p className="font-display text-sm font-bold uppercase tracking-wide text-slate-400">Learning insights</p>
+        <p className="mt-1 text-xs font-semibold text-slate-500">
+          Tracked from the first question. Lowest-mastery skills first.
+        </p>
+        {insights.length === 0 ? (
+          <p className="mt-2 text-sm font-bold text-slate-400">No data yet — play a lesson to start tracking.</p>
+        ) : (
+          <div className="mt-2 overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead>
+                <tr className="text-slate-400">
+                  <th className="px-1 py-1 font-display">Skill</th>
+                  <th className="px-1 py-1 font-display text-right">Mastery</th>
+                  <th className="px-1 py-1 font-display text-right">Tries</th>
+                  <th className="px-1 py-1 font-display text-right">Acc</th>
+                  <th className="px-1 py-1 font-display">Trend</th>
+                </tr>
+              </thead>
+              <tbody>
+                {insights.map((i) => (
+                  <tr key={i.code} className="border-t border-slate-100">
+                    <td className="px-1 py-1 font-mono text-[11px] text-slate-700">{i.code}</td>
+                    <td className="px-1 py-1 text-right font-display font-extrabold text-speed-blue">
+                      {Math.round(i.mastery * 100)}%
+                    </td>
+                    <td className="px-1 py-1 text-right text-slate-500">{i.attempts}</td>
+                    <td className="px-1 py-1 text-right text-slate-500">{Math.round(i.accuracy * 100)}%</td>
+                    <td className="px-1 py-1 text-slate-500">{i.trend}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs">
+          <p className="font-semibold text-slate-500">
+            LLM explanations: {s.adaptive.telemetry.llmHits}/{s.adaptive.telemetry.llmRequests} served
+            {s.adaptive.telemetry.lastLlmProvider ? ` · last: ${s.adaptive.telemetry.lastLlmProvider}` : ''}
+          </p>
+          <button onClick={() => { sfx.tap(); exportJson() }} className="btn3d btn-blue !px-3 !py-2 !text-xs">
+            Export JSON
+          </button>
+        </div>
       </section>
 
       {/* achievements */}

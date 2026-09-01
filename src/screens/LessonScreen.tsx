@@ -11,6 +11,7 @@ import { Mascot } from '../components/mascots/Mascots'
 import { sfx } from '../engine/sfx'
 import { hashString, mulberry32, shuffle } from '../content/rng'
 import { layoutMatchColumns } from '../content/matchLayout'
+import { primaryCode, useAdaptiveLesson } from '../engine/adaptive'
 import type {
   LetterTilesQuestion,
   MatchQuestion,
@@ -201,6 +202,17 @@ export function LessonScreen({ lessonId, onExit }: { lessonId: string; onExit: (
 
   const q: Question | undefined = queue[qIdx]
 
+  // Adaptive engine — one hook per lesson screen. We pass the primary objective
+  // code of this lesson + the current question so the BKT model + LLM
+  // explanation can fire on the first attempt.
+  const adaptive = useAdaptiveLesson()
+  const lessonCode = useMemo(() => primaryCode(lessonId, subject) ?? 'unknown', [lessonId, subject])
+
+  // Reset the adaptive explanation when we move to a new question
+  useEffect(() => {
+    adaptive.reset()
+  }, [qIdx, adaptive])
+
   const startLesson = useCallback(() => {
     setQueue(entry.lesson.generate(QUESTIONS_PER_LESSON, attempt))
     setQIdx(0); setPhase('playing'); setFeedback(null)
@@ -257,6 +269,33 @@ export function LessonScreen({ lessonId, onExit }: { lessonId: string; onExit: (
     }
   }, [q, choiceIdx, typed, tapped, matched.size, matchErrors, orderPick, tilePicks, speakPhase])
 
+  function studentAnswerString(): string {
+    if (!q) return ''
+    switch (q.kind) {
+      case 'mcq': return choiceIdx != null ? (q.choices[choiceIdx] ?? '') : ''
+      case 'type-number': return typed
+      case 'tap-count': return String(tapped.size)
+      case 'match': return matched.size === q.pairs.length ? 'all-matched' : `partial:${matched.size}`
+      case 'order': return orderPick.map((i) => q.items[i] ?? '').join(',')
+      case 'letter-tiles': return tilePicks.map((i) => q.targetWord[i] ?? '').join('')
+      case 'truefalse': return choiceIdx === 0 ? 'true' : choiceIdx === 1 ? 'false' : ''
+      case 'speak': return speakPhase === 'idle' ? '' : 'said-something'
+    }
+  }
+  function correctAnswerString(): string {
+    if (!q) return ''
+    switch (q.kind) {
+      case 'mcq': return q.choices[q.answerIndex] ?? ''
+      case 'type-number': return String(q.answer)
+      case 'tap-count': return String(q.target)
+      case 'match': return 'all-matched'
+      case 'order': return q.items.join(',')
+      case 'letter-tiles': return q.targetWord
+      case 'truefalse': return q.answer ? 'true' : 'false'
+      case 'speak': return q.targetText
+    }
+  }
+
   function handleCheck() {
     if (!canCheck || !q || feedback) return
     const isFirstAttempt = !firstAttemptDone.has(qIdx)
@@ -267,6 +306,18 @@ export function LessonScreen({ lessonId, onExit }: { lessonId: string; onExit: (
       setFirstAttemptDone((s) => new Set(s).add(qIdx))
       setTotalFirstAttempts((n) => n + 1)
       if (ok) setFirstAttemptCorrect((n) => n + 1)
+      // Adaptive: record the first attempt (BKT update + optional LLM explain)
+      adaptive.recordFirstAttempt({
+        lessonId,
+        objectiveCode: lessonCode,
+        difficulty: 1,
+        question: q,
+        studentAnswer: studentAnswerString(),
+        correctAnswer: correctAnswerString(),
+        correct: ok,
+        isFirstAttempt: true,
+        enabled: true,
+      })
     }
     setFeedback(ok ? 'correct' : 'wrong')
   }
@@ -502,6 +553,14 @@ export function LessonScreen({ lessonId, onExit }: { lessonId: string; onExit: (
                   {feedback === 'correct' ? ['Nice one!', 'Zoom-tastic!', 'You speedster!', 'Brilliant!'][qIdx % 4] : 'Not quite!'}
                 </p>
                 {feedback === 'wrong' && <p className="text-sm font-bold text-slate-500">{correctText(q)}</p>}
+                {feedback === 'wrong' && adaptive.explanation && (
+                  <p className="mt-1 text-sm font-semibold text-slate-500">
+                    {adaptive.explanation}
+                    {adaptive.explanationIsLlm && (
+                      <span className="ml-1 text-[10px] uppercase tracking-wider text-slate-400">· gentle hint</span>
+                    )}
+                  </p>
+                )}
               </div>
             </motion.div>
           )}

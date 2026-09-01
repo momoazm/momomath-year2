@@ -15,6 +15,25 @@ import {
 import { SHOP_ITEMS } from './shop'
 import { setMuted, sfx } from './sfx'
 import type { ChestResult } from './cards'
+import type { AdaptiveStore } from './adaptive/types'
+import { ADAPTIVE_CONFIG } from './adaptive/config'
+
+const initialAdaptive = (): AdaptiveStore => ({
+  snapshot: { skills: {}, seenCodes: [], recentPicks: [], lastRecommendation: null },
+  attempts: [],
+  masteryHistory: {},
+  telemetry: {
+    llmRequests: 0,
+    llmHits: 0,
+    llmFallbacks: 0,
+    lastLlmProvider: null,
+    lastLlmLatencyMs: null,
+    recommended: 0,
+    recommendedAccepted: 0,
+  },
+})
+
+export { ADAPTIVE_CONFIG, initialAdaptive }
 
 export interface LessonProgress {
   crown: number
@@ -104,6 +123,14 @@ interface PlayerState {
   consumeLuckyTicket: () => boolean
   applySyncedSnapshot: (snap: Partial<PlayerState>) => void
   setLastSyncedAt: (t: number | null) => void
+
+  // --- adaptive learning ---
+  adaptive: AdaptiveStore
+  recordAdaptiveAttempt: (entry: import('./adaptive/types').AttemptLogEntry) => void
+  setLastAdaptiveRecommendation: (rec: import('./adaptive/types').AdaptiveRecommendation | null) => void
+  bumpLlm: (args: { hit: boolean; provider: string | null; latencyMs: number | null }) => void
+  bumpRecommendationShown: (accepted: boolean) => void
+  resetAdaptive: () => void
 }
 
 function rollDay(s: PlayerState) {
@@ -392,15 +419,65 @@ export const usePlayer = create<PlayerState>()(
           return next
         }),
       setLastSyncedAt: (t) => set({ lastSyncedAt: t }),
+
+      // --- adaptive learning ---
+      adaptive: initialAdaptive(),
+      recordAdaptiveAttempt: (entry) =>
+        set((state) => {
+          const log = state.adaptive.attempts.length >= ADAPTIVE_CONFIG.ATTEMPT_LOG_CAP
+            ? [...state.adaptive.attempts.slice(-(ADAPTIVE_CONFIG.ATTEMPT_LOG_CAP - 1)), entry]
+            : [...state.adaptive.attempts, entry]
+          const mh = state.adaptive.masteryHistory
+          const series = mh[entry.objectiveCode] ?? []
+          const nextSeries = [...series, { ts: entry.ts, pL: entry.masteryAfter }].slice(-200)
+          return {
+            adaptive: {
+              ...state.adaptive,
+              attempts: log,
+              masteryHistory: { ...mh, [entry.objectiveCode]: nextSeries },
+            },
+          }
+        }),
+      setLastAdaptiveRecommendation: (rec) =>
+        set((state) => ({
+          adaptive: { ...state.adaptive, snapshot: { ...state.adaptive.snapshot, lastRecommendation: rec } },
+        })),
+      bumpLlm: ({ hit, provider, latencyMs }) =>
+        set((state) => ({
+          adaptive: {
+            ...state.adaptive,
+            telemetry: {
+              ...state.adaptive.telemetry,
+              llmRequests: state.adaptive.telemetry.llmRequests + 1,
+              llmHits: state.adaptive.telemetry.llmHits + (hit ? 1 : 0),
+              llmFallbacks: state.adaptive.telemetry.llmFallbacks + (hit ? 0 : 1),
+              lastLlmProvider: provider,
+              lastLlmLatencyMs: latencyMs,
+            },
+          },
+        })),
+      bumpRecommendationShown: (accepted) =>
+        set((state) => ({
+          adaptive: {
+            ...state.adaptive,
+            telemetry: {
+              ...state.adaptive.telemetry,
+              recommended: state.adaptive.telemetry.recommended + 1,
+              recommendedAccepted: state.adaptive.telemetry.recommendedAccepted + (accepted ? 1 : 0),
+            },
+          },
+        })),
+      resetAdaptive: () => set({ adaptive: initialAdaptive() }),
     }),
     {
       name: 'momomath-year2-player-v2',
-      version: 3,
+      version: 4,
       migrate: (persisted, version) => {
         const p = persisted as PlayerState
+        let next: PlayerState = p
         if (version < 3) {
           // Backfill any fields added after v2.
-          return {
+          next = {
             ...p,
             cardCollection: Array.isArray(p.cardCollection) ? p.cardCollection : [],
             cardPity: typeof p.cardPity === 'number' ? p.cardPity : 0,
@@ -408,7 +485,35 @@ export const usePlayer = create<PlayerState>()(
             lastSyncedAt: typeof p.lastSyncedAt === 'number' ? p.lastSyncedAt : null,
           }
         }
-        return p
+        if (version < 4) {
+          // v4: introduce the adaptive learning slice. Always start fresh — the
+          // engine has no signal from before this version.
+          next = {
+            ...next,
+            adaptive: {
+              snapshot: { skills: {}, seenCodes: [], recentPicks: [], lastRecommendation: null },
+              attempts: [],
+              masteryHistory: {},
+              telemetry: {
+                llmRequests: 0,
+                llmHits: 0,
+                llmFallbacks: 0,
+                lastLlmProvider: null,
+                lastLlmLatencyMs: null,
+                recommended: 0,
+                recommendedAccepted: 0,
+              },
+            },
+          }
+        }
+        return next
+      },
+      partialize: (state) => {
+        // We persist the adaptive block explicitly so the schema stays stable
+        // when other fields are added in future versions.
+        const { adaptive, ...rest } = state
+        void adaptive
+        return rest
       },
     },
   ),

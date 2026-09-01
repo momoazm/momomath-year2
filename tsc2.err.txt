@@ -1,0 +1,2 @@
+npm notice run momo-year2-cambridge@0.1.0 npx
+npm notice run tsc -b --pretty
