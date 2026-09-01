@@ -144,9 +144,16 @@ export interface LeagueWeekFields {
   lastLeagueSettle: LeagueHistoryEntry | null
 }
 
-/** Valid "YYYY-MM-DD" league-week anchor? */
+/** Valid "YYYY-MM-DD" league-week anchor? Rejects impossible dates (e.g. 2026-02-30). */
 export function isValidAnchor(a: string): boolean {
-  return /^\d{4}-\d{2}-\d{2}$/.test(a)
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(a)) return false
+  const d = new Date(`${a}T00:00:00`)
+  if (Number.isNaN(d.getTime())) return false
+  // Engines roll impossible dates over (2026-02-30 -> Mar 2), so round-trip.
+  const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
+    d.getDate(),
+  ).padStart(2, '0')}`
+  return iso === a
 }
 
 /**
@@ -156,7 +163,9 @@ export function isValidAnchor(a: string): boolean {
  * exactly 7 days. When that window elapses: settle last week by XP earned —
  * promote / demote / stay — record history, reset the XP counter, and anchor
  * the fresh week at TODAY's 12:00 AM (so the timer reads ~7 days again).
- * Returns true when a settlement happened. Pure: mutates only league fields.
+ * Returns TRUE whenever the league-week state changed (a settlement OR a
+ * fresh-start repair of a missing/corrupt anchor), so store actions persist
+ * the mutated copy. Pure: mutates only league fields of `s`.
  */
 export function settleLeagueWeek<T extends LeagueWeekFields>(
   s: T,
@@ -167,18 +176,19 @@ export function settleLeagueWeek<T extends LeagueWeekFields>(
     // Legacy/corrupt state without a playable week: start fresh at 12 AM today.
     s.weeklyXpWeek = todayISO(now)
     s.weeklyXp = 0
-    return false
+    return true
   }
   if (!leagueWeekElapsed(anchor, now)) return false
   const prevWeek = anchor
   const prevLeague = s.currentLeague
+  const history = Array.isArray(s.leagueHistory) ? s.leagueHistory : []
   // Legacy persisted states can carry undefined/NaN XP — never let that
   // poison the outcome (treat as 0, which means demote unless Bronze).
   const earned = Number.isFinite(s.weeklyXp) ? s.weeklyXp : 0
   const outcome = leagueOutcomeByXp(prevLeague, earned)
   s.currentLeague = advanceLeague(prevLeague, outcome)
   s.leagueHistory = [
-    ...s.leagueHistory.slice(-9),
+    ...history.slice(-9),
     { weekKey: prevWeek, league: prevLeague, outcome, xp: earned },
   ]
   s.weeklyXpWeek = todayISO(now) // new week starts 12:00 AM today
@@ -191,7 +201,8 @@ export function settleLeagueWeek<T extends LeagueWeekFields>(
 /**
  * The league leader's promotion: same 7-day anchor, but the #1 player always
  * moves UP into the next league when the week ends (regardless of XP), with
- * XP and the weekly timer restarted at today's 12:00 AM.
+ * XP and the weekly timer restarted at today's 12:00 AM. Returns true when
+ * the league-week state changed (promotion or fresh-start repair).
  */
 export function promoteLeaderWeek<T extends LeagueWeekFields>(
   s: T,
@@ -201,15 +212,16 @@ export function promoteLeaderWeek<T extends LeagueWeekFields>(
   if (!isValidAnchor(anchor)) {
     s.weeklyXpWeek = todayISO(now)
     s.weeklyXp = 0
-    return false
+    return true
   }
   if (!leagueWeekElapsed(anchor, now)) return false
   const prevWeek = anchor
   const prevLeague = s.currentLeague
+  const history = Array.isArray(s.leagueHistory) ? s.leagueHistory : []
   const earned = Number.isFinite(s.weeklyXp) ? s.weeklyXp : 0
   s.currentLeague = advanceLeague(prevLeague, 'promoted')
   s.leagueHistory = [
-    ...s.leagueHistory.slice(-9),
+    ...history.slice(-9),
     { weekKey: prevWeek, league: prevLeague, outcome: 'promoted', xp: earned },
   ]
   s.weeklyXpWeek = todayISO(now) // new week starts 12:00 AM today

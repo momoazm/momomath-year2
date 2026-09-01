@@ -69,9 +69,16 @@ export function LeaguesScreen() {
   // exactly 7 days. `boardWeek` is the shared Monday-based key used on the
   // leaderboard so all players' entries compare the same calendar week.
   const anchor = s.weeklyXpWeek
-  const boardWeek = weekKey()
+  // boardWeek (Monday identity for the shared board) is derived from the SAME
+  // nowMs clock as weekLive so both flip at the same tick and old-week XP can
+  // never be pushed under the new week's key at the boundary.
+  const boardWeek = weekKey(new Date(nowMs))
   const weekLive = isValidAnchor(anchor) && !leagueWeekElapsed(anchor, new Date(nowMs))
   const needsSettle = !weekLive
+  // the Monday that the ended week's shared-board entries were tagged with
+  const anchorBoardWeek = isValidAnchor(anchor)
+    ? weekKey(new Date(`${anchor}T00:00:00`))
+    : boardWeek
 
   // tick every second for the live countdown + rival progress
   useEffect(() => {
@@ -128,7 +135,7 @@ export function LeaguesScreen() {
     ...others.map((p) => ({
       id: p.id,
       name: p.name,
-      xp: weeklyXpOf(p, boardWeek),
+      xp: weeklyXpOf(p, anchorBoardWeek),
       isYou: false,
       kind: 'real' as const,
       mascotId: p.mascot,
@@ -152,6 +159,11 @@ export function LeaguesScreen() {
   ].sort((a, b) => b.xp - a.xp)
 
   const myRank = standings.findIndex((p) => p.isYou) + 1
+
+  // banner copy: at the top/bottom league the move is a no-op, so say so
+  const settle = s.lastLeagueSettle
+  const settleNext = settle ? advanceLeague(settle.league, settle.outcome) : null
+  const settleMoved = settle != null && settleNext !== settle.league
 
   // When the 7-day league week ends, the leader (rank #1) advances into the
   // next league; everyone else settles by XP rules. Either way XP resets to 0
@@ -195,9 +207,13 @@ export function LeaguesScreen() {
             }`}
           >
             <span>
-              {s.lastLeagueSettle.outcome === 'promoted'
-                ? `🎉 Promoted to ${advanceLeague(s.lastLeagueSettle.league, 'promoted')} League!`
-                : `💪 Demoted to ${advanceLeague(s.lastLeagueSettle.league, 'demoted')} League — climb back up!`}
+              {settle?.outcome === 'promoted'
+                ? settleMoved
+                  ? `🎉 Promoted to ${settleNext} League!`
+                  : `🏆 You're already in the top league — ${settleNext}!`
+                : settleMoved
+                  ? `💪 Demoted to ${settleNext} League — climb back up!`
+                  : "You're at the first league — keep going!"}
             </span>
             <button
               type="button"

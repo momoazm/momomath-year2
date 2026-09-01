@@ -121,9 +121,13 @@ export const LEAGUE_WEEK_MS = 7 * 86400000
  * A league week runs from 12:00 AM of its anchor day and ends EXACTLY a week
  * later. `weeklyXpWeek` stores that anchor, so the live countdown restarts at
  * "12 AM of the day the week began" and reaches zero one week later.
+ * Calendar arithmetic (setDate + 7) keeps the end at local 12:00 AM even
+ * across daylight-saving transitions.
  */
 export function leagueWeekEndsAt(anchor: string): number {
-  return new Date(`${anchor}T00:00:00`).getTime() + LEAGUE_WEEK_MS
+  const d = new Date(`${anchor}T00:00:00`)
+  d.setDate(d.getDate() + 7)
+  return d.getTime()
 }
 
 /** True once the 7-day league week anchored at `anchor` has fully elapsed. */

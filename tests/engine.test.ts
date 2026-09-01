@@ -6,12 +6,13 @@ import {
   leagueOutcomeByXp,
   leagueWeekElapsed,
   lessonChestPrize,
+  msUntilWeekEnd,
   nextWeekKey,
   streakMilestoneFor,
   weekKey,
   weeklyGoal,
 } from '../src/engine/gamification'
-import { promoteLeaderWeek, settleLeagueWeek, updateStreak } from '../src/engine/store'
+import { isValidAnchor, promoteLeaderWeek, settleLeagueWeek, updateStreak } from '../src/engine/store'
 import type { LeagueHistoryEntry } from '../src/engine/store'
 
 describe('lesson chest prizes', () => {
@@ -243,6 +244,26 @@ describe('weekly league settlement (7-day anchored weeks)', () => {
     expect(bad.weeklyXp).toBe(0)
     expect(bad.weeklyXpWeek).toBe(NEXT)
   })
+
+  it('repairs a missing/corrupt anchor into a fresh 7-day week', () => {
+    const s = leagueState({ weeklyXpWeek: '' })
+    expect(settleLeagueWeek(s, AFTER)).toBe(true) // state changed -> persists
+    expect(s.weeklyXpWeek).toBe(NEXT)
+    expect(s.weeklyXp).toBe(0)
+    expect(s.leagueHistory).toHaveLength(0)
+  })
+
+  it('rejects impossible dates as anchors', () => {
+    expect(isValidAnchor('2026-02-30')).toBe(false)
+    expect(isValidAnchor('2026-13-01')).toBe(false)
+    expect(isValidAnchor('2026-08-31')).toBe(true)
+  })
+
+  it('the week end stays at 12 AM local via calendar arithmetic', () => {
+    // end of the 2026-08-24 week = 00:00 local on 2026-08-31
+    expect(leagueWeekElapsed(START, new Date('2026-08-31T00:00:05'))).toBe(true)
+    expect(msUntilWeekEnd(START, new Date('2026-08-30T12:00:00'))).toBe(12 * 3600000)
+  })
 })
 
 describe('league leader promotion', () => {
@@ -290,5 +311,13 @@ describe('league leader promotion', () => {
     promoteLeaderWeek(s, END)
     expect(s.currentLeague).toBe('Diamond')
     expect(s.lastLeagueSettle?.outcome).toBe('promoted')
+  })
+
+  it('repairs a missing anchor for the leader too (no promotion on repair)', () => {
+    const s = leaderState({ weeklyXpWeek: '' })
+    expect(promoteLeaderWeek(s, END)).toBe(true) // state changed -> persists
+    expect(s.weeklyXpWeek).toBe('2026-08-31')
+    expect(s.weeklyXp).toBe(0)
+    expect(s.currentLeague).toBe('Gold') // fresh week, not a promotion
   })
 })
