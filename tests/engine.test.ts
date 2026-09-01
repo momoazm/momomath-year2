@@ -169,14 +169,15 @@ describe('weekly league settlement (7-day anchored weeks)', () => {
     expect(s.leagueHistory).toHaveLength(0)
   })
 
-  it('settles exactly 7 days after the anchor, promoting when the goal was met', () => {
+  it('settles exactly 7 days after the anchor, but a NON-leader who hits the goal STAYS (only the leader promotes)', () => {
     const s = leagueState({ currentLeague: 'Bronze', weeklyXp: weeklyGoal('Bronze') })
     expect(settleLeagueWeek(s, END)).toBe(true)
-    expect(s.currentLeague).toBe('Silver')
+    expect(s.currentLeague).toBe('Bronze') // goal met, but non-leader stays
     expect(s.weeklyXp).toBe(0)
     expect(s.weeklyXpWeek).toBe(NEXT) // fresh week anchored at 12:00 AM today
-    expect(s.lastLeagueSettle?.outcome).toBe('promoted')
+    expect(s.lastLeagueSettle).toBeNull() // stayed -> no banner
     expect(s.leagueHistory).toHaveLength(1)
+    expect(s.leagueHistory[0].outcome).toBe('stayed')
   })
 
   it('demotes when last week’s XP missed the stay threshold', () => {
@@ -195,15 +196,18 @@ describe('weekly league settlement (7-day anchored weeks)', () => {
     expect(s.leagueHistory[0].outcome).toBe('stayed')
   })
 
-  it('never demotes below Bronze or promotes above Diamond', () => {
+  it('never demotes below Bronze or promotes above Diamond (non-leader)', () => {
     const low = leagueState({ currentLeague: 'Bronze', weeklyXp: 0 })
     settleLeagueWeek(low, AFTER)
     expect(low.currentLeague).toBe('Bronze')
 
+    // A Diamond non-leader who ran up huge XP used to "promote" to Diamond
+    // (no-op clamp). Under the strict leader-only rule, they STAY at Diamond.
     const high = leagueState({ currentLeague: 'Diamond', weeklyXp: 9999 })
     settleLeagueWeek(high, AFTER)
     expect(high.currentLeague).toBe('Diamond')
-    expect(high.lastLeagueSettle?.outcome).toBe('promoted')
+    expect(high.lastLeagueSettle).toBeNull() // stayed -> no banner
+    expect(high.leagueHistory[0].outcome).toBe('stayed')
   })
 
   it('restarts XP and the weekly timer for a fresh anchored week', () => {
@@ -264,6 +268,21 @@ describe('weekly league settlement (7-day anchored weeks)', () => {
     expect(leagueWeekElapsed(START, new Date('2026-08-31T00:00:05'))).toBe(true)
     expect(msUntilWeekEnd(START, new Date('2026-08-30T12:00:00'))).toBe(12 * 3600000)
   })
+
+  it('non-leader settlement never promotes: even well above the goal, only stay/demote', () => {
+    // The leader's path is promoteLeaderWeek. settleLeagueWeek (the
+    // non-leader path) must NEVER move a player up - regardless of XP.
+    // This is the strict leader-only contract.
+    const bronze = leagueState({ currentLeague: 'Bronze', weeklyXp: 9999 })
+    expect(settleLeagueWeek(bronze, END)).toBe(true)
+    expect(bronze.currentLeague).toBe('Bronze') // not Silver
+    expect(bronze.lastLeagueSettle).toBeNull()  // stayed -> no banner
+    expect(bronze.leagueHistory[0].outcome).toBe('stayed')
+
+    const gold = leagueState({ currentLeague: 'Gold', weeklyXp: 9999 })
+    expect(settleLeagueWeek(gold, END)).toBe(true)
+    expect(gold.currentLeague).toBe('Gold') // not Sapphire
+  })
 })
 
 describe('league leader promotion', () => {
@@ -297,6 +316,28 @@ describe('league leader promotion', () => {
     expect(s.lastLeagueSettle?.outcome).toBe('promoted')
     expect(s.leagueHistory[0].outcome).toBe('promoted')
     expect(s.leagueHistory[0].weekKey).toBe(START)
+  })
+
+  it('promotes the #1 player at Diamond stays at Diamond (clamped)', () => {
+    const s = leaderState({ currentLeague: 'Diamond', weeklyXp: 0 })
+    expect(promoteLeaderWeek(s, END)).toBe(true)
+    expect(s.currentLeague).toBe('Diamond') // cannot go above Diamond
+    expect(s.leagueHistory[0].outcome).toBe('promoted')
+  })
+
+  it('does not promote before the week ends', () => {
+    const s = leaderState({ currentLeague: 'Gold', weeklyXp: 10 })
+    expect(promoteLeaderWeek(s, MID)).toBe(false)
+    expect(s.currentLeague).toBe('Gold')
+    expect(s.leagueHistory).toHaveLength(0)
+  })
+
+  it('repairs a missing anchor for the leader too (no promotion on repair)', () => {
+    const s = leaderState({ weeklyXpWeek: '' })
+    expect(promoteLeaderWeek(s, END)).toBe(true) // state changed -> persists
+    expect(s.weeklyXpWeek).toBe('2026-08-31')
+    expect(s.weeklyXp).toBe(0)
+    expect(s.leagueHistory).toHaveLength(0) // repair isn't a settlement
   })
 
   it('does not promote before the week ends', () => {

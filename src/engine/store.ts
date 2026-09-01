@@ -185,7 +185,10 @@ export function settleLeagueWeek<T extends LeagueWeekFields>(
   // Legacy persisted states can carry undefined/NaN XP — never let that
   // poison the outcome (treat as 0, which means demote unless Bronze).
   const earned = Number.isFinite(s.weeklyXp) ? s.weeklyXp : 0
-  const outcome = leagueOutcomeByXp(prevLeague, earned)
+  // Only the league leader may be promoted (handled separately by
+  // promoteLeaderWeek). Everyone else settles by XP but can never move UP —
+  // a non-leader who hits the goal stays instead of promoting.
+  const outcome = leagueOutcomeByXp(prevLeague, earned) === 'promoted' ? 'stayed' : leagueOutcomeByXp(prevLeague, earned)
   s.currentLeague = advanceLeague(prevLeague, outcome)
   s.leagueHistory = [
     ...history.slice(-9),
