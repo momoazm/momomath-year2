@@ -6,6 +6,7 @@ import { GoogleSignInInline } from '../components/ui/AuthBadge'
 import { signOutGoogle, useAuth } from '../engine/auth'
 import { sfx } from '../engine/sfx'
 import type { MascotId } from '../content/types'
+import { CARDS, STAR_THRESHOLDS, toStar } from '../engine/cards'
 
 export function ProfileScreen() {
   const s = usePlayer()
@@ -104,6 +105,34 @@ export function ProfileScreen() {
           </div>
         )}
       </section>
+      {/* card collection */}
+      <section className="card-white mt-4">
+        <p className="font-display text-sm font-bold uppercase tracking-wide text-slate-400">Card Collection</p>
+        <div className="mt-2 grid grid-cols-2 gap-3 text-center sm:grid-cols-4">
+          <Stat
+            icon="🃏"
+            label="Unique Cards"
+            value={`${Object.keys(s.cardCounts).filter((id) => s.cardCounts[id] > 0).length}/${CARDS.length}`}
+          />
+          <Stat
+            icon="📦"
+            label="Total Copies"
+            value={String(Object.values(s.cardCounts).reduce((a, b) => a + b, 0))}
+          />
+        </div>
+        <div className="mt-3 flex flex-wrap justify-center gap-2">
+          {[1, 2, 3, 4, 5].map((star) => {
+            const count = CARDS.filter((c) => toStar(s.cardCounts[c.id] ?? 0) === star).length
+            return (
+              <div key={star} className="flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1.5 font-display text-sm font-bold">
+                {'★'.repeat(star)}{'☆'.repeat(5 - star)} {count}
+              </div>
+            )
+          })}
+        </div>
+      </section>
+
+
 
       {/* league history */}
       <section className="card-white mt-4">

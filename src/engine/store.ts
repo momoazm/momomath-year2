@@ -70,9 +70,10 @@ interface PlayerState {
   doubleXpLessons: number
   chestBoost: boolean
   megaChest: boolean
-  /** collected card ids (unique) */
-  cardCollection: string[]
-  /** consecutive chests without a card - drives hidden card pity (see cards.ts) */
+  /** per-character copy count (key = MascotId, value = copies, 0 means locked) */
+  cardCounts: Record<string, number>
+  /** consecutive chests without a still-LOCKED character drop - drives the
+   *  locked-pity guarantee (see cards.ts LOCKED_PITY) */
   cardPity: number
   /** shop Lucky Ticket stack; consumed on the next chest */
   luckyTickets: number
@@ -374,7 +375,7 @@ export const usePlayer = create<PlayerState>()(
       doubleXpLessons: 0,
       chestBoost: false,
       megaChest: false,
-      cardCollection: [],
+      cardCounts: {},
       cardPity: 0,
       luckyTickets: 0,
       lastSyncedAt: null,
@@ -529,17 +530,23 @@ export const usePlayer = create<PlayerState>()(
       useMegaChest: () => set({ megaChest: false }),
       grantChest: (chest) =>
         set((state) => {
-          let cardCollection = state.cardCollection
-          let cardPity = state.cardPity
-          if (chest.card) {
-            if (!cardCollection.includes(chest.card.id)) {
-              cardCollection = [...cardCollection, chest.card.id]
+          let cardCounts = { ...state.cardCounts }
+          let lockedPityState = state.cardPity
+          if (chest.cardId) {
+            const prev = cardCounts[chest.cardId] ?? 0
+            const afterCount = prev + (chest.copies ?? 1)
+            cardCounts[chest.cardId] = afterCount
+            const unlockedBefore = prev >= 3
+            const unlockedAfter = afterCount >= 3
+            if (chest.pity || (!unlockedBefore && unlockedAfter)) {
+              lockedPityState = 0
+            } else {
+              lockedPityState = state.cardPity + 1
             }
-            cardPity = 0
           } else {
-            cardPity = state.cardPity + 1
+            lockedPityState = state.cardPity + 1
           }
-          return { gems: state.gems + chest.gems, cardCollection, cardPity }
+          return { gems: state.gems + (chest.gems ?? 0) + (chest.dust ?? 0), cardCounts, cardPity: lockedPityState }
         }),
       addLuckyTickets: (n) => set((state) => ({ luckyTickets: state.luckyTickets + n })),
       consumeStreakChest: () => {
@@ -575,8 +582,11 @@ export const usePlayer = create<PlayerState>()(
             next.streakCurrent = Math.max(state.streakCurrent, snap.streakCurrent)
           if (snap.achievements?.length)
             next.achievements = [...new Set([...state.achievements, ...snap.achievements])]
-          if (snap.cardCollection?.length)
-            next.cardCollection = [...new Set([...state.cardCollection, ...snap.cardCollection])]
+          if ((snap as any).cardCollection?.length) {
+            const migrated: Record<string, number> = {}
+            for (const id of (snap as any).cardCollection) migrated[id] = 3
+            next.cardCounts = { ...state.cardCounts, ...migrated }
+          }
           if (snap.lessonProgress)
             next.lessonProgress = { ...state.lessonProgress, ...snap.lessonProgress }
           if (snap.shopInventory) next.shopInventory = { ...state.shopInventory, ...snap.shopInventory }
@@ -605,7 +615,7 @@ export const usePlayer = create<PlayerState>()(
     }),
     {
       name: 'momomath-year2-player-v2',
-      version: 5,
+      version: 6,
       migrate: (persisted, version) => {
         const p = { ...(persisted as PlayerState) }
         if (version < 4) {
@@ -623,6 +633,13 @@ export const usePlayer = create<PlayerState>()(
             p.weeklyXpWeek = ''
           }
           if (!Number.isFinite(p.weeklyXp)) p.weeklyXp = 0
+        }
+        if (version < 6) {
+          // cardCollection (string[]) -> cardCounts (Record<string,number>)
+          const oldCards: string[] = (p as any).cardCollection ?? []
+          p.cardCounts = {}
+          for (const id of oldCards) p.cardCounts[id] = 3
+          if (typeof (p as any).cardPity !== 'number') (p as any).cardPity = 0
         }
         return p
       },

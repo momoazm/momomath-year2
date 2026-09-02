@@ -1,0 +1,15 @@
+ RUN v3.2.7 C:/Users/momo/momomath-year2
+
+ ❯ tests/chestCards.test.ts (6 tests | 1 failed) 4569ms
+   ✓ start tier tables > each table sums close to 100 6ms
+   ✓ start tier tables > boss rolls can NEVER land on Common 3545ms
+   ✓ pack economy > every chest gives a cardId and copies between 1-3 467ms
+   ✓ pack economy > star curve: 3, 6, 10, 15, 21 2ms
+   ✓ pack economy > legendary and exclusive cards appear in rolls 494ms
+   × pack economy > locked pity resets when a new unlock occurs 48ms
+     → expected false to be true // Object.is equality
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 5 passed (6)
+   Start at  15:04:43
+   Duration  8.66s (transform 391ms, setup 0ms, collect 562ms, tests 4.57s, environment 1ms, prepare 926ms)

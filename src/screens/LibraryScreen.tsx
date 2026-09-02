@@ -1,6 +1,6 @@
 import { useEffect, useState, type CSSProperties } from 'react'
 import { usePlayer } from '../engine/store'
-import { CARDS, cardImageUrl, type CardDef, type ChestTier } from '../engine/cards'
+import { CARDS, cardImageUrl, STAR_THRESHOLDS, toStar, type CardDef, type ChestTier } from '../engine/cards'
 import { RARITY_META, type ChestRarity } from '../engine/gamification'
 import { AnimatePresence, motion } from 'framer-motion'
 
@@ -61,6 +61,7 @@ export function LibraryScreen({ onClose }: { onClose?: () => void }) {
         isOwned={isOwned}
         onCardClick={handleCardClick}
         getHiddenCardStyle={getHiddenCardStyle}
+        cardCounts={cardCounts}
       />
                   {filteredCards.length === 0 && <EmptyState filterTier={filterTier} />}
       <CardModal
@@ -132,7 +133,7 @@ interface CardGridProps {
   getHiddenCardStyle: (tier: ChestTier) => CSSProperties
 }
 
-function CardGrid({ cards, isOwned, onCardClick, getHiddenCardStyle }: CardGridProps) {
+function CardGrid({ cards, isOwned, onCardClick, getHiddenCardStyle, cardCounts }: CardGridProps & { cardCounts: Record<string, number> }) {
   return (
     <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
       {cards.map((card) => {
@@ -225,6 +226,17 @@ function CardGrid({ cards, isOwned, onCardClick, getHiddenCardStyle }: CardGridP
                 <p className="text-xs text-slate-500 mt-1">
                   {card.flavor}
                 </p>
+                {(() => {
+                  const count = (cardCounts[card.id] ?? 0)
+                  const star = toStar(count)
+                  return (
+                    <div className="mt-1 flex justify-center gap-0.5">
+                      {[1,2,3,4,5].map(s => (
+                        <span key={s} className={"text-xs " + (s <= star ? "text-amber-400" : "text-slate-300")}>★</span>
+                      ))}
+                    </div>
+                  )
+                })()}
               </div>
 
               {owned_ && (

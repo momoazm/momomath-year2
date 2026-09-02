@@ -81,6 +81,9 @@ export function starLevel(count: number): number {
   return Math.min(MAX_STAR, s)
 }
 
+/** Alias for starLevel — used by LibraryScreen / ProfileScreen */
+export const toStar = starLevel
+
 /** How many more copies are needed to reach the NEXT star. 0 if already maxed. */
 export function copiesToNextStar(count: number): number {
   for (const t of STAR_THRESHOLDS) if (count < t) return t - count

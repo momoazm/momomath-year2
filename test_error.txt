@@ -1,0 +1,47 @@
+[90mstderr[2m | tests/shop.test.ts[2m > [22m[2mbuyItem applies every item effect[2m > [22m[2mstreak-saver increments streakSavers (was broken on the deployed site)
+[22m[39m[zustand persist middleware] Unable to update item 'momomath-year2-player-v2', the given storage is currently unavailable.
+
+[90mstderr[2m | tests/shop.test.ts[2m > [22m[2mbuyItem applies every item effect[2m > [22m[2mchest-boost and mega-chest flip their flags
+[22m[39m[zustand persist middleware] Unable to update item 'momomath-year2-player-v2', the given storage is currently unavailable.
+[zustand persist middleware] Unable to update item 'momomath-year2-player-v2', the given storage is currently unavailable.
+
+[90mstderr[2m | tests/shop.test.ts[2m > [22m[2mbuyItem applies every item effect[2m > [22m[2mdouble-xp adds exactly 3 lessons per pack
+[22m[39m[zustand persist middleware] Unable to update item 'momomath-year2-player-v2', the given storage is currently unavailable.
+[zustand persist middleware] Unable to update item 'momomath-year2-player-v2', the given storage is currently unavailable.
+
+[90mstderr[2m | tests/shop.test.ts[2m > [22m[2mbuyItem applies every item effect[2m > [22m[2mlucky-ticket increments luckyTickets
+[22m[39m[zustand persist middleware] Unable to update item 'momomath-year2-player-v2', the given storage is currently unavailable.
+
+[90mstderr[2m | tests/shop.test.ts[2m > [22m[2mbuyItem applies every item effect[2m > [22m[2mrejects purchases when gems are insufficient and never mutates state
+[22m[39m[zustand persist middleware] Unable to update item 'momomath-year2-player-v2', the given storage is currently unavailable.
+
+[90mstderr[2m | tests/shop.test.ts[2m > [22m[2mbuyItem applies every item effect[2m > [22m[2menforces every maxStack so you can never own more than allowed
+[22m[39m[zustand persist middleware] Unable to update item 'momomath-year2-player-v2', the given storage is currently unavailable.
+[zustand persist middleware] Unable to update item 'momomath-year2-player-v2', the given storage is currently unavailable.
+[zustand persist middleware] Unable to update item 'momomath-year2-player-v2', the given storage is currently unavailable.
+[zustand persist middleware] Unable to update item 'momomath-year2-player-v2', the given storage is currently unavailable.
+[zustand persist middleware] Unable to update item 'momomath-year2-player-v2', the given storage is currently unavailable.
+[zustand persist middleware] Unable to update item 'momomath-year2-player-v2', the given storage is currently unavailable.
+
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 1 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m tests/chestCards.test.ts[2m > [22mpack economy[2m > [22mlocked pity resets when a new unlock occurs
+[31m[1mAssertionError[22m: expected false to be true // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- true[39m
+[31m+ false[39m
+
+[36m [2m❯[22m tests/chestCards.test.ts:[2m58:52[22m[39m
+    [90m 56| [39m      [35mconst[39m after [33m=[39m prev [33m+[39m r[33m.[39mcopies
+    [90m 57| [39m      if (r.pity || (prev < 3 && after >= 3)) { pity = 0 } else { pity…
+    [90m 58| [39m      [34mexpect[39m(pity [33m>=[39m [34m0[39m [33m&&[39m pity [33m<=[39m [33mLOCKED_PITY[39m [33m+[39m [34m3[39m)[33m.[39m[34mtoBe[39m([35mtrue[39m)
+    [90m   | [39m                                                   [31m^[39m
+    [90m 59| [39m    }
+    [90m 60| [39m  })
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯[22m[39m
+
