@@ -75,7 +75,7 @@ export function LeaguesScreen() {
   const myName = s.name.trim().toLowerCase()
 
 
-  const dedupShared = (rows: typeof shared): typeof shared => dedupSelf(rows, myId, myName, anchorBoardWeek)
+  const dedupShared = (rows: typeof shared): typeof shared => dedupSelf(rows, myId, myName, boardWeek)
 
   // League weeks are anchored at 12:00 AM of the day they began and run for
   // exactly 7 days. `boardWeek` is the shared Monday-based key used on the
@@ -87,10 +87,7 @@ export function LeaguesScreen() {
   const boardWeek = weekKey(new Date(nowMs))
   const weekLive = isValidAnchor(anchor) && !leagueWeekElapsed(anchor, new Date(nowMs))
   const needsSettle = !weekLive
-  // the Monday that the ended week's shared-board entries were tagged with
-  const anchorBoardWeek = isValidAnchor(anchor)
-    ? weekKey(new Date(`${anchor}T00:00:00`))
-    : boardWeek
+  // anchorBoardWeek removed - using boardWeek directly
 
   // tick every second for the live countdown + rival progress
   useEffect(() => {
@@ -147,7 +144,7 @@ export function LeaguesScreen() {
     ...others.map((p) => ({
       id: p.id,
       name: p.name,
-      xp: weeklyXpOf(p, anchorBoardWeek),
+      xp: weeklyXpOf(p, boardWeek),
       isYou: false,
       kind: 'real' as const,
       mascotId: p.mascot,
@@ -184,7 +181,7 @@ export function LeaguesScreen() {
       list.push({
         id: p.id,
         name: p.name,
-        xp: weeklyXpOf(p, anchorBoardWeek),
+        xp: weeklyXpOf(p, boardWeek),
         mascot: p.mascot,
       })
       groups.set(p.league, list)

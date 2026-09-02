@@ -250,27 +250,31 @@ function pickCardForTier(
 }
 
 
+/* -------------------- pack: multiple cards per chest -------------------- */
+
+/**
+ * Individual card inside a chest result.
+ * Every chest now gives 3 DIFFERENT cards.
+ */
+export interface ChestCard {
+  cardId: string
+  tier: ChestTier
+  /** first time this character is unlocked */
+  isNew: boolean
+  /** this character was already owned (gives +1 star on duplicate) */
+  isOwned: boolean
+}
+
 /* -------------------- public ChestResult + rollChest -------------------- */
 
 export interface ChestResult {
-  /** how it started (what the player sees first) */
   startTier: ChestTier
-  /** after the 4 kick taps */
   finalTier: ChestTier
-  /** kick indices (0-based) at which the tier upgraded */
   upgradesAt: number[]
-  /** gems awarded by the chest itself (NOT including duplicate dust) */
   gems: number
-  /** dust awarded by duplicates of already-5★ characters (combined) */
   dust: number
-  /** the single character contained in the pack (every copy is the same id) */
-  cardId: string
-  /** how many copies of cardId this pack contained (1, 2 or 3) */
-  copies: number
-  /** isNew = the player has not unlocked cardId yet (first-ever drop) */
-  isNew: boolean
-  /** true if the pack was forced to contain a still-LOCKED character (pity) */
-  pity: boolean
+  /** the 3 DIFFERENT cards in this chest pack */
+  cards: ChestCard[]
 }
 
 /** Roll a full chest for one lesson.
@@ -300,44 +304,40 @@ export function rollChest(
   const [gMin, gMax] = GEM_RANGE[tier]
   const gems = randInt(rand, gMin, gMax)
 
-  // 3) pack size (copies) for this final tier
-  const [cMin, cMax] = PACK_SIZE[tier]
-  let copies = cMin === cMax ? cMin : randInt(rand, cMin, cMax)
+  // 3) roll 3 DISTINCT cards
+  const forcePity = pity >= LOCKED_PITY
+  const cards: ChestCard[] = []
+  const usedIds = new Set<string>()
 
-  // 4) RANDOM card from all characters (not tier-based)
-  // The gems are still based on tier, but the card is always random
-  const forceLocked = pity >= LOCKED_PITY
+  const lockedPool = CARDS.filter((c) => !(c.id in counts) || (counts[c.id] ?? 0) === 0)
+  const pityCount = forcePity ? Math.min(1, lockedPool.length) : 0
 
-  // Build the pool: prefer still-locked characters when pity triggers,
-  // otherwise pick any character at random
-  let cardId: string | null = null
-  let didPity = false
-
-  if (forceLocked) {
-    // Pity mode: must give a locked character
-    const locked = CARDS.filter((c) => !(c.id in counts) || (counts[c.id] ?? 0) === 0)
-    if (locked.length > 0) {
-      cardId = locked[Math.floor(rand() * locked.length)].id
-      didPity = true
+  for (let i = 0; i < 3; i++) {
+    let pool: CardDef[]
+    if (i < pityCount) {
+      pool = lockedPool.filter((c) => !usedIds.has(c.id))
+    } else {
+      pool = CARDS.filter((c) => !usedIds.has(c.id))
     }
+    if (pool.length === 0) break
+    const chosen = pool[Math.floor(rand() * pool.length)]
+    usedIds.add(chosen.id)
+    const prevCount = counts[chosen.id] ?? 0
+    cards.push({
+      cardId: chosen.id,
+      tier: chosen.tier,
+      isNew: prevCount === 0,
+      isOwned: prevCount >= STAR_THRESHOLDS[0],
+    })
   }
 
-  // Normal mode: pick any random character
-  if (cardId === null) {
-    cardId = CARDS[Math.floor(rand() * CARDS.length)].id
-  }
-
-  const isNew = !(cardId in counts) || (counts[cardId] ?? 0) === 0
   return {
     startTier,
     finalTier: tier,
     upgradesAt,
     gems,
     dust: 0,
-    cardId,
-    copies,
-    isNew,
-    pity: didPity,
+    cards,
   }
 }
 

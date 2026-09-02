@@ -4,7 +4,7 @@ import confetti from 'canvas-confetti'
 import { QUESTIONS_PER_LESSON } from '../content/curriculum'
 import { getCurriculum } from '../content/registry'
 import { usePlayer } from '../engine/store'
-import { rollChest, CARD_BY_ID, cardImageUrl, KICK_UPGRADE, type ChestContext, type ChestResult, type ChestTier } from '../engine/cards'
+import { rollChest, CARD_BY_ID, cardImageUrl, KICK_UPGRADE, toStar, type ChestContext, type ChestResult, type ChestTier } from '../engine/cards'
 import { chestGemMultiplier } from '../engine/shop'
 import { speak, speakSlow, stopSpeaking, ttsAvailable } from '../engine/tts'
 import { Mascot } from '../components/mascots/Mascots'
@@ -655,43 +655,46 @@ export function LessonScreen({ lessonId, onExit }: { lessonId: string; onExit: (
             <p className="font-display text-3xl font-extrabold text-orange-500">+{chestResult.gems} 💎</p>
             <p className="mt-1 font-display font-extrabold text-emerald-500">+{xpEarned} ⚡ XP</p>
             <p className="mt-2 font-display text-sm font-extrabold text-blue-600">
-              {chestResult.isNew ? 'NEW CHARACTER!' : `+${chestResult.copies} ×`}
+              {chestResult.cards.some(c => c.isNew) ? '✨ NEW CARD(S)!' : '3 cards unlocked'}
             </p>
-            {chestResult.cardId && CARD_BY_ID[chestResult.cardId] && (
-              <motion.div
-                initial={{ rotateY: 180, opacity: 0 }}
-                animate={{ rotateY: 0, opacity: 1 }}
-                transition={{ type: 'spring', stiffness: 200, damping: 18 }}
-                className="card-white mt-4 mx-auto max-w-xs overflow-hidden"
-                style={{ borderColor: TIER_META[CARD_BY_ID[chestResult.cardId].tier].color }}
-              >
-                <div className="h-40 bg-gradient-to-b from-white/40 to-transparent flex items-center justify-center px-2 pt-2">
-                  <img
-                    src={cardImageUrl(CARD_BY_ID[chestResult.cardId])}
-                    alt={CARD_BY_ID[chestResult.cardId].name}
-                    onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
-                    className="h-full w-full object-contain drop-shadow"
-                  />
-                </div>
-                <div className="px-4 pb-4">
-                  <p className="font-display text-xs font-extrabold text-slate-400 uppercase">
-                    {chestResult.isNew ? 'NEW CHARACTER!' : `+${chestResult.copies} copies`}
-                  </p>
-                  <p className="font-display text-2xl font-extrabold text-slate-800 mt-1">
-                    {CARD_BY_ID[chestResult.cardId].name}
-                  </p>
-                  <p className="text-xs text-slate-500 mt-1">{CARD_BY_ID[chestResult.cardId].flavor}</p>
-                  {chestResult.dust > 0 && (
-                    <p className="mt-1 text-xs font-extrabold text-amber-500">+{chestResult.dust} 💎 dust (extra copies)</p>
-                  )}
-                </div>
-              </motion.div>
-            )}
-            {(chestResult.dust > 0) && (
-              <p className="mt-2 font-display text-lg font-extrabold text-amber-500">
-                🌟 BONUS DUST! {chestResult.dust} 💎 from maxed characters 🌟
-              </p>
-            )}
+            <div className="mt-4 grid grid-cols-3 gap-2">
+              {chestResult.cards.map((card, idx) => {
+                const def = CARD_BY_ID[card.cardId]
+                if (!def) return null
+                const count = player.cardStars[card.cardId] ?? 0
+                const stars = toStar(count)
+                return (
+                  <motion.div
+                    key={card.cardId + idx}
+                    initial={{ rotateY: 180, opacity: 0 }}
+                    animate={{ rotateY: 0, opacity: 1 }}
+                    transition={{ type: 'spring', stiffness: 200, damping: 18, delay: idx * 0.15 }}
+                    className="card-white overflow-hidden"
+                    style={{ borderColor: TIER_META[def.tier].color }}
+                  >
+                    <div className="h-20 bg-gradient-to-b from-white/40 to-transparent flex items-center justify-center px-1 pt-1">
+                      <img
+                        src={cardImageUrl(def)}
+                        alt={def.name}
+                        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
+                        className="h-full w-full object-contain drop-shadow"
+                      />
+                    </div>
+                    <div className="px-1.5 pb-1.5">
+                      <p className="font-display text-[9px] font-extrabold text-blue-600 leading-tight">
+                        {card.isNew ? '✨ NEW!' : '×1'}
+                      </p>
+                      <p className="font-display text-xs font-extrabold text-slate-800 leading-tight">{def.name}</p>
+                      <div className="flex gap-0.5 mt-0.5">
+                        {[1,2,3,4,5].map(s => (
+                          <span key={s} className="text-[8px]" style={{ color: s <= stars ? '#f59e0b' : '#e2e8f0' }}>★</span>
+                        ))}
+                      </div>
+                    </div>
+                  </motion.div>
+                )
+              })}
+            </div>
           </motion.div>
         )}
 

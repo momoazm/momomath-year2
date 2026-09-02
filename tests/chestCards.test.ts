@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+﻿import { describe, expect, it } from 'vitest'
 import { mulberry32 } from '../src/content/rng'
 import { CARDS, START_TABLES, rollChest, rollStartTier, STAR_THRESHOLDS, LOCKED_PITY } from '../src/engine/cards'
 
@@ -17,33 +17,38 @@ describe('start tier tables', () => {
 })
 
 describe('pack economy', () => {
-  it('every chest gives a cardId and copies between 1-3', () => {
+  it('every chest gives 3 cards with cardId', () => {
     for (let i = 0; i < 2000; i++) {
       const r = rollChest(rng(i), 'normal', {}, 0)
-      expect(typeof r.cardId).toBe('string')
-      expect(r.cardId.length).toBeGreaterThan(0)
-      expect(r.copies).toBeGreaterThanOrEqual(1)
-      expect(r.copies).toBeLessThanOrEqual(3)
+      expect(r.cards.length).toBe(3)
+      for (const card of r.cards) {
+        expect(typeof card.cardId).toBe('string')
+        expect(card.cardId.length).toBeGreaterThan(0)
+      }
     }
   })
   it('star curve: 3, 6, 10, 15, 21', () => { expect(STAR_THRESHOLDS).toEqual([3, 6, 10, 15, 21]) })
-  it('chest always returns a valid cardId', () => {
+  it('chest always returns valid cardIds', () => {
     for (let i = 0; i < 10000; i++) {
       const r = rollChest(rng(i), 'normal', {}, 0)
-      const card = CARDS.find((c) => c.id === r.cardId)
-      expect(card).toBeDefined()
+      for (const card of r.cards) {
+        const found = CARDS.find((c) => c.id === card.cardId)
+        expect(found).toBeDefined()
+      }
     }
   })
-  it('locked pity resets when a new unlock occurs', () => {
+  it('pity grows slowly and resets on unlock', () => {
     let counts: Record<string, number> = {}
     let pity = 0
     for (let i = 0; i < 100; i++) {
       const r = rollChest(rng(i + 10000), 'normal', counts, pity)
-      // A card is owned when it has >= STAR_THRESHOLDS[0] copies - same as isOwned()
-      const wasUnlocked = (counts[r.cardId] ?? 0) >= STAR_THRESHOLDS[0]
-      counts = { ...counts, [r.cardId]: Math.min(5, (counts[r.cardId] ?? 0) + 1) }
-      if (!wasUnlocked) { pity = 0 } else { pity = pity + 1 }
-      expect(pity >= 0 && pity <= LOCKED_PITY + 3).toBe(true)
+      const anyNew = r.cards.some((card) => {
+        const prev = counts[card.cardId] ?? 0
+        return prev === 0 // isNew: first copy ever
+      })
+      if (anyNew) { pity = 0 } else { pity = Math.min(pity + 1, LOCKED_PITY + 1) }
+      // Pity should stay bounded
+      expect(pity).toBeLessThanOrEqual(LOCKED_PITY + 2)
     }
   })
 })

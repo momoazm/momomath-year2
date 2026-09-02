@@ -534,25 +534,27 @@ export const usePlayer = create<PlayerState>()(
       grantChest: (chest) =>
         set((state) => {
           let cardStars = { ...state.cardStars }
-          const bonusGems = (chest.gems ?? 0) + (chest.dust ?? 0)
+          let pity = state.cardPity
+          let anyNew = false
 
-          if (chest.cardId) {
-            const stars = cardStars[chest.cardId] ?? 0
-
-            if (stars >= 5) {
-              // All cards maxed -> double gems
-              return { gems: state.gems + bonusGems * 2, cardStars, cardPity: state.cardPity }
-            }
-
-            // Award star: +1 (capped at 5). No pity for duplicate/maxed cards.
-            cardStars[chest.cardId] = Math.min(5, stars + 1)
-            const wasLocked = stars === 0
-            const lockedPityState = wasLocked ? 0 : state.cardPity + 1
-
-            return { gems: state.gems + bonusGems, cardStars, cardPity: lockedPityState }
+          // Award +1 star for each card in the chest
+          for (const card of chest.cards) {
+            const stars = cardStars[card.cardId] ?? 0
+            if (stars >= 5) continue // already maxed, no-op
+            cardStars[card.cardId] = Math.min(5, stars + 1)
+            if (card.isNew) anyNew = true
           }
 
-          return { gems: state.gems + bonusGems, cardStars, cardPity: state.cardPity + 1 }
+          // Pity resets when a new character is unlocked
+          if (anyNew) pity = 0
+          else pity = pity + 1
+
+          // Double gems if ALL cards were already maxed (chest gave no stars)
+          const allMaxed = chest.cards.every((c) => (cardStars[c.cardId] ?? 0) >= 5)
+          const gemMultiplier = allMaxed ? 2 : 1
+          const bonusGems = ((chest.gems ?? 0) + (chest.dust ?? 0)) * gemMultiplier
+
+          return { gems: state.gems + bonusGems, cardStars, cardPity: pity }
         }),
       addLuckyTickets: (n) => set((state) => ({ luckyTickets: state.luckyTickets + n })),
       consumeStreakChest: () => {
