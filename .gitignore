@@ -22,3 +22,6 @@ vitest-log.txt
 # scratch logs/tools
 _*.log
 _*.vbs
+
+# research scratch (firecrawl outputs)
+.firecrawl/

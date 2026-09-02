@@ -30,11 +30,19 @@ describe('chest gem multipliers (P3: shop dedup)', () => {
   })
 })
 
-describe('science subject stub (P4)', () => {
-  it('is registered in the curriculum registry with an empty unit list', () => {
+describe('science subject full track (P5)', () => {
+  it('exposes 6 units and 30+ lessons in the curriculum registry', () => {
     const c = getCurriculum('science')
-    expect(c.units).toEqual([])
-    expect(Object.keys(c.allLessons)).toHaveLength(0)
+    expect(c.units.length).toBe(6)
+    expect(Object.keys(c.allLessons).length).toBeGreaterThanOrEqual(30)
+    const ids = new Set(c.units.flatMap((u) => u.lessons.map((l) => l.id)))
+    expect(ids.size).toBe(Object.keys(c.allLessons).length)
+  })
+  it('covers all five Cambridge 0097 Stage 2 strand code families', () => {
+    const codes = getCurriculum('science').units.flatMap((u) => u.lessons).flatMap((l) => l.objectiveCodes)
+    for (const fam of ['2TWS', '2Bp', '2Bs', '2Be', '2Cm', '2Cp', '2Cc', '2Pf', '2Ps', '2Pe', '2ESp', '2ESs']) {
+      expect(codes.some((c) => c.startsWith(fam)), `missing ${fam}`).toBe(true)
+    }
   })
   it('does not break the math or english curricula', () => {
     expect(getCurriculum('math').units.length).toBeGreaterThan(0)
