@@ -858,9 +858,19 @@ export const MASCOTS: Record<string, (p: MascotProps) => JSX.Element> = {
   blaze: Blaze,
   rouge: Rouge,
   eggman: Eggman,
+  charmy: Sonic,
+  big: Sonic,
+  ray: Sonic,
+  vector: Sonic,
+  espio: Sonic,
+  omega: Sonic,
+  jet: Sonic,
+  super: Sonic,
 }
 
 export function Mascot({ id, ...rest }: MascotProps & { id: string }) {
   const C = MASCOTS[id] ?? Sonic
   return <C {...rest} />
 }
+e x p o r t   f u n c t i o n   C h a r m y ( p :   M a s c o t P r o p s ) {   r e t u r n   < S o n i c   { . . . p }   s t y l e = { { f i l t e r : ' h u e - r o t a t e ( 9 0 d e g ) ' } }   / >   }  
+ 

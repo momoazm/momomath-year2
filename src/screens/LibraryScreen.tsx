@@ -16,12 +16,12 @@ const TIER_TO_RARITY: Record<ChestTier, ChestRarity> = {
 const TIER_ORDER: ChestTier[] = ['common', 'rare', 'epic', 'legendary', 'exclusive']
 
 export function LibraryScreen({ onClose }: { onClose?: () => void }) {
-  const { cardCollection } = usePlayer()
+  const { cardCounts } = usePlayer()
   const [filterTier, setFilterTier] = useState<ChestTier | 'all'>('all')
   const [selectedCard, setSelectedCard] = useState<CardDef | null>(null)
   const [lockedToast, setLockedToast] = useState<{card: CardDef; rarity: ChestRarity} | null>(null)
 
-  const owned = new Set(cardCollection)
+  const owned = new Set(Object.keys(cardCounts).filter((id) => (cardCounts[id] ?? 0) >= 3))
   const allCards = CARDS
 
   const filteredCards = filterTier === 'all'

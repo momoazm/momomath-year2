@@ -144,6 +144,15 @@ export type MascotId =
   | 'blaze'
   | 'rouge'
   | 'eggman'
+  // Expanded roster (s167 card/chest redesign). 8 new playable characters.
+  | 'charmy'
+  | 'big'
+  | 'ray'
+  | 'vector'
+  | 'espio'
+  | 'omega'
+  | 'jet'
+  | 'super'
 
 export interface LessonDef {
   id: string

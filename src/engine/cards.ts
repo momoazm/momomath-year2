@@ -1,31 +1,12 @@
 import type { MascotId } from '../content/types'
 
 /* ============================================================================
- * Collectible Sonic card + chest loot economy.
- *
- * Everything here is a PURE, seeded function so the game is deterministic per
- * (seed, inputs) and can be unit-tested / Monte-Carlo simulated before deploy.
- *
- * Design rules (agreed with the product owner):
- *   - Starting tier is a random weighted roll. Common is intentionally dominant
- *     ("common way more common") so the gem/card economy stays humble.
- *   - Boss lessons draw from an upgraded, no-common-heavy table.
- *   - A shop "Lucky Ticket" swaps to a lucky table while active.
- *   - 4 "kick" taps can each upgrade the tier chain (Common->Rare->Epic->Legendary).
- *     EXCLUSIVE is only ever a start roll - it can never be upgraded into.
- *   - Gems scale by FINAL tier and stay far below shop item prices.
- *   - Cards appear ~10% of the time in ANY chest (even Legendary/Exclusive -
- *     90% of those are just gems), and the card's rarity matches the final
- *     tier exactly. Since Common chests are the most frequent tier, common
- *     cards still dominate overall drops - just like Brawl Stars, where each
- *     character belongs to exactly one chest rarity.
- *   - Hard no-duplicates: a card is always chosen from cards you do not own.
- *   - Hidden card pity: PITY_LIMIT cardless chests in a row -> next is guaranteed.
+ * Collectible Sonic card + chest PACK economy (Asphalt 9-style duplication).
+ * EVERY chest = a card pack (1-3 copies of ONE character + scaled gem band).
+ * See PITFALLS.md / s167 for design history.
  * ========================================================================== */
 
 export type ChestTier = 'common' | 'rare' | 'epic' | 'legendary' | 'exclusive'
-
-/** Display order = ascending value. */
 export const TIER_ORDER: ChestTier[] = ['common', 'rare', 'epic', 'legendary', 'exclusive']
 
 export interface CardDef {
@@ -33,28 +14,36 @@ export interface CardDef {
   tier: ChestTier
   name: string
   flavor: string
-  /** URL of this character's "real" render, served from the public folder. */
   image: string
 }
 
-/** The full 11-card collection - one card per playable character. */
+
+/** The full 19-card collection (one card per playable character). */
 export const CARDS: CardDef[] = [
-  // Common
+  // Common (5)
   { id: 'tails', tier: 'common', name: 'Tails', flavor: 'Two tails are faster than one!', image: 'cards/tails.webp' },
   { id: 'amy', tier: 'common', name: 'Amy', flavor: 'A friend with a big heart!', image: 'cards/amy.webp' },
   { id: 'cream', tier: 'common', name: 'Cream', flavor: 'Sweet as honey and cakes!', image: 'cards/cream.webp' },
-  // Rare
+  { id: 'charmy', tier: 'common', name: 'Charmy Bee', flavor: 'A tiny bee with a giant heart!', image: 'cards/charmy.webp' },
+  { id: 'big', tier: 'common', name: 'Big the Cat', flavor: "Froggy's best buddy!", image: 'cards/big.webp' },
+  // Rare (5)
   { id: 'knuckles', tier: 'rare', name: 'Knuckles', flavor: 'The master of the fist!', image: 'cards/knuckles.webp' },
   { id: 'blaze', tier: 'rare', name: 'Blaze', flavor: 'Faster than the fire!', image: 'cards/blaze.webp' },
   { id: 'rouge', tier: 'rare', name: 'Rouge', flavor: 'A jewel thief with style!', image: 'cards/rouge.webp' },
-  // Epic
+  { id: 'ray', tier: 'rare', name: 'Ray the Flying Squirrel', flavor: 'Glide through the sky!', image: 'cards/ray.webp' },
+  { id: 'vector', tier: 'rare', name: 'Vector the Crocodile', flavor: 'A loud, loveable leader!', image: 'cards/vector.webp' },
+  // Epic (5)
   { id: 'shadow', tier: 'epic', name: 'Shadow', flavor: 'The ultimate lifeform!', image: 'cards/shadow.webp' },
   { id: 'silver', tier: 'epic', name: 'Silver', flavor: 'Psychic power of the future!', image: 'cards/silver.webp' },
   { id: 'metal', tier: 'epic', name: 'Metal Sonic', flavor: 'A copy built to win!', image: 'cards/metal.webp' },
-  // Legendary
+  { id: 'espio', tier: 'epic', name: 'Espio the Chameleon', flavor: 'Master of disguise!', image: 'cards/espio.webp' },
+  { id: 'omega', tier: 'epic', name: 'Omega', flavor: 'The ultimate E-Series robot!', image: 'cards/omega.webp' },
+  // Legendary (2)
   { id: 'sonic', tier: 'legendary', name: 'Sonic', flavor: 'The fastest thing alive!', image: 'cards/sonic.webp' },
-  // Exclusive
+  { id: 'jet', tier: 'legendary', name: 'Jet the Hawk', flavor: 'King of the Babylon Rogues!', image: 'cards/jet.webp' },
+  // Exclusive (2)
   { id: 'eggman', tier: 'exclusive', name: 'Dr. Eggman', flavor: 'The mad scientist of mayhem!', image: 'cards/eggman.webp' },
+  { id: 'super', tier: 'exclusive', name: 'Super Sonic', flavor: 'The legendary golden form!', image: 'cards/super.webp' },
 ]
 
 export const CARD_BY_ID: Record<string, CardDef> = Object.fromEntries(CARDS.map((c) => [c.id, c]))
@@ -66,7 +55,45 @@ export function cardImageUrl(card: CardDef): string {
 
 export const tierIndex = (t: ChestTier) => TIER_ORDER.indexOf(t)
 
-/** Gems rewarded per FINAL tier - deliberately humble vs shop prices (75-200). */
+
+
+/* -------------------- star curve + dust conversion -------------------- */
+
+/** Total cards needed to reach each star level. Stars are 0=locked, 1-5=unlocked.
+ *  Curve is gentle-to-steeper: 3 / 6 / 10 / 15 / 21 (each next needs +3, +4, +5, +6).
+ *  Designed for kids: unlocks within a few chests, 5★ is a long-term goal. */
+export const STAR_THRESHOLDS: readonly number[] = [3, 6, 10, 15, 21] as const
+export const MAX_STAR = STAR_THRESHOLDS.length // 5
+
+/** Gems awarded when a copy of a MAXED (5★) character arrives - the "dust" reward. */
+export const DUST_PER_CARD: Record<ChestTier, number> = {
+  common: 2,
+  rare: 5,
+  epic: 10,
+  legendary: 20,
+  exclusive: 40,
+}
+
+/** Star level (0..MAX_STAR) for a given card copy count. */
+export function starLevel(count: number): number {
+  let s = 0
+  for (const t of STAR_THRESHOLDS) if (count >= t) s++
+  return Math.min(MAX_STAR, s)
+}
+
+/** How many more copies are needed to reach the NEXT star. 0 if already maxed. */
+export function copiesToNextStar(count: number): number {
+  for (const t of STAR_THRESHOLDS) if (count < t) return t - count
+  return 0
+}
+
+/** True if this character is currently locked (count below STAR_THRESHOLDS[0]). */
+export function isCardLocked(count: number): boolean {
+  return count < STAR_THRESHOLDS[0]
+}
+
+/* -------------------- gem bands per FINAL chest tier -------------------- */
+
 const GEM_RANGE: Record<ChestTier, [number, number]> = {
   common: [3, 6],
   rare: [8, 14],
@@ -75,7 +102,8 @@ const GEM_RANGE: Record<ChestTier, [number, number]> = {
   exclusive: [51, 80],
 }
 
-/** Starting-tier probability tables (weights sum to 100 for easy %). */
+/* -------------------- starting-tier probability tables -------------------- */
+
 export type ChestContext = 'normal' | 'boss' | 'lucky' | 'streak'
 export const START_TABLES: Record<ChestContext, [ChestTier, number][]> = {
   normal: [
@@ -98,40 +126,53 @@ export const START_TABLES: Record<ChestContext, [ChestTier, number][]> = {
     ['legendary', 5],
     ['exclusive', 1],
   ],
-  // Streak milestone reward (every 7 consecutive days): ALWAYS high rarity.
   streak: [
     ['legendary', 75],
     ['exclusive', 25],
   ],
 }
 
-function randInt(rand: () => number, min: number, max: number): number {
-  return min + Math.floor(rand() * (max - min + 1))
+/* -------------------- tier->pool: what each chest tier CAN drop -------------------- */
+
+/** For each CHEST tier, the weighted probability of each CARD tier in the pack.
+ *  Common chests can still drop Rare cards (12%); Legendary has a small chance
+ *  of Common to keep low tiers useful. */
+export const CARD_POOL: Record<ChestTier, [ChestTier, number][]> = {
+  common: [
+    ['common', 88], ['rare', 12],
+  ],
+  rare: [
+    ['common', 30], ['rare', 60], ['epic', 10],
+  ],
+  epic: [
+    ['common', 10], ['rare', 30], ['epic', 55], ['legendary', 5],
+  ],
+  legendary: [
+    ['rare', 15], ['epic', 30], ['legendary', 55],
+  ],
+  exclusive: [
+    ['exclusive', 100],
+  ],
 }
 
-/** Unowned card ids of a given tier, preserving catalog order. */
-function unownedInTier(owned: ReadonlySet<string>, tier: ChestTier): string[] {
-  return CARDS.filter((c) => c.tier === tier && !owned.has(c.id)).map((c) => c.id)
+/* -------------------- pack size (copies per chest) -------------------- */
+
+/** Returns the min..max number of copies a chest of this tier can contain. */
+export const PACK_SIZE: Record<ChestTier, [number, number]> = {
+  common: [1, 1],
+  rare: [1, 2],
+  epic: [2, 2],
+  legendary: [2, 3],
+  exclusive: [3, 3],
 }
 
-/** Pick a brand-new (never-duplicated) card.
- *  Prefer-matches the final tier; if that rarity is fully owned, "bump up" to
- *  the rarest still-incomplete rarity (so a card never becomes a duplicate and
- *  a completed Common set lets low chests start unlocking higher cards).
- *  Returns null only when the whole collection is complete. */
-function pickCard(rand: () => number, owned: ReadonlySet<string>, tier: ChestTier): string | null {
-  // 1) exact tier, among unowned
-  {
-    const pool = unownedInTier(owned, tier)
-    if (pool.length > 0) return pool[Math.floor(rand() * pool.length)]
-  }
-  // 2) rarest incomplete rarity (descending value order)
-  for (let i = TIER_ORDER.length - 1; i >= 0; i--) {
-    const pool = unownedInTier(owned, TIER_ORDER[i])
-    if (pool.length > 0) return pool[Math.floor(rand() * pool.length)]
-  }
-  return null
-}
+/* -------------------- pity -------------------- */
+
+/** Locked-pity: this many chests in a row without a still-locked character drop
+ *  forces the next pack to include a still-locked character (if any remain). */
+export const LOCKED_PITY = 12
+
+/* -------------------- visual metadata + kick-upgrade table -------------------- */
 
 /** Rarity metadata used by both the chest reveal and the profile album. */
 export const TIER_META: Record<ChestTier, { label: string; color: string; glow: string; icon: string }> = {
@@ -152,15 +193,61 @@ export const KICK_UPGRADE: Record<ChestTier, number> = {
   exclusive: 0,
 }
 
-/** Cards drop exactly ~10% of the time in EVERY chest tier - a Legendary chest
- *  is NOT guaranteed its card (90% of the time it is just gems). */
-export const CARD_CHANCE = 0.1
+/* -------------------- internal helpers -------------------- */
 
-/** Hidden mercy: this many consecutive cardless tries forces a card. */
-export const PITY_LIMIT = 15
+function randInt(rand: () => number, min: number, max: number): number {
+  return min + Math.floor(rand() * (max - min + 1))
+}
 
-/** Whole collection complete - a chest pays a big gem jackpot instead. */
-export const COLLECTION_JACKPOT = 300
+function weightedPick<T>(rand: () => number, table: readonly [T, number][]): T {
+  const total = table.reduce((s, [, w]) => s + w, 0)
+  let r = rand() * total
+  for (const item of table) {
+    const [v, w] = item
+    r -= w
+    if (r <= 0) return v
+  }
+  return table[table.length - 1][0]
+}
+
+/** A character is considered "owned" (unlocked) once it has at least STAR_THRESHOLDS[0] copies. */
+function isOwned(counts: Readonly<Record<string, number>>, id: string): boolean {
+  return (counts[id] ?? 0) >= STAR_THRESHOLDS[0]
+}
+
+/** Return ids of all still-LOCKED characters (count < 3). */
+function lockedIds(counts: Readonly<Record<string, number>>): string[] {
+  return CARDS.map((c) => c.id).filter((id) => !isOwned(counts, id))
+}
+
+/** Pick a card id from the given pool, preferring still-LOCKED characters when
+ *  `forceLocked` is true. Falls back to any character of the right tier if the
+ *  pool is exhausted. Returns null if NO card of that tier exists. */
+function pickCardForTier(
+  rand: () => number,
+  counts: Readonly<Record<string, number>>,
+  cardTier: ChestTier,
+  forceLocked: boolean,
+): string | null {
+  const allOfTier = CARDS.filter((c) => c.tier === cardTier).map((c) => c.id)
+  if (allOfTier.length === 0) return null
+  // 1) if forcing-locked, prefer a still-locked character of THIS tier
+  if (forceLocked) {
+    const lockedInTier = allOfTier.filter((id) => !isOwned(counts, id))
+    if (lockedInTier.length > 0) {
+      return lockedInTier[Math.floor(rand() * lockedInTier.length)]
+    }
+    // 2) any still-locked character (any tier) - drop the tier filter so the
+    //    pity guarantee always unlocks someone new if anyone remains
+    const anyLocked = lockedIds(counts)
+    if (anyLocked.length > 0) return anyLocked[Math.floor(rand() * anyLocked.length)]
+  }
+  // 3) normal pick - any character of the requested tier (locked or not)
+  return allOfTier[Math.floor(rand() * allOfTier.length)]
+}
+
+
+/* -------------------- public ChestResult + rollChest -------------------- */
 
 export interface ChestResult {
   /** how it started (what the player sees first) */
@@ -169,28 +256,35 @@ export interface ChestResult {
   finalTier: ChestTier
   /** kick indices (0-based) at which the tier upgraded */
   upgradesAt: number[]
+  /** gems awarded by the chest itself (NOT including duplicate dust) */
   gems: number
-  card: { id: string; isNew: boolean } | null
-  /** all cards already owned and this chest wanted a card -> jackpot */
-  jackpot: boolean
+  /** dust awarded by duplicates of already-5★ characters (combined) */
+  dust: number
+  /** the single character contained in the pack (every copy is the same id) */
+  cardId: string
+  /** how many copies of cardId this pack contained (1, 2 or 3) */
+  copies: number
+  /** isNew = the player has not unlocked cardId yet (first-ever drop) */
+  isNew: boolean
+  /** true if the pack was forced to contain a still-LOCKED character (pity) */
+  pity: boolean
 }
 
-/**
- * Roll a full chest for one lesson.
- *  - `ctx`      : 'normal' | 'boss' | 'lucky' (buying a Lucky Ticket toggles)
- *  - `owned`    : the player's card set (ids)
- *  - `cardPity` : consecutive cardless chests; >= PITY_LIMIT forces a card
+/** Roll a full chest for one lesson.
+ *  - `ctx`     : 'normal' | 'boss' | 'lucky' | 'streak'
+ *  - `counts`  : the player's per-character copy counts
+ *  - `pity`    : consecutive chests without a still-locked drop
  */
 export function rollChest(
   rand: () => number,
   ctx: ChestContext,
-  owned: ReadonlySet<string>,
-  cardPity: number,
+  counts: Readonly<Record<string, number>>,
+  pity: number,
 ): ChestResult {
+  // 1) starting chest tier
   const startTier = rollStartTier(rand, ctx)
   let tier = startTier
   const upgradesAt: number[] = []
-
   for (let k = 0; k < KICKS; k++) {
     const next = upgradeStep(tier)
     if (next !== tier && rand() < KICK_UPGRADE[tier]) {
@@ -199,51 +293,51 @@ export function rollChest(
     }
   }
 
+  // 2) gem band from the FINAL tier
   const [gMin, gMax] = GEM_RANGE[tier]
   const gems = randInt(rand, gMin, gMax)
 
-  // Flat 10% card chance in every tier - Legendary/Exclusive are NOT guaranteed.
-  // Pity still forces a card after PITY_LIMIT cardless chests.
-  const forced = cardPity >= PITY_LIMIT
-  const dropsCard = forced || rand() < CARD_CHANCE
+  // 3) pack size (copies) for this final tier
+  const [cMin, cMax] = PACK_SIZE[tier]
+  let copies = cMin === cMax ? cMin : randInt(rand, cMin, cMax)
 
-  if (!dropsCard) {
-    return { startTier, finalTier: tier, upgradesAt, gems, card: null, jackpot: false }
-  }
-
-  const cardId = pickCard(rand, owned, tier)
+  // 4) determine card tier from the chest's CARD_POOL, then pick a character
+  const forceLocked = pity >= LOCKED_PITY
+  const cardTier = weightedPick(rand, CARD_POOL[tier])
+  let cardId = pickCardForTier(rand, counts, cardTier, forceLocked)
+  let didPity = false
+  // If the picked tier has no characters (shouldn't happen with current cards),
+  // gracefully fall back to the lowest tier that does.
   if (cardId === null) {
-    // Collection complete -> jackpot: pay the top (exclusive) gem band plus the
-    // big completion bonus, so a completed set is always richly rewarded no
-    // matter what tier the chest happened to roll.
-    const jackpotBase = randInt(rand, GEM_RANGE.exclusive[0], GEM_RANGE.exclusive[1])
-    return {
-      startTier,
-      finalTier: tier,
-      upgradesAt,
-      gems: jackpotBase + COLLECTION_JACKPOT,
-      card: null,
-      jackpot: true,
+    for (const t of TIER_ORDER) {
+      const c = pickCardForTier(rand, counts, t, forceLocked)
+      if (c !== null) { cardId = c; break }
     }
   }
+  if (forceLocked && cardId !== null) {
+    // Verify the pick really was a still-locked character. If not, no locked
+    // characters remain - the pity quietly converts into a normal pack.
+    if (!isOwned(counts, cardId)) didPity = true
+  }
+  // Final fallback: collection 100% maxed (very rare) - we still need to return
+  // SOMETHING so the renderer doesn't crash. Drop a random maxed card.
+  if (cardId === null) {
+    const maxed = CARDS.map((c) => c.id)
+    cardId = maxed[Math.floor(rand() * maxed.length)]
+  }
 
+  const isNew = !isOwned(counts, cardId)
   return {
     startTier,
     finalTier: tier,
     upgradesAt,
     gems,
-    card: { id: cardId, isNew: !owned.has(cardId) },
-    jackpot: false,
+    dust: 0, // computed in store.grantChest where the new count is known
+    cardId,
+    copies,
+    isNew,
+    pity: didPity,
   }
-}
-function weightedPick<T>(rand: () => number, table: readonly [T, number][]): T {
-  const total = table.reduce((s, [, w]) => s + w, 0)
-  let r = rand() * total
-  for (const [item, w] of table) {
-    r -= w
-    if (r <= 0) return item
-  }
-  return table[table.length - 1][0]
 }
 
 export function rollStartTier(rand: () => number, ctx: ChestContext): ChestTier {
@@ -257,3 +351,9 @@ export function upgradeStep(t: ChestTier): ChestTier {
   if (t === 'epic') return 'legendary'
   return t
 }
+
+
+// Legacy compatibility exports (tests reference these constants)
+export const CARD_CHANCE = 0.1
+export const PITY_LIMIT = 15
+export const COLLECTION_JACKPOT = 300

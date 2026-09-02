@@ -334,7 +334,7 @@ export function LessonScreen({ lessonId, onExit }: { lessonId: string; onExit: (
     const ctx: ChestContext = streakMilestone !== null
       ? 'streak'
       : player.consumeLuckyTicket() ? 'lucky' : isBoss ? 'boss' : 'normal'
-    const chest = rollChest(Math.random, ctx, new Set(player.cardCollection), player.cardPity)
+    const chest = rollChest(Math.random, ctx, player.cardCounts, player.cardPity)
     const finalGems = chestGemMultiplier(player.chestBoost, player.megaChest) * chest.gems
     if (player.chestBoost) player.useChestBoost()
     if (player.megaChest) player.useMegaChest()
@@ -654,36 +654,42 @@ export function LessonScreen({ lessonId, onExit }: { lessonId: string; onExit: (
           >
             <p className="font-display text-3xl font-extrabold text-orange-500">+{chestResult.gems} 💎</p>
             <p className="mt-1 font-display font-extrabold text-emerald-500">+{xpEarned} ⚡ XP</p>
-            {chestResult.card && CARD_BY_ID[chestResult.card.id] && (
+            <p className="mt-2 font-display text-sm font-extrabold text-blue-600">
+              {chestResult.isNew ? 'NEW CHARACTER!' : `+${chestResult.copies} ×`}
+            </p>
+            {chestResult.cardId && CARD_BY_ID[chestResult.cardId] && (
               <motion.div
                 initial={{ rotateY: 180, opacity: 0 }}
                 animate={{ rotateY: 0, opacity: 1 }}
                 transition={{ type: 'spring', stiffness: 200, damping: 18 }}
                 className="card-white mt-4 mx-auto max-w-xs overflow-hidden"
-                style={{ borderColor: TIER_META[CARD_BY_ID[chestResult.card.id].tier].color }}
+                style={{ borderColor: TIER_META[CARD_BY_ID[chestResult.cardId].tier].color }}
               >
                 <div className="h-40 bg-gradient-to-b from-white/40 to-transparent flex items-center justify-center px-2 pt-2">
                   <img
-                    src={cardImageUrl(CARD_BY_ID[chestResult.card.id])}
-                    alt={CARD_BY_ID[chestResult.card.id].name}
+                    src={cardImageUrl(CARD_BY_ID[chestResult.cardId])}
+                    alt={CARD_BY_ID[chestResult.cardId].name}
                     onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
                     className="h-full w-full object-contain drop-shadow"
                   />
                 </div>
                 <div className="px-4 pb-4">
                   <p className="font-display text-xs font-extrabold text-slate-400 uppercase">
-                    {chestResult.card.isNew ? 'NEW CARD!' : 'Duplicate'}
+                    {chestResult.isNew ? 'NEW CHARACTER!' : `+${chestResult.copies} copies`}
                   </p>
                   <p className="font-display text-2xl font-extrabold text-slate-800 mt-1">
-                    {CARD_BY_ID[chestResult.card.id].name}
+                    {CARD_BY_ID[chestResult.cardId].name}
                   </p>
-                  <p className="text-xs text-slate-500 mt-1">{CARD_BY_ID[chestResult.card.id].flavor}</p>
+                  <p className="text-xs text-slate-500 mt-1">{CARD_BY_ID[chestResult.cardId].flavor}</p>
+                  {chestResult.dust > 0 && (
+                    <p className="mt-1 text-xs font-extrabold text-amber-500">+{chestResult.dust} 💎 dust (extra copies)</p>
+                  )}
                 </div>
               </motion.div>
             )}
-            {chestResult.jackpot && (
-              <p className="mt-2 font-display text-lg font-extrabold text-pink-500">
-                🎰 JACKPOT! Collection complete! 🎰
+            {(chestResult.dust > 0) && (
+              <p className="mt-2 font-display text-lg font-extrabold text-amber-500">
+                🌟 BONUS DUST! {chestResult.dust} 💎 from maxed characters 🌟
               </p>
             )}
           </motion.div>
