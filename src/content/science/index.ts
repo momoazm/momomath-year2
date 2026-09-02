@@ -1,4 +1,4 @@
-﻿import type { LessonDef, UnitDef } from '../types'
+import type { LessonDef, UnitDef } from '../types'
 import { UNIT_S1 } from './s01'
 import { UNIT_S2 } from './s02'
 import { UNIT_S3 } from './s03'
