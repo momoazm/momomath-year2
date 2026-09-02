@@ -42,8 +42,8 @@ function gScientist(rand: Rand): Question {
 function gGraph(rand: Rand): Question {
   const cats = randInt(rand, 1, 8), dogs = randInt(rand, 1, 8), birds = randInt(rand, 4, 9), fish = randInt(rand, 1, 5)
   const counts = { cats, dogs, birds, fish }
-  const top = Object.entries(counts).reduce((a, b) => (b[1] > a[1] ? b : a))[0]
-  const bot = Object.entries(counts).reduce((a, b) => (b[1] < a[1] ? b : a))[0]
+  const top = (Object.entries(counts) as [string, number][]).reduce((a, b) => (b[1] > a[1] ? b : a))[0]
+  const bot = (Object.entries(counts) as [string, number][]).reduce((a, b) => (b[1] < a[1] ? b : a))[0]
   return mcqE(rand, `On Sam's chart, ${top} were seen most and ${bot} least. Which sentence fits?`, `${top} more than ${bot}`, [`${bot} more than ${top}`], { visual: { type: 'emoji-group', emojis: ['📊'] } })
 }
 function gModel(rand: Rand): Question {
@@ -52,7 +52,7 @@ function gModel(rand: Rand): Question {
 }
 function gCycle(rand: Rand): Question {
   const cycles = { plant: ['seed', 'root', 'sprout', 'flower', 'seeds'], butterfly: ['egg', 'caterpillar', 'chrysalis', 'butterfly'], frog: ['egg', 'tadpole', 'froglet', 'frog'] }
-  const [name, stages] = pick(rand, Object.entries(cycles))
+  const [name, stages] = pick(rand, Object.entries(cycles) as [string, string[]][])
   return orderQ(`Put the ${name}'s life stages in order, start to finish.`, stages, { audioText: `Order the ${name} life stages.` })
 }
 function gSpeak(rand: Rand): Question {
