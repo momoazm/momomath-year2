@@ -14,6 +14,7 @@ import {
 } from '../engine/gamification'
 import {
   botsForPlayerCount,
+  dedupSelf,
   fetchSharedPlayers,
   pushSharedPlayer,
   weeklyXpOf,
@@ -65,6 +66,14 @@ export function LeaguesScreen() {
   const myId = authUser?.sub
     ? `g:${authUser.sub}`
     : `name:${s.name.trim().toLowerCase()}`
+
+  // Dedup helper: filter the API's shared list so the local player (matched
+  // by id OR by lowercased name) never appears twice in the standings. This
+  // catches the case where a player has both a Google-signed entry
+  // (`g:<sub>`) AND a name-only entry (`name:fares`) from an earlier session
+  // — the local player should be represented by exactly one row.
+  const myName = s.name.trim().toLowerCase()
+  const dedupShared = (rows: typeof shared): typeof shared => dedupSelf(rows, myId, myName)
 
   // League weeks are anchored at 12:00 AM of the day they began and run for
   // exactly 7 days. `boardWeek` is the shared Monday-based key used on the
@@ -128,7 +137,7 @@ export function LeaguesScreen() {
   const stayGoal = Math.round(goal * STAY_FACTOR)
   const countdown = formatCountdown(msUntilWeekEnd(anchor, new Date(nowMs)))
 
-  const others = shared.filter((p) => p.id !== myId)
+  const others = dedupShared(shared).filter((p) => p.id !== myId)
   const realCount = 1 + others.length
   const bots = botsForPlayerCount(realCount)
 

@@ -51,3 +51,26 @@ export function weeklyXpOf(p: SharedPlayer, wk: string): number {
 export function botsForPlayerCount(realCount: number): LeagueRival[] {
   return LEAGUE_RIVALS.slice(0, Math.max(0, LEAGUE_RIVALS.length - Math.max(0, realCount)))
 }
+
+/**
+ * Remove duplicate rows for the local player from the shared board.
+ *
+ * The API may return both a Google-signed entry (`g:<sub>`) AND a name-only
+ * entry (`name:fares`) for the same person (e.g. after signing in then out).
+ * `rows.filter((p) => p.id !== myId)` alone is not enough — the case-insensitive
+ * EXACT name match is what catches the cross-id dup. Names are still free
+ * to collide between two different people (e.g. "Fares" vs "Fares Junior"
+ * should both stay), so the name comparison is equality-only, not substring.
+ */
+export function dedupSelf(
+  rows: SharedPlayer[],
+  myId: string,
+  myName: string,
+): SharedPlayer[] {
+  const target = myName.trim().toLowerCase()
+  return rows.filter((p) => {
+    if (p.id === myId) return false
+    if (target && p.name.trim().toLowerCase() === target) return false
+    return true
+  })
+}
