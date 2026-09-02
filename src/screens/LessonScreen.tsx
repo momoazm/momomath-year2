@@ -334,7 +334,7 @@ export function LessonScreen({ lessonId, onExit }: { lessonId: string; onExit: (
     const ctx: ChestContext = streakMilestone !== null
       ? 'streak'
       : player.consumeLuckyTicket() ? 'lucky' : isBoss ? 'boss' : 'normal'
-    const chest = rollChest(Math.random, ctx, player.cardCounts, player.cardPity)
+    const chest = rollChest(Math.random, ctx, player.cardStars, player.cardPity)
     const finalGems = chestGemMultiplier(player.chestBoost, player.megaChest) * chest.gems
     if (player.chestBoost) player.useChestBoost()
     if (player.megaChest) player.useMegaChest()

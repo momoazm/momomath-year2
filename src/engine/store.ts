@@ -70,7 +70,9 @@ interface PlayerState {
   doubleXpLessons: number
   chestBoost: boolean
   megaChest: boolean
-  /** per-character copy count (key = MascotId, value = copies, 0 means locked) */
+  /** per-character star level (0-5); 0 = not yet earned, 1-5 = star progress. A card is owned if cardStars[id] > 0. */
+  cardStars: Record<string, number>
+  /** DEPRECATED - use cardStars instead. */
   cardCounts: Record<string, number>
   /** consecutive chests without a still-LOCKED character drop - drives the
    *  locked-pity guarantee (see cards.ts LOCKED_PITY) */
@@ -375,6 +377,7 @@ export const usePlayer = create<PlayerState>()(
       doubleXpLessons: 0,
       chestBoost: false,
       megaChest: false,
+      cardStars: {},
       cardCounts: {},
       cardPity: 0,
       luckyTickets: 0,
@@ -530,23 +533,26 @@ export const usePlayer = create<PlayerState>()(
       useMegaChest: () => set({ megaChest: false }),
       grantChest: (chest) =>
         set((state) => {
-          let cardCounts = { ...state.cardCounts }
-          let lockedPityState = state.cardPity
+          let cardStars = { ...state.cardStars }
+          const bonusGems = (chest.gems ?? 0) + (chest.dust ?? 0)
+
           if (chest.cardId) {
-            const prev = cardCounts[chest.cardId] ?? 0
-            const afterCount = prev + (chest.copies ?? 1)
-            cardCounts[chest.cardId] = afterCount
-            const unlockedBefore = prev >= 3
-            const unlockedAfter = afterCount >= 3
-            if (chest.pity || (!unlockedBefore && unlockedAfter)) {
-              lockedPityState = 0
-            } else {
-              lockedPityState = state.cardPity + 1
+            const stars = cardStars[chest.cardId] ?? 0
+
+            if (stars >= 5) {
+              // All cards maxed -> double gems
+              return { gems: state.gems + bonusGems * 2, cardStars, cardPity: state.cardPity }
             }
-          } else {
-            lockedPityState = state.cardPity + 1
+
+            // Award star: +1 (capped at 5). No pity for duplicate/maxed cards.
+            cardStars[chest.cardId] = Math.min(5, stars + 1)
+            const wasLocked = stars === 0
+            const lockedPityState = wasLocked ? 0 : state.cardPity + 1
+
+            return { gems: state.gems + bonusGems, cardStars, cardPity: lockedPityState }
           }
-          return { gems: state.gems + (chest.gems ?? 0) + (chest.dust ?? 0), cardCounts, cardPity: lockedPityState }
+
+          return { gems: state.gems + bonusGems, cardStars, cardPity: state.cardPity + 1 }
         }),
       addLuckyTickets: (n) => set((state) => ({ luckyTickets: state.luckyTickets + n })),
       consumeStreakChest: () => {
@@ -615,7 +621,7 @@ export const usePlayer = create<PlayerState>()(
     }),
     {
       name: 'momomath-year2-player-v2',
-      version: 6,
+      version: 7,
       migrate: (persisted, version) => {
         const p = { ...(persisted as PlayerState) }
         if (version < 4) {
@@ -640,6 +646,15 @@ export const usePlayer = create<PlayerState>()(
           p.cardCounts = {}
           for (const id of oldCards) p.cardCounts[id] = 3
           if (typeof (p as any).cardPity !== 'number') (p as any).cardPity = 0
+        }
+        if (version < 7) {
+          // cardCounts (copies) -> cardStars (0-5 star levels)
+          // Each card starts at 1 star if they had any copies, else 0
+          const oldCounts: Record<string, number> = (p as any).cardCounts ?? {}
+          p.cardStars = {}
+          for (const [id, copies] of Object.entries(oldCounts)) {
+            if ((copies as number) > 0) p.cardStars[id] = Math.min(5, copies as number)
+          }
         }
         return p
       },

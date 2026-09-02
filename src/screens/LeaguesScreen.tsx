@@ -73,7 +73,9 @@ export function LeaguesScreen() {
   // (`g:<sub>`) AND a name-only entry (`name:fares`) from an earlier session
   // — the local player should be represented by exactly one row.
   const myName = s.name.trim().toLowerCase()
-  const dedupShared = (rows: typeof shared): typeof shared => dedupSelf(rows, myId, myName)
+
+
+  const dedupShared = (rows: typeof shared): typeof shared => dedupSelf(rows, myId, myName, anchorBoardWeek)
 
   // League weeks are anchored at 12:00 AM of the day they began and run for
   // exactly 7 days. `boardWeek` is the shared Monday-based key used on the

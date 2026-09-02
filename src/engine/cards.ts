@@ -304,38 +304,36 @@ export function rollChest(
   const [cMin, cMax] = PACK_SIZE[tier]
   let copies = cMin === cMax ? cMin : randInt(rand, cMin, cMax)
 
-  // 4) determine card tier from the chest's CARD_POOL, then pick a character
+  // 4) RANDOM card from all characters (not tier-based)
+  // The gems are still based on tier, but the card is always random
   const forceLocked = pity >= LOCKED_PITY
-  const cardTier = weightedPick(rand, CARD_POOL[tier])
-  let cardId = pickCardForTier(rand, counts, cardTier, forceLocked)
+
+  // Build the pool: prefer still-locked characters when pity triggers,
+  // otherwise pick any character at random
+  let cardId: string | null = null
   let didPity = false
-  // If the picked tier has no characters (shouldn't happen with current cards),
-  // gracefully fall back to the lowest tier that does.
-  if (cardId === null) {
-    for (const t of TIER_ORDER) {
-      const c = pickCardForTier(rand, counts, t, forceLocked)
-      if (c !== null) { cardId = c; break }
+
+  if (forceLocked) {
+    // Pity mode: must give a locked character
+    const locked = CARDS.filter((c) => !(c.id in counts) || (counts[c.id] ?? 0) === 0)
+    if (locked.length > 0) {
+      cardId = locked[Math.floor(rand() * locked.length)].id
+      didPity = true
     }
   }
-  if (forceLocked && cardId !== null) {
-    // Verify the pick really was a still-locked character. If not, no locked
-    // characters remain - the pity quietly converts into a normal pack.
-    if (!isOwned(counts, cardId)) didPity = true
-  }
-  // Final fallback: collection 100% maxed (very rare) - we still need to return
-  // SOMETHING so the renderer doesn't crash. Drop a random maxed card.
+
+  // Normal mode: pick any random character
   if (cardId === null) {
-    const maxed = CARDS.map((c) => c.id)
-    cardId = maxed[Math.floor(rand() * maxed.length)]
+    cardId = CARDS[Math.floor(rand() * CARDS.length)].id
   }
 
-  const isNew = !isOwned(counts, cardId)
+  const isNew = !(cardId in counts) || (counts[cardId] ?? 0) === 0
   return {
     startTier,
     finalTier: tier,
     upgradesAt,
     gems,
-    dust: 0, // computed in store.grantChest where the new count is known
+    dust: 0,
     cardId,
     copies,
     isNew,

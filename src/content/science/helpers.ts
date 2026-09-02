@@ -224,7 +224,7 @@ export const CIRCUIT_PARTS = ['cell battery', 'wire', 'lamp', 'switch'] as const
 
 /** Safety dos and don'ts around electricity. */
 export const SOCKET_DONTS = [
-  'put a plug in the wall socket',
+  'push fingers or small objects into a socket',
   'pour water near a plug socket',
   'touch a plug with wet hands',
   'stick objects into a socket',

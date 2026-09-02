@@ -112,17 +112,17 @@ export function ProfileScreen() {
           <Stat
             icon="🃏"
             label="Unique Cards"
-            value={`${Object.keys(s.cardCounts).filter((id) => s.cardCounts[id] > 0).length}/${CARDS.length}`}
+            value={`${Object.keys(s.cardStars).filter((id) => s.cardStars[id] > 0).length}/${CARDS.length}`}
           />
           <Stat
             icon="📦"
             label="Total Copies"
-            value={String(Object.values(s.cardCounts).reduce((a, b) => a + b, 0))}
+            value={String(Object.values(s.cardStars).reduce((a, b) => a + b, 0))}
           />
         </div>
         <div className="mt-3 flex flex-wrap justify-center gap-2">
           {[1, 2, 3, 4, 5].map((star) => {
-            const count = CARDS.filter((c) => toStar(s.cardCounts[c.id] ?? 0) === star).length
+            const count = CARDS.filter((c) => toStar(s.cardStars[c.id] ?? 0) === star).length
             return (
               <div key={star} className="flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1.5 font-display text-sm font-bold">
                 {'★'.repeat(star)}{'☆'.repeat(5 - star)} {count}

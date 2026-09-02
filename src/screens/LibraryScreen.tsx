@@ -16,12 +16,12 @@ const TIER_TO_RARITY: Record<ChestTier, ChestRarity> = {
 const TIER_ORDER: ChestTier[] = ['common', 'rare', 'epic', 'legendary', 'exclusive']
 
 export function LibraryScreen({ onClose }: { onClose?: () => void }) {
-  const { cardCounts } = usePlayer()
+  const { cardStars } = usePlayer()
   const [filterTier, setFilterTier] = useState<ChestTier | 'all'>('all')
   const [selectedCard, setSelectedCard] = useState<CardDef | null>(null)
   const [lockedToast, setLockedToast] = useState<{card: CardDef; rarity: ChestRarity} | null>(null)
 
-  const owned = new Set(Object.keys(cardCounts).filter((id) => (cardCounts[id] ?? 0) >= 3))
+  const owned = new Set(Object.keys(cardStars).filter((id) => (cardStars[id] ?? 0) > 0))
   const allCards = CARDS
 
   const filteredCards = filterTier === 'all'
@@ -30,7 +30,7 @@ export function LibraryScreen({ onClose }: { onClose?: () => void }) {
 
   const tiers: (ChestTier | 'all')[] = ['all', 'common', 'rare', 'epic', 'legendary', 'exclusive']
 
-  const isOwned = (id: string) => owned.has(id)
+  const isOwned = (id: string) => (cardStars[id] ?? 0) > 0
 
   const handleCardClick = (card: CardDef) => {
     if (isOwned(card.id)) {
@@ -61,7 +61,7 @@ export function LibraryScreen({ onClose }: { onClose?: () => void }) {
         isOwned={isOwned}
         onCardClick={handleCardClick}
         getHiddenCardStyle={getHiddenCardStyle}
-        cardCounts={cardCounts}
+        cardStars={cardStars}
       />
                   {filteredCards.length === 0 && <EmptyState filterTier={filterTier} />}
       <CardModal
@@ -133,7 +133,7 @@ interface CardGridProps {
   getHiddenCardStyle: (tier: ChestTier) => CSSProperties
 }
 
-function CardGrid({ cards, isOwned, onCardClick, getHiddenCardStyle, cardCounts }: CardGridProps & { cardCounts: Record<string, number> }) {
+function CardGrid({ cards, isOwned, onCardClick, getHiddenCardStyle, cardStars }: CardGridProps & { cardStars: Record<string, number> }) {
   return (
     <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
       {cards.map((card) => {
@@ -227,7 +227,7 @@ function CardGrid({ cards, isOwned, onCardClick, getHiddenCardStyle, cardCounts 
                   {card.flavor}
                 </p>
                 {(() => {
-                  const count = (cardCounts[card.id] ?? 0)
+                  const count = (cardStars[card.id] ?? 0)
                   const star = toStar(count)
                   return (
                     <div className="mt-1 flex justify-center gap-0.5">
