@@ -74,9 +74,6 @@ export function LeaguesScreen() {
   // — the local player should be represented by exactly one row.
   const myName = s.name.trim().toLowerCase()
 
-
-  const dedupShared = (rows: typeof shared): typeof shared => dedupSelf(rows, myId, myName, boardWeek)
-
   // League weeks are anchored at 12:00 AM of the day they began and run for
   // exactly 7 days. `boardWeek` is the shared Monday-based key used on the
   // leaderboard so all players' entries compare the same calendar week.
@@ -85,6 +82,8 @@ export function LeaguesScreen() {
   // nowMs clock as weekLive so both flip at the same tick and old-week XP can
   // never be pushed under the new week's key at the boundary.
   const boardWeek = weekKey(new Date(nowMs))
+  const dedupShared = (rows: typeof shared): typeof shared => dedupSelf(rows, myId, myName, boardWeek)
+
   const weekLive = isValidAnchor(anchor) && !leagueWeekElapsed(anchor, new Date(nowMs))
   const needsSettle = !weekLive
   // anchorBoardWeek removed - using boardWeek directly

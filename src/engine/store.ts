@@ -15,6 +15,7 @@ import {
 } from './gamification'
 import { SHOP_ITEMS } from './shop'
 import { setMuted, sfx } from './sfx'
+import { STAR_THRESHOLDS } from './cards'
 import type { ChestResult } from './cards'
 
 export interface LessonProgress {
@@ -537,11 +538,11 @@ export const usePlayer = create<PlayerState>()(
           let pity = state.cardPity
           let anyNew = false
 
-          // Award +1 star for each card in the chest
+          // Award +1 copy for each card in the chest (uncapped — cardStars
+          // tracks total copies received; star LEVEL is derived via toStar())
           for (const card of chest.cards) {
-            const stars = cardStars[card.cardId] ?? 0
-            if (stars >= 5) continue // already maxed, no-op
-            cardStars[card.cardId] = Math.min(5, stars + 1)
+            const prev = cardStars[card.cardId] ?? 0
+            cardStars[card.cardId] = prev + 1
             if (card.isNew) anyNew = true
           }
 
@@ -549,8 +550,9 @@ export const usePlayer = create<PlayerState>()(
           if (anyNew) pity = 0
           else pity = pity + 1
 
-          // Double gems if ALL cards were already maxed (chest gave no stars)
-          const allMaxed = chest.cards.every((c) => (cardStars[c.cardId] ?? 0) >= 5)
+          // Double gems if ALL cards in this chest were already at 5★
+          // (5★ means cardStars[id] >= STAR_THRESHOLDS[4] = 21 copies)
+          const allMaxed = chest.cards.every((c) => (cardStars[c.cardId] ?? 0) >= STAR_THRESHOLDS[STAR_THRESHOLDS.length - 1])
           const gemMultiplier = allMaxed ? 2 : 1
           const bonusGems = ((chest.gems ?? 0) + (chest.dust ?? 0)) * gemMultiplier
 
@@ -650,12 +652,12 @@ export const usePlayer = create<PlayerState>()(
           if (typeof (p as any).cardPity !== 'number') (p as any).cardPity = 0
         }
         if (version < 7) {
-          // cardCounts (copies) -> cardStars (0-5 star levels)
-          // Each card starts at 1 star if they had any copies, else 0
+          // cardCounts (copies) -> cardStars (total copies, uncapped)
+          // Star LEVEL is derived via toStar() using STAR_THRESHOLDS
           const oldCounts: Record<string, number> = (p as any).cardCounts ?? {}
           p.cardStars = {}
           for (const [id, copies] of Object.entries(oldCounts)) {
-            if ((copies as number) > 0) p.cardStars[id] = Math.min(5, copies as number)
+            if ((copies as number) > 0) p.cardStars[id] = copies as number
           }
         }
         return p

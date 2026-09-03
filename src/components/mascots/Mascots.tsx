@@ -846,6 +846,27 @@ export function Eggman({ expression = 'happy', className = '' }: MascotProps) {
 
 /* ------------------------------- registry ----------------------------- */
 
+/** Tinted Sonic stand-ins for the 8 characters still awaiting official
+ *  renders (their card art lives in public/cards/*.svg). Each tint keeps
+ *  Sonic's silhouette but shifts the hue so the roster is visually distinct
+ *  everywhere mascots appear (TopBar, leagues, path banner, gallery). */
+function TintedSonic({ expression = 'happy', filter }: MascotProps & { filter: string }) {
+  return (
+    <span className="block h-full w-full" style={{ filter }}>
+      <Sonic expression={expression} />
+    </span>
+  )
+}
+
+const Charmy = (p: MascotProps) => <TintedSonic {...p} filter="hue-rotate(-170deg) saturate(1.5)" />
+const Big = (p: MascotProps) => <TintedSonic {...p} filter="hue-rotate(60deg) saturate(0.9)" />
+const Ray = (p: MascotProps) => <TintedSonic {...p} filter="hue-rotate(-140deg) saturate(1.3)" />
+const Vector = (p: MascotProps) => <TintedSonic {...p} filter="hue-rotate(-110deg) saturate(1.2)" />
+const Espio = (p: MascotProps) => <TintedSonic {...p} filter="hue-rotate(140deg) saturate(1.1)" />
+const Omega = (p: MascotProps) => <TintedSonic {...p} filter="grayscale(0.9) brightness(0.92)" />
+const Jet = (p: MascotProps) => <TintedSonic {...p} filter="hue-rotate(-80deg) saturate(1.4)" />
+const Super = (p: MascotProps) => <TintedSonic {...p} filter="sepia(1) saturate(2.5) hue-rotate(-15deg) brightness(1.1)" />
+
 export const MASCOTS: Record<string, (p: MascotProps) => JSX.Element> = {
   sonic: Sonic,
   tails: Tails,
@@ -858,14 +879,14 @@ export const MASCOTS: Record<string, (p: MascotProps) => JSX.Element> = {
   blaze: Blaze,
   rouge: Rouge,
   eggman: Eggman,
-  charmy: Sonic,
-  big: Sonic,
-  ray: Sonic,
-  vector: Sonic,
-  espio: Sonic,
-  omega: Sonic,
-  jet: Sonic,
-  super: Sonic,
+  charmy: Charmy,
+  big: Big,
+  ray: Ray,
+  vector: Vector,
+  espio: Espio,
+  omega: Omega,
+  jet: Jet,
+  super: Super,
 }
 
 export function Mascot({ id, ...rest }: MascotProps & { id: string }) {
