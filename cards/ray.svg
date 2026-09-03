@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 320" role="img" aria-label="Ray the Flying Squirrel card">
+  <title>Ray the Flying Squirrel</title>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#3b82f6"/>
+      <stop offset="100%" stop-color="#1d4ed8"/>
+    </linearGradient>
+  </defs>
+  <rect x="4" y="4" width="232" height="312" rx="20" fill="url(#bg)"/>
+  <rect x="4" y="4" width="232" height="312" rx="20" fill="none" stroke="#ffffff" stroke-width="6" opacity="0.5"/>
+  <text x="120" y="165" text-anchor="middle" font-size="100">&#x1F43F;&#xFE0F;</text>
+  <text x="120" y="245" text-anchor="middle" font-family="sans-serif" font-size="22" font-weight="bold" fill="#ffffff">Ray the Flying</text>
+  <text x="120" y="270" text-anchor="middle" font-family="sans-serif" font-size="22" font-weight="bold" fill="#ffffff">Squirrel</text>
+  <text x="120" y="296" text-anchor="middle" font-family="sans-serif" font-size="16" font-weight="bold" fill="#ffffff" opacity="0.85">RARE</text>
+</svg>
