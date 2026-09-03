@@ -15,7 +15,7 @@ import {
   weekKey,
   weeklyGoal,
 } from '../src/engine/gamification'
-import { isValidAnchor, promoteLeaderWeek, settleLeagueWeek, settleLeagueWeekByRank, updateStreak } from '../src/engine/store'
+import { isValidAnchor, promoteLeaderWeek, rollLeagueWeek, settleLeagueWeek, settleLeagueWeekByRank, updateStreak } from '../src/engine/store'
 import type { LeagueHistoryEntry } from '../src/engine/store'
 
 describe('lesson chest prizes', () => {
@@ -493,5 +493,117 @@ describe('streak only lights up when a lesson is completed today (P2)', () => {
     updateStreak(s, TODAY, YESTERDAY)
     expect(s.streakCurrent).toBe(5) // 4 -> 5 (savetaken)
     expect(s.streakSavers).toBe(0)
+  })
+})
+
+describe('lesson-time rollover snapshots the finished week (no XP settle)', () => {
+  const START = '2026-08-24'
+  const AFTER = new Date('2026-08-31T09:30:00')
+  const MID = new Date('2026-08-27T12:00:00')
+
+  function fitnessState(overrides: Partial<{
+    weeklyXpWeek: string
+    weeklyXp: number
+    currentLeague: (typeof LEAGUES)[number]
+    leagueHistory: LeagueHistoryEntry[]
+    lastLeagueSettle: LeagueHistoryEntry | null
+    pendingLeagueSettle: { weekKey: string; xp: number } | null
+  }> = {}) {
+    return {
+      weeklyXpWeek: START,
+      weeklyXp: 42,
+      currentLeague: 'Silver' as const,
+      leagueHistory: [] as LeagueHistoryEntry[],
+      lastLeagueSettle: null,
+      pendingLeagueSettle: null as { weekKey: string; xp: number } | null,
+      ...overrides,
+    }
+  }
+
+  it('is a no-op while the week is still running', () => {
+    const s = fitnessState()
+    expect(rollLeagueWeek(s, MID)).toBe(false)
+    expect(s.pendingLeagueSettle).toBeNull()
+    expect(s.weeklyXp).toBe(42)
+    expect(s.currentLeague).toBe('Silver')
+    expect(s.leagueHistory).toHaveLength(0)
+  })
+
+  it('snapshots the finished week and resets the counter without touching the league', () => {
+    const s = fitnessState()
+    expect(rollLeagueWeek(s, AFTER)).toBe(true)
+    expect(s.pendingLeagueSettle).toEqual({ weekKey: START, xp: 42 })
+    expect(s.weeklyXp).toBe(0)
+    expect(s.weeklyXpWeek).toBe('2026-08-31')
+    expect(s.currentLeague).toBe('Silver') // no promote/demote at lesson time
+    expect(s.leagueHistory).toHaveLength(0)
+    expect(s.lastLeagueSettle).toBeNull()
+  })
+
+  it('keeps the earliest pending week when several elapse without a settle', () => {
+    const s = fitnessState()
+    rollLeagueWeek(s, AFTER)
+    // fresh-week XP earned before the next rollover folds into the pending
+    // snapshot (same rank-based outcome; nothing earned is lost)
+    s.weeklyXp = 50
+    const muchLater = new Date('2026-09-08T09:30:00')
+    rollLeagueWeek(s, muchLater)
+    expect(s.pendingLeagueSettle).toEqual({ weekKey: START, xp: 92 })
+    expect(s.weeklyXp).toBe(0)
+  })
+
+  it('repairs a corrupt anchor into a fresh week', () => {
+    const s = fitnessState({ weeklyXpWeek: '' })
+    expect(rollLeagueWeek(s, AFTER)).toBe(true)
+    expect(s.weeklyXpWeek).toBe('2026-08-31')
+    expect(s.weeklyXp).toBe(0)
+  })
+})
+
+describe('rank settle consumes the pending snapshot (top3 / mid / bottom3)', () => {
+  const START = '2026-08-24'
+  const END = new Date('2026-08-31T00:00:00')
+
+  function pendingState(overrides: Partial<{
+    weeklyXpWeek: string
+    weeklyXp: number
+    currentLeague: (typeof LEAGUES)[number]
+    leagueHistory: LeagueHistoryEntry[]
+    lastLeagueSettle: LeagueHistoryEntry | null
+    pendingLeagueSettle: { weekKey: string; xp: number } | null
+  }> = {}) {
+    return {
+      weeklyXpWeek: '2026-08-31', // already reset by lesson-time rollover
+      weeklyXp: 5, // fresh-week XP, must NOT leak into the settled entry
+      currentLeague: 'Silver' as const,
+      leagueHistory: [] as LeagueHistoryEntry[],
+      lastLeagueSettle: null,
+      pendingLeagueSettle: { weekKey: START, xp: 77 },
+      ...overrides,
+    }
+  }
+
+  it('settles a pending week even though the anchor is fresh', () => {
+    const s = pendingState()
+    expect(settleLeagueWeekByRank(s, 5, 10, END)).toBe(true)
+    expect(s.currentLeague).toBe('Silver') // rank 5 of 10 stays
+    expect(s.leagueHistory).toHaveLength(1)
+    expect(s.leagueHistory[0]).toMatchObject({ weekKey: START, league: 'Silver', xp: 77 })
+    expect(s.pendingLeagueSettle).toBeNull()
+  })
+
+  it('rank 1 of 10 with a pending week promotes (top-3 band)', () => {
+    const s = pendingState()
+    settleLeagueWeekByRank(s, 1, 10, END)
+    expect(s.currentLeague).toBe('Gold')
+    expect(s.leagueHistory[0].outcome).toBe('promoted')
+    expect(s.lastLeagueSettle?.outcome).toBe('promoted')
+  })
+
+  it('rank 10 of 10 with a pending week demotes (bottom-3 band)', () => {
+    const s = pendingState()
+    settleLeagueWeekByRank(s, 10, 10, END)
+    expect(s.currentLeague).toBe('Bronze')
+    expect(s.leagueHistory[0].outcome).toBe('demoted')
   })
 })

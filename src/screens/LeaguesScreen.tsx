@@ -3,8 +3,8 @@ import { motion } from 'framer-motion'
 import {
   LEAGUES,
   LEAGUE_META,
-  STAY_FACTOR,
   advanceLeague,
+  leagueOutcomeByRank,
   leagueWeekElapsed,
   msUntilWeekEnd,
   rivalXp,
@@ -36,10 +36,12 @@ type Row = {
   icon?: string
 }
 
-function zoneOf(xp: number, goal: number, stayGoal: number): Zone {
-  if (xp >= goal) return 'promo'
-  if (xp >= stayGoal) return 'stay'
-  return 'danger'
+function zoneOfRank(rank: number, total: number): Zone {
+  // Zone dividers follow BOARD RANK so the display matches the settle bands:
+  // top 3 promote, next 4 safe, last 3 demote on a 10-player board
+  // (scales for other sizes via leagueOutcomeByRank).
+  const o = leagueOutcomeByRank(rank, total)
+  return o === 'promoted' ? 'promo' : o === 'demoted' ? 'danger' : 'stay'
 }
 
 const ZONE_DIVIDER: Record<Zone, { label: string; cls: string }> = {
@@ -132,7 +134,6 @@ export function LeaguesScreen() {
 
   const meta = LEAGUE_META[s.currentLeague]
   const goal = weeklyGoal(s.currentLeague)
-  const stayGoal = Math.round(goal * STAY_FACTOR)
   const countdown = formatCountdown(msUntilWeekEnd(anchor, new Date(nowMs)))
 
   const others = dedupShared(shared).filter((p) => p.id !== myId)
@@ -206,12 +207,15 @@ export function LeaguesScreen() {
   // The board is padded to 10 by bots when fewer real players are present;
   // any extras (>10) appear in a secondary leaderboard grouped by league
   // (rendered below). Idempotent.
+  // Settle when the week elapsed OR a finished week is pending from lesson
+  // time — the pending snapshot carries the finished week's XP into the
+  // rank bands (top 3 promote / middle stay / bottom 3 demote). Idempotent.
   useEffect(() => {
-    if (!needsSettle) return
+    if (!needsSettle && !s.pendingLeagueSettle) return
     s.syncLeagueWeekByRank(myRank, standings.length)
     // re-run only when the settle state or the final rank changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [needsSettle, myRank, standings.length])
+  }, [needsSettle, s.pendingLeagueSettle, myRank, standings.length])
 
   const pct = Math.min(100, Math.round((s.weeklyXp / goal) * 100))
 
@@ -291,9 +295,9 @@ export function LeaguesScreen() {
         </h2>
         <ol>
           {standings.map((p, i) => {
-            const zone = zoneOf(p.xp, goal, stayGoal)
+            const zone = zoneOfRank(i + 1, standings.length)
             const prevZone =
-              i > 0 ? zoneOf(standings[i - 1].xp, goal, stayGoal) : null
+              i > 0 ? zoneOfRank(i, standings.length) : null
             const showDivider = zone !== prevZone
             const rank = i + 1
             return (
@@ -323,7 +327,7 @@ export function LeaguesScreen() {
                     ) : (
                       <Mascot
                         id={p.mascotId ?? 'sonic'}
-                        expression={zoneOf(p.xp, goal, stayGoal) === 'promo' ? 'cheer' : 'happy'}
+                        expression={zone === 'promo' ? 'cheer' : 'happy'}
                       />
                     )}
                   </span>

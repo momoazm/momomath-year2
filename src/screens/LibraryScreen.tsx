@@ -1,6 +1,6 @@
 import { useEffect, useState, type CSSProperties } from 'react'
 import { usePlayer } from '../engine/store'
-import { CARDS, cardImageUrl, STAR_THRESHOLDS, toStar, type CardDef, type ChestTier } from '../engine/cards'
+import { CARDS, cardImageUrl, STAR_THRESHOLDS, copiesToNextStar, toStar, type CardDef, type ChestTier } from '../engine/cards'
 import { RARITY_META, type ChestRarity } from '../engine/gamification'
 import { AnimatePresence, motion } from 'framer-motion'
 
@@ -229,11 +229,17 @@ function CardGrid({ cards, isOwned, onCardClick, getHiddenCardStyle, cardStars }
                 {(() => {
                   const count = (cardStars[card.id] ?? 0)
                   const star = toStar(count)
+                  const need = copiesToNextStar(count)
                   return (
-                    <div className="mt-1 flex justify-center gap-0.5">
-                      {[1,2,3,4,5].map(s => (
-                        <span key={s} className={"text-xs " + (s <= star ? "text-amber-400" : "text-slate-300")}>★</span>
-                      ))}
+                    <div className="mt-1">
+                      <div className="flex justify-center gap-0.5">
+                        {[1,2,3,4,5].map(s => (
+                          <span key={s} className={"text-xs " + (s <= star ? "text-amber-400" : "text-slate-300")}>★</span>
+                        ))}
+                      </div>
+                      <p className="mt-0.5 text-center font-display text-[10px] font-extrabold text-slate-400">
+                        ×{count} {need > 0 ? `· ${need} more for ${star + 1}★` : '· MAX ★'}
+                      </p>
                     </div>
                   )
                 })()}

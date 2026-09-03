@@ -3,8 +3,9 @@ import { AnimatePresence, motion } from 'framer-motion'
 import confetti from 'canvas-confetti'
 import { QUESTIONS_PER_LESSON } from '../content/curriculum'
 import { getCurriculum } from '../content/registry'
+import { isLessonRedo, crownsEarned } from '../engine/path'
 import { usePlayer } from '../engine/store'
-import { rollChest, CARD_BY_ID, cardImageUrl, KICK_UPGRADE, toStar, type ChestContext, type ChestResult, type ChestTier } from '../engine/cards'
+import { rollChest, CARD_BY_ID, cardImageUrl, KICK_UPGRADE, copiesToNextStar, toStar, type ChestContext, type ChestResult, type ChestTier } from '../engine/cards'
 import { chestGemMultiplier } from '../engine/shop'
 import { speak, speakSlow, stopSpeaking, ttsAvailable } from '../engine/tts'
 import { Mascot } from '../components/mascots/Mascots'
@@ -183,6 +184,8 @@ export function LessonScreen({ lessonId, onExit }: { lessonId: string; onExit: (
   const [firstAttemptMistakes, setFirstAttemptMistakes] = useState(0)
   // 4-kick chest ritual state (drives the new cards.ts chest engine UI)
   const [chestResult, setChestResult] = useState<ChestResult | null>(null)
+  /** true when the finished lesson was a replay — redos earn XP but no stars or chests */
+  const [isRedoResult, setIsRedoResult] = useState(false)
   /** streak milestone (7/14/21…) whose bonus high-rarity chest is in chestResult */
   const [streakBonus, setStreakBonus] = useState<number | null>(null)
   const [kicksLeft, setKicksLeft] = useState(4)
@@ -314,6 +317,11 @@ export function LessonScreen({ lessonId, onExit }: { lessonId: string; onExit: (
     const firstAttemptMistakes = totalFirstAttempts - firstAttemptCorrect
     setFirstAttemptMistakes(firstAttemptMistakes)
 
+    // Redos (replays of an already-completed lesson) earn XP but never
+    // stars/crowns or chests — loot is reserved for fresh clears.
+    const redo = isLessonRedo(player.lessonProgress, lessonId)
+    setIsRedoResult(redo)
+
     // Commit lesson results FIRST: this advances the streak and may set a
     // pending streak milestone (every 7 consecutive days) for THIS lesson.
     player.completeLesson({
@@ -321,28 +329,34 @@ export function LessonScreen({ lessonId, onExit }: { lessonId: string; onExit: (
       xp: gained,
       correct: firstAttemptCorrect,
       totalQuestions: totalFirstAttempts,
-      crownsGained: firstAttemptMistakes === 0 ? 1 : 0,
+      crownsGained: crownsEarned(redo, firstAttemptMistakes),
       accuracy,
     })
 
     // Streak milestone bonus chest (HIGH rarity, guaranteed Legendary+).
     // Streak Savers protect missed days automatically inside updateStreak().
-    const streakMilestone = player.consumeStreakChest()
+    // Skipped on redos: the pending milestone waits for the next fresh clear.
+    const streakMilestone = redo ? null : player.consumeStreakChest()
     setStreakBonus(streakMilestone)
 
-    // New chest engine (cards.ts) - replaces the legacy lessonChestPrize
-    const ctx: ChestContext = streakMilestone !== null
-      ? 'streak'
-      : player.consumeLuckyTicket() ? 'lucky' : isBoss ? 'boss' : 'normal'
-    const chest = rollChest(Math.random, ctx, player.cardStars, player.cardPity)
-    const finalGems = chestGemMultiplier(player.chestBoost, player.megaChest) * chest.gems
-    if (player.chestBoost) player.useChestBoost()
-    if (player.megaChest) player.useMegaChest()
-    const finalChest: ChestResult = { ...chest, gems: finalGems }
-    player.grantChest(finalChest)
-    setChestResult(finalChest)
+    if (!redo) {
+      // New chest engine (cards.ts) - replaces the legacy lessonChestPrize
+      const ctx: ChestContext = streakMilestone !== null
+        ? 'streak'
+        : player.consumeLuckyTicket() ? 'lucky' : isBoss ? 'boss' : 'normal'
+      const chest = rollChest(Math.random, ctx, player.cardStars, player.cardPity)
+      const finalGems = chestGemMultiplier(player.chestBoost, player.megaChest) * chest.gems
+      if (player.chestBoost) player.useChestBoost()
+      if (player.megaChest) player.useMegaChest()
+      const finalChest: ChestResult = { ...chest, gems: finalGems }
+      player.grantChest(finalChest)
+      setChestResult(finalChest)
+      setCurrentTier(chest.startTier)
+    } else {
+      setChestResult(null)
+      setCurrentTier('common')
+    }
     setKicksLeft(4)
-    setCurrentTier(chest.startTier)
     setRevealed(false)
     setKickPulse(0)
     setFlashTier(null)
@@ -462,10 +476,12 @@ export function LessonScreen({ lessonId, onExit }: { lessonId: string; onExit: (
         </motion.div>
         <motion.h1 initial={{ y: 12, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.15 }}
           className="mt-3 text-center font-display text-4xl font-extrabold text-yellow-500 drop-shadow">
-          {firstAttemptMistakes === 0 ? 'PERFECT!' : 'Lesson complete!'}
+          {isRedoResult ? 'Nice practice!' : firstAttemptMistakes === 0 ? 'PERFECT!' : 'Lesson complete!'}
         </motion.h1>
         <p className="mt-1 text-center font-body text-sm font-bold text-slate-400">
-          {firstAttemptMistakes === 0 ? 'Flawless run - every answer right!' : `${firstAttemptMistakes} mistake${firstAttemptMistakes === 1 ? '' : 's'} on first try. Practice makes perfect!`}
+          {isRedoResult
+            ? 'Replays earn XP — clear a fresh lesson for stars and chests!'
+            : firstAttemptMistakes === 0 ? 'Flawless run - every answer right!' : `${firstAttemptMistakes} mistake${firstAttemptMistakes === 1 ? '' : 's'} on first try. Practice makes perfect!`}
         </p>
 
         {/* streak milestone bonus banner */}
@@ -685,11 +701,14 @@ export function LessonScreen({ lessonId, onExit }: { lessonId: string; onExit: (
                         {card.isNew ? '✨ NEW!' : '×1'}
                       </p>
                       <p className="font-display text-xs font-extrabold text-slate-800 leading-tight">{def.name}</p>
-                      <div className="flex gap-0.5 mt-0.5">
+                      <div className="flex gap-0.5 mt-0.5 justify-center">
                         {[1,2,3,4,5].map(s => (
                           <span key={s} className="text-[8px]" style={{ color: s <= stars ? '#f59e0b' : '#e2e8f0' }}>★</span>
                         ))}
                       </div>
+                      <p className="font-display text-[8px] font-extrabold text-slate-400 leading-tight">
+                        ×{count} {copiesToNextStar(count) > 0 ? `· +${copiesToNextStar(count)} → ${stars + 1}★` : '· MAX ★'}
+                      </p>
                     </div>
                   </motion.div>
                 )
@@ -699,7 +718,7 @@ export function LessonScreen({ lessonId, onExit }: { lessonId: string; onExit: (
         )}
 
         <div className="mt-8 w-full max-w-xs">
-          {revealed ? (
+          {revealed || isRedoResult ? (
             <button onClick={onExit} className="btn3d btn-green w-full gpu">
               Continue to roadmap ▶
             </button>

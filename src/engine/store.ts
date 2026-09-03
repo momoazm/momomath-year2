@@ -60,6 +60,11 @@ interface PlayerState {
   leagueHistory: LeagueHistoryEntry[]
   /** most recent promotion/demotion — shown as a banner until dismissed */
   lastLeagueSettle: LeagueHistoryEntry | null
+  /** finished week awaiting rank-based settlement (written by rollLeagueWeek
+   *  at lesson time, consumed by syncLeagueWeekByRank on the Leagues tab).
+   *  Lets the TOP-3/promote bands run on real ranks instead of being
+   *  pre-empted by the lesson-time XP settle. */
+  pendingLeagueSettle: { weekKey: string; xp: number } | null
   soundOn: boolean
   onboarded: boolean
   shopInventory: Record<string, number>
@@ -151,6 +156,7 @@ export interface LeagueWeekFields {
   currentLeague: LeagueName
   leagueHistory: LeagueHistoryEntry[]
   lastLeagueSettle: LeagueHistoryEntry | null
+  pendingLeagueSettle?: { weekKey: string; xp: number } | null
 }
 
 /** Valid "YYYY-MM-DD" league-week anchor? Rejects impossible dates (e.g. 2026-02-30). */
@@ -167,6 +173,11 @@ export function isValidAnchor(a: string): boolean {
 
 /**
  * Weekly league settlement (standard XP rules).
+ *
+ * NOTE: retained + unit-tested, but the live store no longer settles through
+ * this path — lesson time snapshots via rollLeagueWeek and the Leagues tab
+ * settles by rank (settleLeagueWeekByRank), so the top-3 promotion bands
+ * always run on real ranks.
  *
  * A league week runs from 12:00 AM of its anchor day (`weeklyXpWeek`) for
  * exactly 7 days. When that window elapses: settle last week by XP earned —
@@ -218,6 +229,11 @@ export function settleLeagueWeek<T extends LeagueWeekFields>(
  *   - middle  -> stay
  *   - bottom  -> demote (clamped to Bronze)
  *
+ * This is the ONLY production settlement path (s169+): lesson time only
+ * snapshots the finished week into `pendingLeagueSettle` (see
+ * rollLeagueWeek), and the Leagues tab settles it once the rank is known —
+ * so an XP settle can never pre-empt the top-3 promotion again.
+ *
  * The board is padded to 10 via `botsForPlayerCount` when fewer than 10 real
  * players are present. If more than 10 real players join, the "extras" appear
  * in a secondary leaderboard for their current league; this function only
@@ -237,19 +253,25 @@ export function settleLeagueWeekByRank<T extends LeagueWeekFields>(
     s.weeklyXp = 0
     return true
   }
-  if (!leagueWeekElapsed(anchor, now)) return false
-  const prevWeek = anchor
+  const pending = s.pendingLeagueSettle ?? null
+  if (!pending && !leagueWeekElapsed(anchor, now)) return false
   const prevLeague = s.currentLeague
   const history = Array.isArray(s.leagueHistory) ? s.leagueHistory : []
-  const earned = Number.isFinite(s.weeklyXp) ? s.weeklyXp : 0
+  // Prefer the snapshotted week (written at lesson time, before the counter
+  // reset); fall back to the live counter when the tab is opened after the
+  // week elapsed with no lesson played since.
+  const srcWeek = pending?.weekKey ?? anchor
+  const rawXp = pending?.xp ?? s.weeklyXp
+  const earned = Number.isFinite(rawXp) ? (rawXp as number) : 0
   const outcome = leagueOutcomeByRank(myRank, totalRanks)
   s.currentLeague = advanceLeague(prevLeague, outcome)
   s.leagueHistory = [
     ...history.slice(-9),
-    { weekKey: prevWeek, league: prevLeague, outcome, xp: earned },
+    { weekKey: srcWeek, league: prevLeague, outcome, xp: earned },
   ]
   s.weeklyXpWeek = todayISO(now) // new week starts 12:00 AM today
   s.weeklyXp = 0
+  s.pendingLeagueSettle = null
   s.lastLeagueSettle =
     outcome === 'stayed' ? null : s.leagueHistory[s.leagueHistory.length - 1]
   return true
@@ -287,9 +309,43 @@ export function promoteLeaderWeek<T extends LeagueWeekFields>(
   return true
 }
 
-/** Weekly league rollover used by the live store (delegates to settleLeagueWeek). */
+/** Weekly league rollover used by the live store.
+ *
+ * Lesson time NEVER settles promotion/demotion directly: when the 7-day week
+ * has elapsed it snapshots the finished week into `pendingLeagueSettle`,
+ * resets the counter + timer, and leaves the outcome to the rank-based
+ * settle on the Leagues tab (so top-3 promotion can't be pre-empted).
+ * Exported pure for tests; the store calls it via rollWeek. */
+export function rollLeagueWeek<T extends LeagueWeekFields>(
+  s: T,
+  now: Date = new Date(),
+): boolean {
+  const anchor = s.weeklyXpWeek
+  if (!isValidAnchor(anchor)) {
+    // Legacy/corrupt state without a playable week: start fresh at 12 AM today.
+    s.weeklyXpWeek = todayISO(now)
+    s.weeklyXp = 0
+    return true
+  }
+  if (!leagueWeekElapsed(anchor, now)) return false
+  const rawXp = s.weeklyXp
+  const earned = Number.isFinite(rawXp) ? (rawXp as number) : 0
+  if (!s.pendingLeagueSettle) {
+    s.pendingLeagueSettle = { weekKey: anchor, xp: earned }
+  } else if (earned > 0) {
+    // Another week elapsed before the Leagues tab settled the first one:
+    // fold the newer XP into the pending snapshot so no earned XP is lost
+    // (the outcome stays rank-based; XP is only recorded for display).
+    s.pendingLeagueSettle = { ...s.pendingLeagueSettle, xp: s.pendingLeagueSettle.xp + earned }
+  }
+  s.weeklyXpWeek = todayISO(now) // new week starts 12:00 AM today
+  s.weeklyXp = 0
+  return true
+}
+
+/** Store-level wrapper (mutates only league fields of `s`). */
 function rollWeek(s: PlayerState) {
-  settleLeagueWeek(s)
+  rollLeagueWeek(s)
 }
 
 export function updateStreak(
@@ -369,6 +425,7 @@ export const usePlayer = create<PlayerState>()(
       currentLeague: 'Bronze',
       leagueHistory: [],
       lastLeagueSettle: null,
+      pendingLeagueSettle: null,
       soundOn: true,
       onboarded: false,
       shopInventory: {},
@@ -625,7 +682,7 @@ export const usePlayer = create<PlayerState>()(
     }),
     {
       name: 'momomath-year2-player-v2',
-      version: 7,
+      version: 8,
       migrate: (persisted, version) => {
         const p = { ...(persisted as PlayerState) }
         if (version < 4) {
@@ -659,6 +716,11 @@ export const usePlayer = create<PlayerState>()(
           for (const [id, copies] of Object.entries(oldCounts)) {
             if ((copies as number) > 0) p.cardStars[id] = copies as number
           }
+        }
+        if (version < 8) {
+          // Rank-based settlement: backfill the pending-week snapshot so
+          // pre-v8 states settle cleanly on the Leagues tab.
+          if (!p.pendingLeagueSettle) (p as any).pendingLeagueSettle = null
         }
         return p
       },
