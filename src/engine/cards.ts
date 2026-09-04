@@ -171,11 +171,25 @@ export const PACK_SIZE: Record<ChestTier, [number, number]> = {
   exclusive: [3, 3],
 }
 
-/* -------------------- pity -------------------- */
+/* -------------------- pity + novelty curve -------------------- */
 
 /** Locked-pity: this many chests in a row without a still-locked character drop
  *  forces the next pack to include a still-locked character (if any remain). */
 export const LOCKED_PITY = 12
+
+/**
+ * Chance a chest contains a NEW (never-seen, 0-copy) character.
+ * Starts at 100% and falls as the collection fills: (total - owned) / total
+ * (e.g. 2 of 19 owned -> ~90%). Hits 0% only when everything is seen.
+ *
+ * This gates WHETHER one slot is novel — rarity odds (START_TABLES, kick
+ * upgrades, gem bands) are untouched, and at most ONE card per chest is new.
+ */
+export function noveltyChance(ownedDistinct: number, total: number = CARDS.length): number {
+  if (total <= 0) return 0
+  const remaining = Math.max(0, total - Math.max(0, ownedDistinct))
+  return remaining / total
+}
 
 /* -------------------- visual metadata + kick-upgrade table -------------------- */
 
@@ -275,7 +289,7 @@ export interface ChestResult {
   upgradesAt: number[]
   gems: number
   dust: number
-  /** the 3 DIFFERENT cards in this chest pack */
+  /** the 3 DIFFERENT cards in this chest pack (at most one is new) */
   cards: ChestCard[]
 }
 
@@ -306,23 +320,28 @@ export function rollChest(
   const [gMin, gMax] = GEM_RANGE[tier]
   const gems = randInt(rand, gMin, gMax)
 
-  // 3) roll 3 DISTINCT cards
+  // 3) roll 3 DISTINCT cards with AT MOST ONE new (unseen) character.
+  //    - The novelty slot is won with noveltyChance() (100% on the first
+  //      chest, decaying as the collection fills) or forced by locked-pity.
+  //    - The other slots are duplicates from the already-seen pool, so the
+  //      max-1-new invariant holds whenever the seen pool can fill the pack
+  //      (only the first chest or two top up from unseen — unavoidable while
+  //      fewer than 3 distinct characters exist at all).
+  const unseen = CARDS.filter((c) => (counts[c.id] ?? 0) === 0)
+  const seen = CARDS.filter((c) => (counts[c.id] ?? 0) > 0)
+  const ownedDistinct = CARDS.length - unseen.length
   const forcePity = pity >= LOCKED_PITY
+  const winNovelty =
+    unseen.length > 0 && (forcePity || rand() < noveltyChance(ownedDistinct))
   const cards: ChestCard[] = []
   const usedIds = new Set<string>()
 
-  const lockedPool = CARDS.filter((c) => !(c.id in counts) || (counts[c.id] ?? 0) === 0)
-  const pityCount = forcePity ? Math.min(1, lockedPool.length) : 0
-
-  for (let i = 0; i < 3; i++) {
-    let pool: CardDef[]
-    if (i < pityCount) {
-      pool = lockedPool.filter((c) => !usedIds.has(c.id))
-    } else {
-      pool = CARDS.filter((c) => !usedIds.has(c.id))
-    }
-    if (pool.length === 0) break
-    const chosen = pool[Math.floor(rand() * pool.length)]
+  const takeRandom = (pool: CardDef[]): CardDef | null => {
+    const avail = pool.filter((c) => !usedIds.has(c.id))
+    if (avail.length === 0) return null
+    return avail[Math.floor(rand() * avail.length)]
+  }
+  const pushCard = (chosen: CardDef) => {
     usedIds.add(chosen.id)
     const prevCount = counts[chosen.id] ?? 0
     cards.push({
@@ -331,6 +350,24 @@ export function rollChest(
       isNew: prevCount === 0,
       isOwned: prevCount >= STAR_THRESHOLDS[0],
     })
+  }
+
+  // slot 1: the single novelty slot (when won or pity-forced)
+  if (winNovelty) {
+    const novel = takeRandom(unseen)
+    if (novel) pushCard(novel)
+  }
+  // remaining slots: duplicates from the seen pool
+  while (cards.length < 3) {
+    const dup = takeRandom(seen)
+    if (!dup) break
+    pushCard(dup)
+  }
+  // top-up from unseen only while the collection is too small to fill the pack
+  while (cards.length < 3) {
+    const extra = takeRandom(unseen)
+    if (!extra) break
+    pushCard(extra)
   }
 
   return {
