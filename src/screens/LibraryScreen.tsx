@@ -183,8 +183,13 @@ function CardGrid({ cards, isOwned, onCardClick, getHiddenCardStyle, cardStars }
                      style={{ color: meta.color }}>
                     {card.tier.charAt(0).toUpperCase() + card.tier.slice(1)} Card
                   </p>
+                  <div className="mt-2 flex justify-center gap-0.5" aria-label="0 out of 5 stars">
+                    {[1, 2, 3, 4, 5].map((s) => (
+                      <span key={s} className="text-sm text-slate-300">★</span>
+                    ))}
+                  </div>
                   <p className="font-display text-xs text-center mt-2 opacity-60">
-                    Win to unlock
+                    Win to unlock · 0★
                   </p>
                 </motion.div>
               )}

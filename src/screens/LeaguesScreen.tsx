@@ -7,34 +7,22 @@ import {
   leagueOutcomeByRank,
   leagueWeekElapsed,
   msUntilWeekEnd,
-  rivalXp,
   weekKey,
   weeklyGoal,
   type LeagueName,
 } from '../engine/gamification'
 import {
-  botsForPlayerCount,
-  dedupSelf,
   fetchSharedPlayers,
   pushSharedPlayer,
   weeklyXpOf,
   type SharedPlayer,
 } from '../engine/leaderboard'
+import { buildStandings } from '../engine/standings'
 import { isValidAnchor, usePlayer } from '../engine/store'
 import { useAuth } from '../engine/auth'
 import { Mascot } from '../components/mascots/Mascots'
 
 type Zone = 'promo' | 'stay' | 'danger'
-
-type Row = {
-  id: string
-  name: string
-  xp: number
-  isYou: boolean
-  kind: 'you' | 'real' | 'bot'
-  mascotId?: string
-  icon?: string
-}
 
 function zoneOfRank(rank: number, total: number): Zone {
   // Zone dividers follow BOARD RANK so the display matches the settle bands:
@@ -69,13 +57,6 @@ export function LeaguesScreen() {
     ? `g:${authUser.sub}`
     : `name:${s.name.trim().toLowerCase()}`
 
-  // Dedup helper: filter the API's shared list so the local player (matched
-  // by id OR by lowercased name) never appears twice in the standings. This
-  // catches the case where a player has both a Google-signed entry
-  // (`g:<sub>`) AND a name-only entry (`name:fares`) from an earlier session
-  // — the local player should be represented by exactly one row.
-  const myName = s.name.trim().toLowerCase()
-
   // League weeks are anchored at 12:00 AM of the day they began and run for
   // exactly 7 days. `boardWeek` is the shared Monday-based key used on the
   // leaderboard so all players' entries compare the same calendar week.
@@ -84,7 +65,6 @@ export function LeaguesScreen() {
   // nowMs clock as weekLive so both flip at the same tick and old-week XP can
   // never be pushed under the new week's key at the boundary.
   const boardWeek = weekKey(new Date(nowMs))
-  const dedupShared = (rows: typeof shared): typeof shared => dedupSelf(rows, myId, myName, boardWeek)
 
   const weekLive = isValidAnchor(anchor) && !leagueWeekElapsed(anchor, new Date(nowMs))
   const needsSettle = !weekLive
@@ -136,38 +116,20 @@ export function LeaguesScreen() {
   const goal = weeklyGoal(s.currentLeague)
   const countdown = formatCountdown(msUntilWeekEnd(anchor, new Date(nowMs)))
 
-  const others = dedupShared(shared).filter((p) => p.id !== myId)
-  const realCount = 1 + others.length
-  const bots = botsForPlayerCount(realCount)
-
-  const standings: Row[] = [
-    ...others.map((p) => ({
-      id: p.id,
-      name: p.name,
-      xp: weeklyXpOf(p, boardWeek),
-      isYou: false,
-      kind: 'real' as const,
-      mascotId: p.mascot,
-    })),
-    ...bots.map((r) => ({
-      id: r.id,
-      name: r.name,
-      xp: rivalXp(r, s.currentLeague, anchor, new Date(nowMs)),
-      isYou: false,
-      kind: 'bot' as const,
-      icon: r.icon,
-    })),
-    {
-      id: myId,
-      name: s.name,
-      xp: s.weeklyXp,
-      isYou: true,
-      kind: 'you' as const,
-      mascotId: s.mascot,
-    },
-  ].sort((a, b) => b.xp - a.xp)
-
-  const myRank = standings.findIndex((p) => p.isYou) + 1
+  // Primary board via the shared builder — the background auto-settler
+  // ranks identically, so tab and auto settle always agree.
+  const { standings, myRank, others, realCount } = buildStandings({
+    shared,
+    myId,
+    myName: s.name.trim().toLowerCase(),
+    name: s.name,
+    weeklyXp: s.weeklyXp,
+    mascot: s.mascot,
+    currentLeague: s.currentLeague,
+    anchor,
+    boardWeek,
+    now: new Date(nowMs),
+  })
 
   // Secondary board: other real players whose `league` differs from ours.
   // When the API has >10 real players on the same week, the primary board

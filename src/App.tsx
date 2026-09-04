@@ -10,6 +10,7 @@ import { ProfileScreen } from './screens/ProfileScreen'
 import { ShopScreen } from './screens/ShopScreen'
 import { LibraryScreen } from './screens/LibraryScreen'
 import { WelcomeGate } from './components/ui/WelcomeGate'
+import { AutoLeagueSettle } from './components/ui/AutoLeagueSettle'
 import { Scenery } from './components/ui/Scenery'
 import { MascotGallery } from './components/mascots/Gallery'
 
@@ -46,6 +47,7 @@ export default function App() {
       <Scenery />
       <div className="relative z-10">
         <WelcomeGate />
+        <AutoLeagueSettle />
         <TopBar onLeagueClick={() => setTab('leagues')} onLibraryClick={() => setShowLibrary(true)} />
       <AnimatePresence mode="wait">
         <motion.main

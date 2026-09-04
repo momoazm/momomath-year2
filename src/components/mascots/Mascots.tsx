@@ -844,6 +844,83 @@ export function Eggman({ expression = 'happy', className = '' }: MascotProps) {
   )
 }
 
+/* ------------------------------ JET HAWK ------------------------------ */
+/* Real Jet the Hawk character (not a tint): green hawk, yellow beak, red
+ * forehead goggles, swept crest feathers. House chibi style like the rest. */
+
+export function JetHawk({ expression = 'happy', className = '' }: MascotProps) {
+  const ex = expression
+  const open = ex === 'excited' || ex === 'cheer'
+  const sad = ex === 'sad'
+  const dx = ex === 'thinking' ? -2.5 : open ? 1.5 : 0
+  const dy = open ? -1.5 : 0
+  return (
+    <Frame shine="jetShine">
+      <BodyGrad id="jetB" from="#8ee69b" to="#1d7a34" mid="#3fae56" />
+      <GroundShadow />
+      {/* swept-back crest feathers */}
+      <SweptQuills
+        fill="url(#jetB)"
+        paths={[
+          'M 79 34 C 92 33 101 38 105 48 C 97 50 88 48 82 44 C 80 40 79 37 79 34 Z',
+          'M 80 50 C 93 51 101 57 103 68 C 95 69 88 66 82 61 C 80 57 79 53 80 50 Z',
+          'M 76 62 C 87 64 94 71 96 82 C 88 83 80 78 74 71 C 74 68 74 65 76 62 Z',
+        ]}
+      />
+      {/* pointed ear tufts */}
+      <path d="M 44 26 L 35 6 L 59 19 Z" fill="url(#jetB)" stroke={LINE} strokeWidth="2" strokeLinejoin="round" />
+      <path d="M 76 26 L 85 6 L 61 19 Z" fill="url(#jetB)" stroke={LINE} strokeWidth="2" strokeLinejoin="round" />
+      <path d="M 45.5 21.5 L 40.5 11 L 53 18 Z" fill="#fff7ea" />
+      <path d="M 74.5 21.5 L 79.5 11 L 67 18 Z" fill="#fff7ea" />
+      <Legs body="#3fae56" />
+      <Torso body="url(#jetB)" belly="#fff7ea" />
+      {/* chest feather marking */}
+      <path d="M 60 86 l -4 7 4 -2 4 2 Z" fill="#fff7ea" stroke={LINE} strokeWidth="1.2" strokeLinejoin="round" />
+      <Sneaker x={49} color="#d81e1e" cuff="#fff" />
+      <Sneaker x={71} color="#d81e1e" cuff="#fff" />
+      {/* head */}
+      <circle cx="60" cy="50" r="30" fill="url(#jetB)" stroke={LINE} strokeWidth="2.4" />
+      <HeadShine r={30} />
+      {/* cheek feather tufts */}
+      <path d="M 33 56 l -8 1 7 5 Z M 87 56 l 8 1 -7 5 Z" fill="#fff7ea" stroke={LINE} strokeWidth="1.4" strokeLinejoin="round" />
+      {/* red forehead goggles */}
+      <path d="M 32 30 C 44 24 76 24 88 30" stroke="#7f1d1d" strokeWidth="5" fill="none" strokeLinecap="round" />
+      <rect x="39" y="25" width="19" height="13" rx="6" fill="#d81e1e" stroke={LINE} strokeWidth="2" />
+      <rect x="62" y="25" width="19" height="13" rx="6" fill="#d81e1e" stroke={LINE} strokeWidth="2" />
+      <rect x="57" y="29" width="6" height="5" fill="#7f1d1d" />
+      <circle cx="45" cy="29" r="2" fill="#fff" opacity="0.7" />
+      <circle cx="68" cy="29" r="2" fill="#fff" opacity="0.7" />
+      {/* fierce hawk eyes */}
+      <ellipse cx={49} cy={47 + dy} rx="7.5" ry="9" fill="#fff" stroke={LINE} strokeWidth="2" />
+      <ellipse cx={71} cy={47 + dy} rx="7.5" ry="9" fill="#fff" stroke={LINE} strokeWidth="2" />
+      <circle cx={49 + dx} cy={49 + dy} r="3.4" fill="#1f2430" />
+      <circle cx={71 + dx} cy={49 + dy} r="3.4" fill="#1f2430" />
+      <circle cx={49 + dx + 1.2} cy={49 + dy - 1.4} r="1.2" fill="#fff" />
+      <circle cx={71 + dx + 1.2} cy={49 + dy - 1.4} r="1.2" fill="#fff" />
+      {/* angled attitude brows */}
+      {sad ? (
+        <path d="M 40 40 L 56 44 M 80 40 L 64 44" stroke={LINE} strokeWidth="3" strokeLinecap="round" />
+      ) : (
+        <path d="M 40 44 L 56 40 M 80 44 L 64 40" stroke={LINE} strokeWidth="3" strokeLinecap="round" />
+      )}
+      <BlinkLids spots={[[49, 47], [71, 47]]} rx={8.5} ry={10} fill="#3fae56" delay="-2.5s" />
+      {/* yellow beak */}
+      <path d="M 47 59 Q 60 53 73 59 L 66 68 Q 60 71 54 68 Z" fill="#fbbf24" stroke={LINE} strokeWidth="2" strokeLinejoin="round" />
+      {open ? (
+        <g>
+          <path d="M 54 68 Q 60 78 66 68 Q 60 71 54 68 Z" fill="#96312c" stroke={LINE} strokeWidth="1.6" strokeLinejoin="round" />
+          <path d="M 56.5 70.5 Q 60 74 63.5 70.5 Z" fill="#ff8fa3" />
+        </g>
+      ) : sad ? (
+        <path d="M 54 70 Q 60 67 66 70" stroke={LINE} strokeWidth="2.2" fill="none" strokeLinecap="round" />
+      ) : (
+        <path d="M 52 66 Q 60 69.5 68 66" stroke={LINE} strokeWidth="2.2" fill="none" strokeLinecap="round" />
+      )}
+      <Blush x1={39} x2={81} y={63} />
+    </Frame>
+  )
+}
+
 /* ------------------------------- registry ----------------------------- */
 
 /** Tinted Sonic stand-ins for the 8 characters still awaiting official
@@ -864,7 +941,6 @@ const Ray = (p: MascotProps) => <TintedSonic {...p} filter="hue-rotate(-140deg) 
 const Vector = (p: MascotProps) => <TintedSonic {...p} filter="hue-rotate(-110deg) saturate(1.2)" />
 const Espio = (p: MascotProps) => <TintedSonic {...p} filter="hue-rotate(140deg) saturate(1.1)" />
 const Omega = (p: MascotProps) => <TintedSonic {...p} filter="grayscale(0.9) brightness(0.92)" />
-const Jet = (p: MascotProps) => <TintedSonic {...p} filter="hue-rotate(-80deg) saturate(1.4)" />
 const Super = (p: MascotProps) => <TintedSonic {...p} filter="sepia(1) saturate(2.5) hue-rotate(-15deg) brightness(1.1)" />
 
 export const MASCOTS: Record<string, (p: MascotProps) => JSX.Element> = {
@@ -885,7 +961,7 @@ export const MASCOTS: Record<string, (p: MascotProps) => JSX.Element> = {
   vector: Vector,
   espio: Espio,
   omega: Omega,
-  jet: Jet,
+  jet: JetHawk,
   super: Super,
 }
 
