@@ -923,25 +923,284 @@ export function JetHawk({ expression = 'happy', className = '' }: MascotProps) {
 
 /* ------------------------------- registry ----------------------------- */
 
-/** Tinted Sonic stand-ins for the 8 characters still awaiting official
- *  renders (their card art lives in public/cards/*.svg). Each tint keeps
- *  Sonic's silhouette but shifts the hue so the roster is visually distinct
- *  everywhere mascots appear (TopBar, leagues, path banner, gallery). */
-function TintedSonic({ expression = 'happy', filter }: MascotProps & { filter: string }) {
+/* ------------------------------ CHARMY BEE ------------------------------ */
+
+export function CharmyBee({ expression = 'happy', className = '' }: MascotProps) {
+  const ex = expression
   return (
-    <span className="block h-full w-full" style={{ filter }}>
-      <Sonic expression={expression} />
-    </span>
+    <Frame shine="charmyShine">
+      <BodyGrad id="chaB" from="#ffd23e" to="#d98200" mid="#ffb020" />
+      <GroundShadow />
+      {/* stripy tail */}
+      <path d="M 84 88 C 96 86 104 78 106 66 L 98 62 C 94 72 88 78 80 81 Z" fill="url(#chaB)" stroke={LINE} strokeWidth="2" strokeLinejoin="round" />
+      <path d="M 93 83 L 99 77 M 98 74 L 103 66" stroke="#1f2430" strokeWidth="3" strokeLinecap="round" />
+      {/* wings */}
+      <ellipse cx="38" cy="66" rx="9" ry="14" fill="#fff" opacity="0.65" stroke={LINE} strokeWidth="1.6" transform="rotate(-24 38 66)" />
+      <ellipse cx="82" cy="66" rx="9" ry="14" fill="#fff" opacity="0.65" stroke={LINE} strokeWidth="1.6" transform="rotate(24 82 66)" />
+      {/* antennae */}
+      <path d="M 50 22 C 46 14 42 10 36 8 M 70 22 C 74 14 78 10 84 8" stroke="#1f2430" strokeWidth="2.6" fill="none" strokeLinecap="round" />
+      <circle cx="35" cy="8" r="3" fill="#1f2430" />
+      <circle cx="85" cy="8" r="3" fill="#1f2430" />
+      <Legs body="#ffb020" />
+      <Torso body="url(#chaB)" belly="#fff7ea" />
+      <Sneaker x={49} color="#d81e1e" cuff="#fff" />
+      <Sneaker x={71} color="#d81e1e" cuff="#fff" />
+      {/* head */}
+      <circle cx="60" cy="50" r="29" fill="url(#chaB)" stroke={LINE} strokeWidth="2.4" />
+      <HeadShine r={29} />
+      {/* flight helmet */}
+      <path d="M 33 44 C 37 24 83 24 87 44 L 84 44 C 80 30 40 30 36 44 Z" fill="#d81e1e" stroke={LINE} strokeWidth="2" strokeLinejoin="round" />
+      <path d="M 56 26 L 64 26 L 63 44 L 57 44 Z" fill="#fff" opacity="0.9" />
+      <path d="M 33 44 C 50 40 70 40 87 44" stroke="#1d4ed8" strokeWidth="4" fill="none" strokeLinecap="round" />
+      <OvalEyes ex={ex} iris="#1d4ed8" cy={50} />
+      <BlinkLids spots={[[49, 50], [71, 50]]} rx={9} ry={11} fill="#ffb020" delay="-1.1s" />
+      <ellipse cx="60" cy="61" rx="3" ry="2.4" fill="#1f2430" />
+      <Mouth x={60} y={70} ex={ex} />
+      <Blush x1={41} x2={79} y={64} />
+    </Frame>
   )
 }
 
-const Charmy = (p: MascotProps) => <TintedSonic {...p} filter="hue-rotate(-170deg) saturate(1.5)" />
-const Big = (p: MascotProps) => <TintedSonic {...p} filter="hue-rotate(60deg) saturate(0.9)" />
-const Ray = (p: MascotProps) => <TintedSonic {...p} filter="hue-rotate(-140deg) saturate(1.3)" />
-const Vector = (p: MascotProps) => <TintedSonic {...p} filter="hue-rotate(-110deg) saturate(1.2)" />
-const Espio = (p: MascotProps) => <TintedSonic {...p} filter="hue-rotate(140deg) saturate(1.1)" />
-const Omega = (p: MascotProps) => <TintedSonic {...p} filter="grayscale(0.9) brightness(0.92)" />
-const Super = (p: MascotProps) => <TintedSonic {...p} filter="sepia(1) saturate(2.5) hue-rotate(-15deg) brightness(1.1)" />
+/* ------------------------------- BIG CAT ------------------------------ */
+
+export function BigCat({ expression = 'happy', className = '' }: MascotProps) {
+  const ex = expression
+  return (
+    <Frame shine="bigShine">
+      <BodyGrad id="bigB" from="#b79df0" to="#5b3f9e" mid="#8f6fd8" />
+      <GroundShadow />
+      {/* long ears */}
+      <path d="M 44 28 C 38 14 38 6 44 2 C 50 4 52 14 52 28 Z" fill="url(#bigB)" stroke={LINE} strokeWidth="2" strokeLinejoin="round" />
+      <path d="M 76 28 C 82 14 82 6 76 2 C 70 4 68 14 68 28 Z" fill="url(#bigB)" stroke={LINE} strokeWidth="2" strokeLinejoin="round" />
+      <path d="M 45 24 C 42 14 42 8 45 5 C 48 7 49 15 49 24 Z" fill="#f3e8ff" />
+      <path d="M 75 24 C 78 14 78 8 75 5 C 72 7 71 15 71 24 Z" fill="#f3e8ff" />
+      <Legs body="#8f6fd8" />
+      <Torso body="url(#bigB)" belly="#f3e8ff" />
+      {/* belt with gold buckle */}
+      <rect x="44" y="86" width="32" height="7" rx="3.5" fill="#7a5230" stroke={LINE} strokeWidth="1.6" />
+      <rect x="56" y="85" width="8" height="9" rx="2" fill="none" stroke="#facc15" strokeWidth="2.4" />
+      <Sneaker x={49} color="#7a5230" />
+      <Sneaker x={71} color="#7a5230" />
+      {/* head */}
+      <circle cx="60" cy="52" r="30" fill="url(#bigB)" stroke={LINE} strokeWidth="2.4" />
+      <HeadShine cy={52} r={30} />
+      <ellipse cx="60" cy="68" rx="17" ry="11.5" fill="#f3e8ff" />
+      <OvalEyes ex={ex} iris="#2f9e44" cy={49} />
+      <BlinkLids spots={[[49, 49], [71, 49]]} rx={9} ry={11} fill="#8f6fd8" delay="-3.1s" />
+      <ellipse cx="60" cy="61" rx="4.4" ry="3.6" fill="#e88ca0" />
+      <path d="M 34 63 l -9 -2 M 34 67 l -9 1 M 86 63 l 9 -2 M 86 67 l 9 1" stroke={LINE} strokeWidth="1.6" strokeLinecap="round" />
+      <Mouth x={60} y={72} ex={ex} />
+      <Blush x1={39} x2={81} y={64} />
+    </Frame>
+  )
+}
+
+/* ---------------------------- RAY SQUIRREL ---------------------------- */
+
+export function RaySquirrel({ expression = 'happy', className = '' }: MascotProps) {
+  const ex = expression
+  return (
+    <Frame shine="rayShine">
+      <BodyGrad id="rayB" from="#ffdf6b" to="#d98200" mid="#ffc93e" />
+      <GroundShadow />
+      {/* glide membranes */}
+      <path d="M 42 82 C 30 86 23 93 21 101 C 30 101 38 96 43 90 Z" fill="#e8c07a" stroke={LINE} strokeWidth="2" strokeLinejoin="round" />
+      <path d="M 78 82 C 90 86 97 93 99 101 C 90 101 82 96 77 90 Z" fill="#e8c07a" stroke={LINE} strokeWidth="2" strokeLinejoin="round" />
+      {/* big round ears */}
+      <circle cx="38" cy="26" r="10" fill="url(#rayB)" stroke={LINE} strokeWidth="2" />
+      <circle cx="82" cy="26" r="10" fill="url(#rayB)" stroke={LINE} strokeWidth="2" />
+      <circle cx="38" cy="26" r="5" fill="#fff7ea" />
+      <circle cx="82" cy="26" r="5" fill="#fff7ea" />
+      <Legs body="#ffc93e" />
+      <Torso body="url(#rayB)" belly="#fff7ea" />
+      <Sneaker x={49} color="#7a5230" cuff="#fff" />
+      <Sneaker x={71} color="#7a5230" cuff="#fff" />
+      {/* head */}
+      <circle cx="60" cy="50" r="30" fill="url(#rayB)" stroke={LINE} strokeWidth="2.4" />
+      <HeadShine r={30} />
+      <ellipse cx="60" cy="67" rx="16.5" ry="11" fill="#fff7ea" />
+      <OvalEyes ex={ex} iris="#2563eb" />
+      <BlinkLids spots={[[49, 48], [71, 48]]} rx={9} ry={11} fill="#ffc93e" delay="-0.6s" />
+      <ellipse cx="60" cy="60" rx="3.4" ry="2.8" fill="#5b3a1a" />
+      <Mouth x={60} y={70} ex={ex} />
+      <Blush x1={40} x2={80} y={63} />
+    </Frame>
+  )
+}
+
+/* --------------------------- VECTOR CROC ------------------------------ */
+
+export function VectorCroc({ expression = 'happy', className = '' }: MascotProps) {
+  const ex = expression
+  const up = ex === 'excited' || ex === 'cheer' ? -1.5 : 0
+  return (
+    <Frame shine="vectorShine">
+      <BodyGrad id="vecB" from="#57b877" to="#1f6b3a" mid="#35995c" />
+      <GroundShadow />
+      <Legs body="#35995c" />
+      <Torso body="url(#vecB)" belly="#fff7ea" gloveX={32} gloveY={96} gloveSpikes />
+      <Sneaker x={49} color="#242938" cuff="#d81e1e" />
+      <Sneaker x={71} color="#242938" cuff="#d81e1e" />
+      {/* head */}
+      <circle cx="60" cy="48" r="30" fill="url(#vecB)" stroke={LINE} strokeWidth="2.4" />
+      <HeadShine cy={48} r={30} />
+      {/* headphones */}
+      <path d="M 32 40 C 40 22 80 22 88 40" stroke="#1f2430" strokeWidth="6" fill="none" strokeLinecap="round" />
+      <rect x="26" y="38" width="13" height="19" rx="6" fill="#1f2430" stroke={LINE} strokeWidth="2" />
+      <rect x="81" y="38" width="13" height="19" rx="6" fill="#1f2430" stroke={LINE} strokeWidth="2" />
+      <circle cx="32.5" cy="47.5" r="3" fill="#d81e1e" />
+      <circle cx="87.5" cy="47.5" r="3" fill="#d81e1e" />
+      {/* fierce yellow eyes */}
+      <ellipse cx={49} cy={44 + up} rx="7.5" ry="8.5" fill="#fde047" stroke={LINE} strokeWidth="2" />
+      <ellipse cx={71} cy={44 + up} rx="7.5" ry="8.5" fill="#fde047" stroke={LINE} strokeWidth="2" />
+      <circle cx={49} cy={46 + up} r="3" fill="#1f2430" />
+      <circle cx={71} cy={46 + up} r="3" fill="#1f2430" />
+      <path d="M 40 35 L 56 38 M 80 35 L 64 38" stroke={LINE} strokeWidth="3" strokeLinecap="round" />
+      {/* long snout with teeth */}
+      <rect x="38" y="56" width="44" height="22" rx="11" fill="#fff7ea" stroke={LINE} strokeWidth="2" />
+      <path d="M 46 56 l 4 7 4 -7 Z M 58 56 l 4 7 4 -7 Z M 70 56 l 4 7 4 -7 Z" fill="#fff" stroke={LINE} strokeWidth="1.2" strokeLinejoin="round" />
+      <circle cx="48" cy="70" r="1.6" fill="#1f2430" />
+      <circle cx="72" cy="70" r="1.6" fill="#1f2430" />
+      {ex === 'excited' || ex === 'cheer' ? (
+        <path d="M 52 74 Q 60 80 68 74" stroke={LINE} strokeWidth="2.6" fill="none" strokeLinecap="round" />
+      ) : null}
+    </Frame>
+  )
+}
+
+/* ---------------------------- ESPIO CHAM ------------------------------ */
+
+export function EspioCham({ expression = 'happy', className = '' }: MascotProps) {
+  const ex = expression
+  return (
+    <Frame shine="espioShine">
+      <BodyGrad id="espB" from="#d68ae0" to="#7a2f8f" mid="#b45fc6" />
+      <GroundShadow />
+      {/* curled tail */}
+      <path d="M 86 92 c 13 1 16 -12 7 -15 c -7 -2 -12 5 -7 10" stroke="#b45fc6" strokeWidth="7" fill="none" strokeLinecap="round" />
+      {/* head crest spikes */}
+      <path d="M 48 26 L 44 12 L 56 22 Z M 60 24 L 60 8 L 68 22 Z M 72 26 L 76 12 L 64 22 Z" fill="url(#espB)" stroke={LINE} strokeWidth="1.8" strokeLinejoin="round" />
+      <Legs body="#b45fc6" />
+      <Torso body="url(#espB)" belly="#f3e8ff" />
+      <Sneaker x={49} color="#0f766e" cuff="#fff" />
+      <Sneaker x={71} color="#0f766e" cuff="#fff" />
+      {/* head */}
+      <circle cx="60" cy="50" r="29" fill="url(#espB)" stroke={LINE} strokeWidth="2.4" />
+      <HeadShine r={29} />
+      {/* nose horn */}
+      <path d="M 60 42 L 54 26 L 66 26 Z" fill="#fff7ea" stroke={LINE} strokeWidth="2" strokeLinejoin="round" />
+      <ellipse cx="60" cy="66" rx="16" ry="11" fill="#f3e8ff" />
+      <OvalEyes ex={ex} iris="#b45309" cy={47} />
+      <BlinkLids spots={[[49, 47], [71, 47]]} rx={9} ry={11} fill="#b45fc6" delay="-1.7s" />
+      <ellipse cx="60" cy="59" rx="3.2" ry="2.6" fill="#1f2430" />
+      <Mouth x={60} y={69} ex={ex} />
+      <Blush x1={41} x2={79} y={62} />
+    </Frame>
+  )
+}
+
+/* ------------------------------ OMEGA BOT ----------------------------- */
+
+export function OmegaBot({ expression = 'happy', className = '' }: MascotProps) {
+  const ex = expression
+  const glow = ex === 'sad' ? '#7f1d1d' : '#ff3b3b'
+  return (
+    <Frame shine="omegaShine">
+      <defs>
+        <linearGradient id="omH" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#c3ccd8" />
+          <stop offset="100%" stopColor="#5b6472" />
+        </linearGradient>
+      </defs>
+      <GroundShadow />
+      {/* bulky shoulder plates */}
+      <SweptQuills
+        fill="#6b7280"
+        sway={false}
+        paths={[
+          'M 84 62 L 110 52 L 106 68 L 88 72 Z',
+          'M 88 78 L 108 84 L 102 94 L 86 88 Z',
+        ]}
+      />
+      {/* arms + claws */}
+      <path d="M 43 84 L 32 96 M 77 84 L 88 96" stroke="#6b7280" strokeWidth="9" fill="none" strokeLinecap="round" />
+      <circle cx="31" cy="98" r="6" fill="#374151" stroke={LINE} strokeWidth="2" />
+      <circle cx="89" cy="98" r="6" fill="#374151" stroke={LINE} strokeWidth="2" />
+      {/* heavy legs + feet */}
+      <path d="M 53 102 L 51 109 M 67 102 L 69 109" stroke="#4b5563" strokeWidth="9" fill="none" strokeLinecap="round" />
+      <rect x="40" y="107" width="21" height="7" rx="3" fill="#1f2937" stroke={LINE} strokeWidth="1.8" />
+      <rect x="59" y="107" width="21" height="7" rx="3" fill="#1f2937" stroke={LINE} strokeWidth="1.8" />
+      {/* torso block */}
+      <rect x="43" y="78" width="34" height="26" rx="8" fill="#9aa5b1" stroke={LINE} strokeWidth="2.2" />
+      <circle cx="60" cy="90" r="5" fill="#facc15" stroke={LINE} strokeWidth="2">
+        <animate attributeName="opacity" values="1;0.55;1" dur="1.6s" repeatCount="indefinite" />
+      </circle>
+      <rect x="48" y="98" width="7" height="4" fill="#facc15" />
+      <rect x="57" y="98" width="7" height="4" fill="#1f2430" />
+      <rect x="66" y="98" width="7" height="4" fill="#facc15" />
+      {/* head block */}
+      <rect x="30" y="20" width="60" height="46" rx="14" fill="url(#omH)" stroke={LINE} strokeWidth="2.4" />
+      <path d="M 60 20 L 60 12" stroke={LINE} strokeWidth="3" strokeLinecap="round" />
+      <circle cx="60" cy="10" r="3" fill="#d81e1e" stroke={LINE} strokeWidth="1.6" />
+      {/* red visor */}
+      <rect x="36" y="38" width="48" height="15" rx="7.5" fill="#10131f" stroke={LINE} strokeWidth="2" />
+      <ellipse cx="50" cy="45.5" rx="5" ry="3.4" fill={glow} />
+      <ellipse cx="70" cy="45.5" rx="5" ry="3.4" fill={glow} />
+      <circle cx="51.4" cy="44.6" r="1.3" fill="#ffd7d7" />
+      <circle cx="71.4" cy="44.6" r="1.3" fill="#ffd7d7" />
+      {/* forehead lamp + jaw grill */}
+      <circle cx="60" cy="30" r="3.2" fill="#facc15" stroke={LINE} strokeWidth="1.6" />
+      <path d="M 46 59 h 6 M 57 59 h 6 M 68 59 h 3" stroke="#4b5563" strokeWidth="2" strokeLinecap="round" />
+    </Frame>
+  )
+}
+
+/* ----------------------------- SUPER SONIC ---------------------------- */
+
+export function SuperSonic({ expression = 'happy', className = '' }: MascotProps) {
+  const ex = expression
+  return (
+    <Frame shine="superShine">
+      <BodyGrad id="supB" from="#ffe066" to="#d99400" mid="#ffc93e" />
+      <GroundShadow />
+      {/* golden aura */}
+      <circle cx="60" cy="58" r="47" fill="#fde047" opacity="0.25" />
+      <circle cx="60" cy="58" r="38" fill="#fef9c3" opacity="0.25" />
+      {/* rising sparks */}
+      <path d="M 26 34 l 1 2.4 2.4 1 -2.4 1 -1 2.4 -1 -2.4 -2.4 -1 2.4 -1 Z" fill="#fde047" />
+      <path d="M 94 26 l 1.2 2.8 2.8 1.2 -2.8 1.2 -1.2 2.8 -1.2 -2.8 -2.8 -1.2 2.8 -1.2 Z" fill="#fde047" />
+      <path d="M 92 88 l 1 2.2 2.2 1 -2.2 1 -1 2.2 -1 -2.2 -2.2 -1 2.2 -1 Z" fill="#fef9c3" />
+      <SweptQuills
+        fill="url(#supB)"
+        paths={[
+          'M 80 36 C 93 36 102 41 106 52 C 97 54 88 52 82 48 C 80 44 79 40 80 36 Z',
+          'M 81 52 C 94 53 102 59 104 70 C 96 71 88 68 83 63 C 81 59 80 55 81 52 Z',
+          'M 77 64 C 88 66 95 73 97 84 C 89 85 81 80 75 73 C 75 70 75 67 77 64 Z',
+        ]}
+      />
+      {/* ears */}
+      <path d="M 46 22 L 40 7 L 58 16 Z" fill="url(#supB)" stroke={LINE} strokeWidth="2" strokeLinejoin="round" />
+      <path d="M 74 22 L 80 7 L 62 16 Z" fill="url(#supB)" stroke={LINE} strokeWidth="2" strokeLinejoin="round" />
+      <path d="M 47 19 L 43.5 10 L 53 15.5 Z" fill="#f6d7a5" />
+      <path d="M 73 19 L 76.5 10 L 67 15.5 Z" fill="#f6d7a5" />
+      <Legs body="#e0a100" />
+      <Torso body="url(#supB)" belly="#f6d7a5" />
+      <Sneaker x={49} color="#d81e1e" cuff="#facc15" />
+      <Sneaker x={71} color="#d81e1e" cuff="#facc15" />
+      {/* head */}
+      <circle cx="60" cy="50" r="32" fill="url(#supB)" stroke={LINE} strokeWidth="2.4" />
+      <HeadShine />
+      <ellipse cx="60" cy="67" rx="19" ry="12.5" fill="#f6d7a5" />
+      <ellipse cx="60" cy="74" rx="13" ry="5" fill="#eec489" opacity="0.5" />
+      <HedgehogEyes ex={ex} iris="#ef4444" cy={46} />
+      <BlinkLids spots={[[49.5, 46], [70.5, 46]]} rx={11} ry={9} fill="#e0a100" />
+      <ellipse cx="60" cy="58.5" rx="4.6" ry="3.6" fill="#1f2430" />
+      <circle cx="58.6" cy="57.4" r="1" fill="#fff" opacity="0.8" />
+      <Mouth x={60} y={70} ex={ex} />
+      <Blush x1={37} x2={83} y={63} />
+    </Frame>
+  )
+}
 
 export const MASCOTS: Record<string, (p: MascotProps) => JSX.Element> = {
   sonic: Sonic,
@@ -955,14 +1214,14 @@ export const MASCOTS: Record<string, (p: MascotProps) => JSX.Element> = {
   blaze: Blaze,
   rouge: Rouge,
   eggman: Eggman,
-  charmy: Charmy,
-  big: Big,
-  ray: Ray,
-  vector: Vector,
-  espio: Espio,
-  omega: Omega,
+  charmy: CharmyBee,
+  big: BigCat,
+  ray: RaySquirrel,
+  vector: VectorCroc,
+  espio: EspioCham,
+  omega: OmegaBot,
   jet: JetHawk,
-  super: Super,
+  super: SuperSonic,
 }
 
 export function Mascot({ id, ...rest }: MascotProps & { id: string }) {

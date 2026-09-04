@@ -5,10 +5,25 @@
       <stop offset="0%" stop-color="#a855f7"/>
       <stop offset="100%" stop-color="#6b21a8"/>
     </linearGradient>
+    <linearGradient id="oc" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#c3ccd8"/>
+      <stop offset="100%" stop-color="#5b6472"/>
+    </linearGradient>
   </defs>
   <rect x="4" y="4" width="232" height="312" rx="20" fill="url(#bg)"/>
   <rect x="4" y="4" width="232" height="312" rx="20" fill="none" stroke="#ffffff" stroke-width="6" opacity="0.5"/>
-  <text x="120" y="170" text-anchor="middle" font-size="110">&#x1F916;</text>
-  <text x="120" y="250" text-anchor="middle" font-family="sans-serif" font-size="26" font-weight="bold" fill="#ffffff">Omega</text>
-  <text x="120" y="278" text-anchor="middle" font-family="sans-serif" font-size="16" font-weight="bold" fill="#ffffff" opacity="0.85">EPIC</text>
+  <g stroke-linejoin="round">
+    <path d="M 120 52 L 120 36" stroke="#2b2540" stroke-width="6" stroke-linecap="round"/>
+    <circle cx="120" cy="32" r="7" fill="#d81e1e" stroke="#2b2540" stroke-width="3"/>
+    <rect x="58" y="54" width="124" height="96" rx="28" fill="url(#oc)" stroke="#2b2540" stroke-width="5"/>
+    <circle cx="120" cy="76" r="7" fill="#facc15" stroke="#2b2540" stroke-width="3"/>
+    <rect x="72" y="96" width="96" height="30" rx="15" fill="#10131f" stroke="#2b2540" stroke-width="4"/>
+    <ellipse cx="100" cy="111" rx="10" ry="7" fill="#ff3b3b"/>
+    <ellipse cx="140" cy="111" rx="10" ry="7" fill="#ff3b3b"/>
+    <circle cx="103" cy="109" r="2.5" fill="#ffd7d7"/>
+    <circle cx="143" cy="109" r="2.5" fill="#ffd7d7"/>
+    <path d="M 92 138 h 12 M 114 138 h 12 M 136 138 h 12" stroke="#4b5563" stroke-width="4" stroke-linecap="round"/>
+  </g>
+  <text x="120" y="252" text-anchor="middle" font-family="sans-serif" font-size="26" font-weight="bold" fill="#ffffff">Omega</text>
+  <text x="120" y="280" text-anchor="middle" font-family="sans-serif" font-size="16" font-weight="bold" fill="#ffffff" opacity="0.85">EPIC</text>
 </svg>
