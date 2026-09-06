@@ -17,7 +17,9 @@ export const CURRICULA: Record<Subject, Curriculum> = {
 }
 
 export function getCurriculum(subject: Subject): Curriculum {
-  return CURRICULA[subject]
+  // Belt & braces: never crash the boot path on a corrupt/partial save —
+  // fall back to Maths so the player always sees a working path.
+  return CURRICULA[subject] ?? CURRICULA.math
 }
 
 export function lessonEntry(subject: Subject, lessonId: string) {

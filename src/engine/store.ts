@@ -600,21 +600,25 @@ export const usePlayer = create<PlayerState>()(
         if (version < 5) {
           // v5: optional German extra. Default OFF so existing players keep the
           // exact Math ⇄ English experience. Deep-linkers keep German visible.
+          // NOTE: old saves may lack `subject` entirely — never write it back
+          // as undefined (shallow-merge would clobber the 'math' default and
+          // crash getCurriculum().units on boot).
           const wantsGerman =
             typeof window !== 'undefined' &&
             new URLSearchParams(window.location.search).get('subject') === 'german'
+          const stored = next as Partial<PlayerState>
+          const storedSubject = stored.subject
+          const validSubject: Subject =
+            storedSubject === 'math' || storedSubject === 'english' || storedSubject === 'german'
+              ? storedSubject
+              : 'math'
+          const enabled =
+            typeof stored.germanEnabled === 'boolean' ? stored.germanEnabled : wantsGerman
           next = {
             ...next,
-            germanEnabled:
-              typeof (next as Partial<PlayerState>).germanEnabled === 'boolean'
-                ? (next as PlayerState).germanEnabled
-                : wantsGerman,
+            germanEnabled: enabled,
             subject:
-              (next as PlayerState).subject === 'german' &&
-              !(next as Partial<PlayerState>).germanEnabled &&
-              !wantsGerman
-                ? 'math'
-                : (next as PlayerState).subject,
+              validSubject === 'german' && !enabled && !wantsGerman ? 'math' : validSubject,
           }
         }
         return next
