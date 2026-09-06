@@ -1,11 +1,10 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useMemo, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { getCurriculum } from '../content/registry'
 import { isLessonUnlocked, nextActiveLesson } from '../engine/path'
 import { usePlayer } from '../engine/store'
 import { Mascot } from '../components/mascots/Mascots'
 import { sfx } from '../engine/sfx'
-import { buildCatalog, formatReason, recommend } from '../engine/adaptive'
 import type { LessonDef, UnitDef } from '../content/types'
 
 const OFFSETS = [0, 44, 64, 0, -44, -64] // zigzag x-offsets like Duolingo's winding path
@@ -45,67 +44,8 @@ export function PathScreen({ onStartLesson }: { onStartLesson: (lessonId: string
     [player.lessonProgress, units],
   )
 
-  // Adaptive: best next skill based on BKT mastery + spaced review + recency
-  const rec = useMemo(() => {
-    const catalog = buildCatalog(player.subject)
-    return recommend({ snap: player.adaptive.snapshot, catalog })
-  }, [player.adaptive.snapshot, player.subject])
-
-  // Persist the latest recommendation + telemetry.
-  // Guarded by lessonId/objectiveCode: setLastAdaptiveRecommendation creates a
-  // new snapshot identity on every call, which would otherwise retrigger this
-  // effect (via the whole-store `player` subscription) forever — React #185
-  // "Maximum update depth exceeded", blank page.
-  useEffect(() => {
-    const last = player.adaptive.snapshot.lastRecommendation
-    if (last?.lessonId !== rec.lessonId || last?.objectiveCode !== rec.objectiveCode) {
-      player.setLastAdaptiveRecommendation(rec)
-    }
-  }, [rec, player])
-
-  const recLesson = rec.lessonId
-    ? getCurriculum(player.subject).allLessons[rec.lessonId]
-    : null
-  const recUnlocked = !!rec.lessonId && active
-    ? // active is a unitIdx/lessonIdx pair; if the recommended lesson is the
-      // same as the active one, it's unlocked.
-      rec.lessonId === units[active.unitIdx]?.lessons[active.lessonIdx]?.id
-    : false
-
   return (
     <div className="mx-auto w-full max-w-xl px-4 pb-28 pt-4">
-      {/* Adaptive "Recommended for you" card — sits above the daily goal so
-          the kid sees a personalised nudge before they hit the path. */}
-      {recLesson && (
-        <motion.button
-          initial={{ opacity: 0, y: -6 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.2 }}
-          onClick={() => {
-            sfx.tap()
-            player.bumpRecommendationShown(true)
-            onStartLesson(rec.lessonId!)
-          }}
-          className="card-white mb-3 flex w-full items-center gap-3 border-l-4 border-l-speed-blue text-left shadow-pop transition-transform active:scale-[0.99]"
-        >
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-speed-bluelight text-2xl">
-            🎯
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="font-display text-xs font-bold uppercase tracking-wider text-speed-blue">
-              Recommended for you
-            </p>
-            <p className="mt-0.5 truncate font-display text-base font-extrabold text-slate-700">
-              {recLesson.lesson.title}
-            </p>
-            <p className="mt-0.5 truncate text-xs font-semibold text-slate-500">
-              {rec.reasonText} · {Math.round(rec.mastery * 100)}% mastery
-            </p>
-          </div>
-          <div className="font-display text-2xl text-speed-blue">▶</div>
-        </motion.button>
-      )}
-
       {/* daily goal banner */}
       <div className="card-white mb-5 flex items-center gap-3">
         <div className="h-12 w-12 shrink-0">
