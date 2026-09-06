@@ -215,7 +215,7 @@ const firstDay = todayISO()
 function initialSubjectFromUrl(): Subject {
   if (typeof window === 'undefined') return 'math'
   const q = new URLSearchParams(window.location.search).get('subject')
-  if (q === 'english' || q === 'german') return q
+  if (q === 'english' || q === 'science' || q === 'german') return q
   return 'math'
 }
 
@@ -314,7 +314,7 @@ export const usePlayer = create<PlayerState>()(
       setSubject: (s) => {
         if (typeof window !== 'undefined') {
           const url = new URL(window.location.href)
-          if (s === 'english' || s === 'german') url.searchParams.set('subject', s)
+          if (s === 'english' || s === 'science' || s === 'german') url.searchParams.set('subject', s)
           else url.searchParams.delete('subject')
           window.history.replaceState(null, '', url)
         }
@@ -609,7 +609,10 @@ export const usePlayer = create<PlayerState>()(
           const stored = next as Partial<PlayerState>
           const storedSubject = stored.subject
           const validSubject: Subject =
-            storedSubject === 'math' || storedSubject === 'english' || storedSubject === 'german'
+            storedSubject === 'math' ||
+            storedSubject === 'english' ||
+            storedSubject === 'science' ||
+            storedSubject === 'german'
               ? storedSubject
               : 'math'
           const enabled =

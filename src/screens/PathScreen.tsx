@@ -32,7 +32,14 @@ export function PathScreen({ onStartLesson }: { onStartLesson: (lessonId: string
     return {
       units: c.units,
       lessonCount: Object.keys(c.allLessons).length,
-      subjectLabel: player.subject === 'english' ? 'English' : player.subject === 'german' ? 'Deutsch (extra)' : 'Maths',
+      subjectLabel:
+        player.subject === 'english'
+          ? 'English'
+          : player.subject === 'science'
+            ? 'Science'
+            : player.subject === 'german'
+              ? 'Deutsch (extra)'
+              : 'Maths',
     }
   }, [player.subject])
 
