@@ -4,6 +4,7 @@ import { usePlayer } from '../engine/store'
 import { MASCOTS, Mascot } from '../components/mascots/Mascots'
 import { GoogleSignInInline } from '../components/ui/AuthBadge'
 import { signOutGoogle, useAuth } from '../engine/auth'
+import { syncNow, useSyncStatus } from '../engine/cloudsave'
 import { sfx } from '../engine/sfx'
 import { summariseSkill, type SkillSummary } from '../engine/adaptive'
 import type { MascotId } from '../content/types'
@@ -91,6 +92,53 @@ export function ProfileScreen() {
         </div>
       </section>
 
+      {/* optional extra: Deutsch (Felix & Franzi beginner DaF).
+          Opt-in DLC — never forced, never in the core Math ⇄ English toggle
+          until enabled. Shared XP/gems/league economy when on. */}
+      <section className="card-white mt-4 border-l-4 border-l-[#00a651]">
+        <p className="font-display text-sm font-bold uppercase tracking-wide text-slate-400">
+          Extra adventures · optional
+        </p>
+        <div className="mt-2 flex items-center gap-3">
+          <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-green-50 text-2xl">🇩🇪</span>
+          <div className="min-w-0 flex-1">
+            <p className="font-display font-extrabold text-slate-700">Deutsch mit Felix &amp; Franzi</p>
+            <p className="text-xs font-semibold text-slate-500">
+              Beginner German extra (10 units · Hallo! → Feste). Off by default — turn on to add 🇩🇪 to the top-bar switch.
+            </p>
+          </div>
+        </div>
+        <div className="mt-3 flex gap-2">
+          {!s.germanEnabled ? (
+            <button
+              onClick={() => { sfx.tap(); s.setGermanEnabled(true) }}
+              className="btn3d btn-green flex-1 !px-3 !py-2.5 !text-sm"
+            >
+              ➕ Add Deutsch
+            </button>
+          ) : (
+            <>
+              <button
+                onClick={() => { sfx.tap(); s.setSubject('german') }}
+                className="btn3d btn-green flex-1 !px-3 !py-2.5 !text-sm"
+              >
+                ▶ Play Deutsch
+              </button>
+              <button
+                onClick={() => { sfx.tap(); s.setGermanEnabled(false) }}
+                className="btn3d btn-grey flex-1 !px-3 !py-2.5 !text-sm"
+                title="Hide the German extra (progress is kept)"
+              >
+                Remove
+              </button>
+            </>
+          )}
+        </div>
+        {s.germanEnabled && s.subject === 'german' && (
+          <p className="mt-2 text-xs font-bold text-emerald-600">🇩🇪 Deutsch is on — switch anytime in the top bar!</p>
+        )}
+      </section>
+
       {/* account */}
       <section className="card-white mt-4">
         <p className="font-display text-sm font-bold uppercase tracking-wide text-slate-400">Google account</p>
@@ -116,6 +164,12 @@ export function ProfileScreen() {
             <GoogleSignInInline />
           </div>
         )}
+      </section>
+
+      {/* cross-device sync */}
+      <section className="card-white mt-4">
+        <p className="font-display text-sm font-bold uppercase tracking-wide text-slate-400">Device sync</p>
+        <SyncRow />
       </section>
 
       {/* league history */}
@@ -205,6 +259,62 @@ export function ProfileScreen() {
       <button onClick={() => { s.toggleSound() }} className="btn3d btn-grey mt-6 w-full">
         {s.soundOn ? '🔊 Sound on' : '🔇 Sound off'}
       </button>
+    </div>
+  )
+}
+
+function SyncRow() {
+  const user = useAuth((a) => a.user)
+  const signOut = useAuth((a) => a.signOut)
+  const status = useSyncStatus((x) => x.status)
+  const detail = useSyncStatus((x) => x.detail)
+  const lastSyncedAt = usePlayer((x) => x.lastSyncedAt)
+
+  async function retry() {
+    sfx.tap()
+    try {
+      await syncNow()
+    } catch {
+      /* status store already explains */
+    }
+  }
+
+  function signInAgain() {
+    sfx.tap()
+    signOutGoogle()
+    signOut()
+  }
+
+  if (!user) {
+    return (
+      <p className="mt-1 text-sm font-bold text-slate-500">
+        Sign in with your Google account above — the same account loads the same progress on every
+        device.
+      </p>
+    )
+  }
+  const when =
+    lastSyncedAt != null
+      ? new Date(lastSyncedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      : null
+  return (
+    <div className="mt-1 flex items-center gap-3">
+      <p className="min-w-0 flex-1 text-sm font-bold text-slate-500">
+        {status === 'syncing' && '🔄 Syncing…'}
+        {status === 'synced' && `✅ Synced across your devices${when ? ` · ${when}` : ''}`}
+        {status === 'expired' && '⚠️ Google session expired — sign in again to keep syncing.'}
+        {status === 'error' && `📴 ${detail || 'Offline — progress is safe on this device.'}`}
+        {status === 'signed-out' && 'Sign in to sync across devices.'}
+      </p>
+      {status === 'expired' ? (
+        <button onClick={signInAgain} className="btn3d btn-blue shrink-0 !px-3 !py-2 !text-xs">
+          Sign in again
+        </button>
+      ) : (
+        <button onClick={retry} className="btn3d btn-grey shrink-0 !px-3 !py-2 !text-xs">
+          Sync now
+        </button>
+      )}
     </div>
   )
 }

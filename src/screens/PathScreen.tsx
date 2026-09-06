@@ -33,7 +33,7 @@ export function PathScreen({ onStartLesson }: { onStartLesson: (lessonId: string
     return {
       units: c.units,
       lessonCount: Object.keys(c.allLessons).length,
-      subjectLabel: player.subject === 'english' ? 'English' : 'Maths',
+      subjectLabel: player.subject === 'english' ? 'English' : player.subject === 'german' ? 'Deutsch (extra)' : 'Maths',
     }
   }, [player.subject])
 
@@ -51,9 +51,16 @@ export function PathScreen({ onStartLesson }: { onStartLesson: (lessonId: string
     return recommend({ snap: player.adaptive.snapshot, catalog })
   }, [player.adaptive.snapshot, player.subject])
 
-  // Persist the latest recommendation + telemetry
+  // Persist the latest recommendation + telemetry.
+  // Guarded by lessonId/objectiveCode: setLastAdaptiveRecommendation creates a
+  // new snapshot identity on every call, which would otherwise retrigger this
+  // effect (via the whole-store `player` subscription) forever — React #185
+  // "Maximum update depth exceeded", blank page.
   useEffect(() => {
-    player.setLastAdaptiveRecommendation(rec)
+    const last = player.adaptive.snapshot.lastRecommendation
+    if (last?.lessonId !== rec.lessonId || last?.objectiveCode !== rec.objectiveCode) {
+      player.setLastAdaptiveRecommendation(rec)
+    }
   }, [rec, player])
 
   const recLesson = rec.lessonId

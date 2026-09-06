@@ -6,6 +6,7 @@ import {
   DAILY_QUESTS,
   advanceLeague,
   leagueOutcomeByXp,
+  LEAGUES,
   nextWeekKey,
   todayISO,
   weekKey,
@@ -56,6 +57,10 @@ interface PlayerState {
   name: string
   mascot: MascotId
   subject: Subject
+  /** Optional DLC-style extra. German never appears unless the player opts
+   *  in (Profile → Extra adventures) or opens ?subject=german. Core
+   *  Math ⇄ English loop is unaffected when false. */
+  germanEnabled: boolean
   xpTotal: number
   gems: number
   streakCurrent: number
@@ -104,6 +109,7 @@ interface PlayerState {
   setName: (n: string) => void
   setMascot: (m: MascotId) => void
   setSubject: (s: Subject) => void
+  setGermanEnabled: (v: boolean) => void
   setOnboarded: () => void
   addGems: (n: number) => void
   toggleSound: () => void
@@ -206,16 +212,34 @@ function checkAchievements(s: PlayerState) {
 
 const firstDay = todayISO()
 
+function initialSubjectFromUrl(): Subject {
+  if (typeof window === 'undefined') return 'math'
+  const q = new URLSearchParams(window.location.search).get('subject')
+  if (q === 'english' || q === 'german') return q
+  return 'math'
+}
+
+function initialGermanEnabled(): boolean {
+  if (typeof window === 'undefined') return false
+  try {
+    const raw = window.localStorage.getItem('momomath-year2-player-v2')
+    if (raw) {
+      const parsed = JSON.parse(raw) as { state?: { germanEnabled?: unknown } }
+      if (typeof parsed?.state?.germanEnabled === 'boolean') return parsed.state.germanEnabled
+    }
+  } catch {
+    /* fall through to URL check */
+  }
+  return new URLSearchParams(window.location.search).get('subject') === 'german'
+}
+
 export const usePlayer = create<PlayerState>()(
   persist(
     (set) => ({
       name: 'Champion',
       mascot: 'sonic' as MascotId,
-      subject:
-        typeof window !== 'undefined' &&
-        new URLSearchParams(window.location.search).get('subject') === 'english'
-          ? ('english' as Subject)
-          : ('math' as Subject),
+      subject: initialSubjectFromUrl(),
+      germanEnabled: initialGermanEnabled(),
       xpTotal: 0,
       gems: 50,
       streakCurrent: 0,
@@ -290,12 +314,32 @@ export const usePlayer = create<PlayerState>()(
       setSubject: (s) => {
         if (typeof window !== 'undefined') {
           const url = new URL(window.location.href)
-          if (s === 'english') url.searchParams.set('subject', 'english')
+          if (s === 'english' || s === 'german') url.searchParams.set('subject', s)
           else url.searchParams.delete('subject')
           window.history.replaceState(null, '', url)
         }
-        set({ subject: s })
+        // Deep-linking / picking German auto-enables the optional extra so a
+        // refresh keeps it visible. Disabling happens only via setGermanEnabled.
+        if (s === 'german') {
+          set({ subject: s, germanEnabled: true })
+        } else {
+          set({ subject: s })
+        }
       },
+      setGermanEnabled: (v) =>
+        set((state) => {
+          // Turning the extra off while viewing it falls back to Maths so the
+          // player is never stranded on a hidden subject.
+          if (!v && state.subject === 'german') {
+            if (typeof window !== 'undefined') {
+              const url = new URL(window.location.href)
+              url.searchParams.delete('subject')
+              window.history.replaceState(null, '', url)
+            }
+            return { germanEnabled: false, subject: 'math' as Subject }
+          }
+          return { germanEnabled: v }
+        }),
       setOnboarded: () => set({ onboarded: true }),
       addGems: (n) => set((state) => ({ gems: state.gems + n })),
       toggleSound: () =>
@@ -398,24 +442,71 @@ export const usePlayer = create<PlayerState>()(
       },
       applySyncedSnapshot: (snap) =>
         set((state) => {
-          // Conservative field-by-field merge (see sync.ts mergeStates for the
-          // authoritative union/max rules). Only touches fields present in snap.
+          // Field-by-field cloud merge: progress earned on ANY device signed
+          // into the same Google account survives. Counters take the max,
+          // collections union, per-lesson progress takes per-field max, and
+          // display fields (name/mascot/subject/goal/…) arrive pre-resolved
+          // (newest writer wins) from the cloud merge — apply them as given.
           const next: Partial<PlayerState> = {}
           if (typeof snap.name === 'string') next.name = snap.name
           if (snap.mascot) next.mascot = snap.mascot
+          if (snap.subject) next.subject = snap.subject
+          if (typeof snap.dailyGoal === 'number') next.dailyGoal = snap.dailyGoal
+          if (typeof snap.lastActiveDay !== 'undefined') next.lastActiveDay = snap.lastActiveDay
           if (typeof snap.xpTotal === 'number') next.xpTotal = Math.max(state.xpTotal, snap.xpTotal)
           if (typeof snap.gems === 'number') next.gems = Math.max(state.gems, snap.gems)
           if (typeof snap.streakLongest === 'number')
             next.streakLongest = Math.max(state.streakLongest, snap.streakLongest)
           if (typeof snap.streakCurrent === 'number')
             next.streakCurrent = Math.max(state.streakCurrent, snap.streakCurrent)
+          if (typeof snap.streakSavers === 'number')
+            next.streakSavers = Math.max(state.streakSavers, snap.streakSavers)
+          if (typeof snap.doubleXpLessons === 'number')
+            next.doubleXpLessons = Math.max(state.doubleXpLessons, snap.doubleXpLessons)
+          if (typeof snap.luckyTickets === 'number')
+            next.luckyTickets = Math.max(state.luckyTickets, snap.luckyTickets)
+          if (snap.weeklyXpWeek) {
+            if (state.weeklyXpWeek === snap.weeklyXpWeek && typeof snap.weeklyXp === 'number') {
+              next.weeklyXp = Math.max(state.weeklyXp, snap.weeklyXp)
+            } else if (snap.weeklyXpWeek > state.weeklyXpWeek) {
+              next.weeklyXpWeek = snap.weeklyXpWeek
+              next.weeklyXp = snap.weeklyXp ?? 0
+            }
+          }
+          if (snap.currentLeague && LEAGUES.indexOf(snap.currentLeague) > LEAGUES.indexOf(state.currentLeague))
+            next.currentLeague = snap.currentLeague
+          if (snap.leagueHistory?.length) {
+            const seen = new Set(state.leagueHistory.map((h) => h.weekKey))
+            const extra = snap.leagueHistory.filter((h) => !seen.has(h.weekKey))
+            if (extra.length)
+              next.leagueHistory = [...state.leagueHistory, ...extra]
+                .sort((x, y) => (x.weekKey < y.weekKey ? -1 : 1))
+                .slice(-10)
+          }
           if (snap.achievements?.length)
             next.achievements = [...new Set([...state.achievements, ...snap.achievements])]
           if (snap.cardCollection?.length)
             next.cardCollection = [...new Set([...state.cardCollection, ...snap.cardCollection])]
-          if (snap.lessonProgress)
-            next.lessonProgress = { ...state.lessonProgress, ...snap.lessonProgress }
-          if (snap.shopInventory) next.shopInventory = { ...state.shopInventory, ...snap.shopInventory }
+          if (snap.lessonProgress) {
+            const merged: Record<string, LessonProgress> = { ...state.lessonProgress }
+            for (const [k, v] of Object.entries(snap.lessonProgress)) {
+              const prev = merged[k]
+              merged[k] = prev
+                ? {
+                    crown: Math.max(prev.crown, v.crown),
+                    bestAccuracy: Math.max(prev.bestAccuracy, v.bestAccuracy),
+                    completions: Math.max(prev.completions, v.completions),
+                  }
+                : v
+            }
+            next.lessonProgress = merged
+          }
+          if (snap.shopInventory) {
+            const mergedInv = { ...state.shopInventory }
+            for (const [k, v] of Object.entries(snap.shopInventory))
+              mergedInv[k] = Math.max(mergedInv[k] ?? 0, v)
+            next.shopInventory = mergedInv
+          }
           return next
         }),
       setLastSyncedAt: (t) => set({ lastSyncedAt: t }),
@@ -471,7 +562,7 @@ export const usePlayer = create<PlayerState>()(
     }),
     {
       name: 'momomath-year2-player-v2',
-      version: 4,
+      version: 5,
       migrate: (persisted, version) => {
         const p = persisted as PlayerState
         let next: PlayerState = p
@@ -504,6 +595,26 @@ export const usePlayer = create<PlayerState>()(
                 recommendedAccepted: 0,
               },
             },
+          }
+        }
+        if (version < 5) {
+          // v5: optional German extra. Default OFF so existing players keep the
+          // exact Math ⇄ English experience. Deep-linkers keep German visible.
+          const wantsGerman =
+            typeof window !== 'undefined' &&
+            new URLSearchParams(window.location.search).get('subject') === 'german'
+          next = {
+            ...next,
+            germanEnabled:
+              typeof (next as Partial<PlayerState>).germanEnabled === 'boolean'
+                ? (next as PlayerState).germanEnabled
+                : wantsGerman,
+            subject:
+              (next as PlayerState).subject === 'german' &&
+              !(next as Partial<PlayerState>).germanEnabled &&
+              !wantsGerman
+                ? 'math'
+                : (next as PlayerState).subject,
           }
         }
         return next

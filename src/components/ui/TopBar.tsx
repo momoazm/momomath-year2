@@ -6,17 +6,28 @@ import { useAuth } from '../../engine/auth'
 import { sfx } from '../../engine/sfx'
 import type { Subject } from '../../content/types'
 
-const SUBJECTS: { id: Subject; icon: string; label: string; activeBg: string }[] = [
+const CORE_SUBJECTS: { id: Subject; icon: string; label: string; activeBg: string }[] = [
   { id: 'math', icon: '🧮', label: 'Maths', activeBg: 'bg-speed-blue text-white' },
   { id: 'english', icon: '📚', label: 'English', activeBg: 'bg-[#ff9600] text-white' },
 ]
 
+const GERMAN_EXTRA: { id: Subject; icon: string; label: string; activeBg: string } = {
+  id: 'german',
+  icon: '🇩🇪',
+  label: 'Deutsch (optional extra)',
+  activeBg: 'bg-[#00a651] text-white',
+}
+
 function SubjectSwitch() {
   const subject = usePlayer((s) => s.subject)
   const setSubject = usePlayer((s) => s.setSubject)
+  // Optional extra: German only appears after opt-in (Profile → Extra
+  // adventures) or ?subject=german. Core Math ⇄ English never changes.
+  const germanEnabled = usePlayer((s) => s.germanEnabled)
+  const visible = germanEnabled ? [...CORE_SUBJECTS, GERMAN_EXTRA] : CORE_SUBJECTS
   return (
     <div className="flex items-center gap-0.5 rounded-full border border-white bg-white/90 p-0.5 shadow-sm" title="Switch subject">
-      {SUBJECTS.map((s) => (
+      {visible.map((s) => (
         <button
           key={s.id}
           onClick={() => {
@@ -30,6 +41,7 @@ function SubjectSwitch() {
           }`}
           aria-pressed={subject === s.id}
           aria-label={s.label}
+          title={s.label}
         >
           {s.icon}
         </button>

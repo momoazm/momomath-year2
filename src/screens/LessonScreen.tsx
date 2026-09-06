@@ -6,7 +6,7 @@ import { getCurriculum } from '../content/registry'
 import { usePlayer } from '../engine/store'
 import { lessonChestPrize } from '../engine/gamification'
 import { SHOP_ITEMS } from '../engine/shop'
-import { speak, speakSlow, stopSpeaking, ttsAvailable } from '../engine/tts'
+import { speakFor, speakSlowFor, stopSpeaking, ttsAvailable, ttsLangFor } from '../engine/tts'
 import { Mascot } from '../components/mascots/Mascots'
 import { sfx } from '../engine/sfx'
 import { hashString, mulberry32, shuffle } from '../content/rng'
@@ -226,11 +226,12 @@ export function LessonScreen({ lessonId, onExit }: { lessonId: string; onExit: (
     setTilePicks([]); setSpeakPhase('idle')
   }
 
-  // auto-play audio prompts once per question; stop any speech on unmount
+  // auto-play audio prompts once per question; stop any speech on unmount.
+  // Subject-aware: the optional German extra plays de-DE, core stays en-GB.
   useEffect(() => {
-    if (q && 'audioText' in q && q.audioText) speak(q.audioText)
+    if (q && 'audioText' in q && q.audioText) speakFor(subject, q.audioText)
     return () => stopSpeaking()
-  }, [q])
+  }, [q, subject])
 
   const canCheck = useMemo(() => {
     if (!q) return false
@@ -638,18 +639,19 @@ function StoryPanelView({ panel }: { panel: StoryPanel }) {
 }
 
 function AudioBar({ audioText }: { audioText: string }) {
+  const subject = usePlayer((s) => s.subject)
   if (!ttsAvailable()) return null
   return (
     <div className="mx-auto mt-2 flex w-fit items-center gap-2">
       <button
-        onClick={() => { sfx.tap('audio'); speak(audioText) }}
+        onClick={() => { sfx.tap('audio'); speakFor(subject, audioText) }}
         className="btn3d btn-blue flex items-center gap-2 !px-5 !py-3 text-xl"
         title="Play again"
       >
         🔊 Listen
       </button>
       <button
-        onClick={() => { sfx.tap('slow'); speakSlow(audioText) }}
+        onClick={() => { sfx.tap('slow'); speakSlowFor(subject, audioText) }}
         className="btn3d btn-grey !px-4 !py-3 text-xl"
         title="Slow replay (turtle mode)"
       >
@@ -728,9 +730,10 @@ function TrueFalseView({ q, choice, onChoice }: {
   )
 }
 
-/** Normalises words so forgiving ASR comparison works ("dog." ~ "dog"). */
+/** Normalises words so forgiving ASR comparison works ("dog." ~ "dog").
+ *  Keeps German ä ö ü ß for the optional Deutsch extra. */
 const normWords = (s: string): string[] =>
-  s.toLowerCase().replace(/[^a-z' ]/g, ' ').split(/\s+/).filter(Boolean)
+  s.toLowerCase().replace(/[^a-zäöüß' ]/g, ' ').split(/\s+/).filter(Boolean)
 
 function wordMatchScore(said: string[], target: string[]): number {
   if (!target.length) return 0
@@ -745,6 +748,7 @@ function SpeakView({ q, phase, onPhase, onHeard }: {
   onPhase: (p: 'idle' | 'listening' | 'heard') => void
   onHeard: () => void
 }) {
+  const subject = usePlayer((s) => s.subject)
   function startListening() {
     onPhase('listening')
     const SR = (window as unknown as Record<string, unknown>).webkitSpeechRecognition ??
@@ -757,7 +761,7 @@ function SpeakView({ q, phase, onPhase, onHeard }: {
         onresult: ((e: { results: { transcript: string }[][] }) => void) | null
         onend: (() => void) | null
       })()
-      rec.lang = 'en-GB'; rec.interimResults = false; rec.maxAlternatives = 3
+      rec.lang = ttsLangFor(subject); rec.interimResults = false; rec.maxAlternatives = 3
       rec.onresult = (e) => {
         const said = normWords(String(e.results[0]?.[0]?.transcript ?? ''))
         if (wordMatchScore(said, normWords(q.targetText)) >= 0.6) {
