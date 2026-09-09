@@ -275,3 +275,27 @@ lessonProgress/crown/chest changes), so retrying can never farm rewards.
 time, which is what makes hardest-question stats meaningful. Old log
 entries (all difficulty 1, no snapshots) degrade gracefully: hardest
 shows a dash, prompt-only rows offer no exact retry.
+
+## Tracker round 2 — 7 upgrades (2026-09-09)
+
+1. **BKT write-back fix.** `recordAdaptiveAttempt` used to append the log
+   but discard the updated skill snapshot, freezing mastery at the prior.
+   The store now persists the updated skill + recency on every attempt.
+2. **Mistake kinds stored.** `classifyMistake` results land on the log
+   entry (`mistakeKind`); `lessonsToRepeat` surfaces the dominant pattern
+   (`Often answers landing one away…`) and the table keeps working.
+3. **Snapshot cap.** Only the newest 50 wrong attempts keep their full
+   question snapshot (`capSnapshots`); older misses keep prompt/answer
+   stats. Bounds localStorage and cloud payloads.
+4. **Path coach nudge.** "Recommended for you" card is back, rewritten:
+   pure `useMemo`, telemetry only on tap — no render-phase writes, so the
+   old maximum-update-depth crash cannot recur. Hidden when the pick is
+   locked or is already the START node.
+5. **Mastery sparklines.** Insights table renders the per-skill curve
+   (last 20 snapshots, green up / red down) from `masteryHistory`.
+6. **Adaptive cloud sync.** `CloudSave.adaptive` carries skills + log +
+   trimmed curves; `mergeAdaptive` keeps more-evidence per skill and
+   interleaves logs by time; old `adaptive: null` saves pass through.
+7. **Confidence + rush flags.** Mastery under 5 tries shows a grey "new"
+   pill instead of a verdict; answers faster than half the skill's pace
+   (2.5s floor) are flagged `rushed` and surfaced as "slow down" reasons.

@@ -6,6 +6,7 @@ import { usePlayer } from '../engine/store'
 import { displayStreak, isStreakActive } from '../engine/gamification'
 import { Mascot } from '../components/mascots/Mascots'
 import { sfx } from '../engine/sfx'
+import { buildCatalog, recommend } from '../engine/adaptive'
 import type { LessonDef, UnitDef } from '../content/types'
 
 const OFFSETS = [0, 44, 64, 0, -44, -64] // zigzag x-offsets like Duolingo's winding path
@@ -58,8 +59,60 @@ export function PathScreen({ onStartLesson }: { onStartLesson: (lessonId: string
     [player.lessonProgress, units],
   )
 
+  // Coach nudge: best next skill from BKT mastery + spaced review + recency.
+  // Pure useMemo only — telemetry is recorded on TAP (event handler), never
+  // in an effect, so this can never loop React #185 like the old card did.
+  const nudge = useMemo(() => {
+    if (!active) return null
+    const catalog = buildCatalog(player.subject)
+    const rec = recommend({ snap: player.adaptive.snapshot, catalog })
+    if (!rec.lessonId) return null
+    const entry = getCurriculum(player.subject).allLessons[rec.lessonId]
+    if (!entry) return null
+    // Locate the lesson to test its lock (a nudge into a locked node is useless).
+    let ui = -1
+    let li = -1
+    units.forEach((u, uIdx) => {
+      const lIdx = u.lessons.findIndex((l) => l.id === rec.lessonId)
+      if (lIdx >= 0) { ui = uIdx; li = lIdx }
+    })
+    if (ui < 0 || !isLessonUnlocked(ui, li, player.lessonProgress, units)) return null
+    // Don't nudge toward the already-pulsing START node — the path says it.
+    if (active && units[active.unitIdx]?.lessons[active.lessonIdx]?.id === rec.lessonId) return null
+    return { rec, title: entry.lesson.title }
+  }, [active, player.adaptive.snapshot, player.lessonProgress, player.subject, units])
+
   return (
     <div className="mx-auto w-full max-w-xl px-4 pb-28 pt-4">
+      {/* coach nudge — personalised next step above the daily goal */}
+      {nudge && (
+        <motion.button
+          initial={{ opacity: 0, y: -6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.2 }}
+          onClick={() => {
+            sfx.tap()
+            player.setLastAdaptiveRecommendation(nudge.rec)
+            player.bumpRecommendationShown(true)
+            onStartLesson(nudge.rec.lessonId!)
+          }}
+          className="card-white mb-3 flex w-full items-center gap-3 border-l-4 border-l-speed-blue text-left shadow-pop transition-transform active:scale-[0.99]"
+        >
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-speed-bluelight text-2xl">
+            🎯
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="font-display text-xs font-bold uppercase tracking-wider text-speed-blue">
+              {nudge.rec.reasonCode === 'spaced-review-due' ? 'Due for a check-up' : 'Recommended for you'}
+            </p>
+            <p className="truncate font-display text-base font-extrabold text-slate-700">
+              {nudge.title} · {Math.round(nudge.rec.mastery * 100)}%
+            </p>
+            <p className="truncate text-xs font-bold text-slate-400">{nudge.rec.reasonText}</p>
+          </div>
+          <span className="shrink-0 font-display text-xl text-slate-300">›</span>
+        </motion.button>
+      )}
       {/* daily goal banner */}
       <div className="card-white mb-5 flex items-center gap-3">
         <div className="h-12 w-12 shrink-0">

@@ -25,6 +25,7 @@ function remoteSave(overrides: Partial<CloudSave> = {}): CloudSave {
     streakSavers: 1,
     doubleXpLessons: 0,
     luckyTickets: 0,
+    adaptive: null,
     updatedAt: 5000,
     ...overrides,
   }

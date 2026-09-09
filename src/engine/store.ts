@@ -19,6 +19,7 @@ import { setMuted, sfx } from './sfx'
 import { STAR_THRESHOLDS } from './cards'
 import type { ChestResult } from './cards'
 import type { AdaptiveStore } from './adaptive/types'
+import type { SkillState } from './adaptive/types'
 import { ADAPTIVE_CONFIG } from './adaptive/config'
 import { capSnapshots } from './adaptive/attempts'
 import { recordPick } from './adaptive/recommender'
@@ -156,7 +157,7 @@ interface PlayerState {
   addLuckyTickets: (n: number) => void
   /** consume one Lucky Ticket if available; returns true if it was active */
   consumeLuckyTicket: () => boolean
-  applySyncedSnapshot: (snap: Partial<PlayerState>) => void
+  applySyncedSnapshot: (snap: Omit<Partial<PlayerState>, 'adaptive'> & { adaptive?: AdaptiveStore | null }) => void
   setLastSyncedAt: (t: number | null) => void
 
   // --- adaptive learning ---
@@ -874,6 +875,25 @@ export const usePlayer = create<PlayerState>()(
               mergedInv[k] = Math.max(mergedInv[k] ?? 0, v)
             next.shopInventory = mergedInv
           }
+          // Learning tracker arrives pre-merged from mergeCloudSave — apply
+          // wholesale after normalising shapes from old/foreign saves.
+          const ad = (snap as Record<string, unknown>).adaptive as AdaptiveStore | null | undefined
+          if (ad && typeof ad === 'object' && ad.snapshot && typeof ad.snapshot === 'object') {
+            const skillsIn = (ad.snapshot.skills ?? {}) as Record<string, SkillState>
+            next.adaptive = {
+              snapshot: {
+                skills: skillsIn,
+                seenCodes: Array.isArray(ad.snapshot.seenCodes) ? [...new Set(ad.snapshot.seenCodes)] : [],
+                recentPicks: Array.isArray(ad.snapshot.recentPicks) ? ad.snapshot.recentPicks.slice(0, 8) : [],
+                lastRecommendation: ad.snapshot.lastRecommendation ?? null,
+              },
+              attempts: capSnapshots((Array.isArray(ad.attempts) ? ad.attempts : []).slice(-500)),
+              masteryHistory: Object.fromEntries(
+                Object.entries(ad.masteryHistory ?? {}).map(([k, v]) => [k, (Array.isArray(v) ? v : []).slice(-200)]),
+              ),
+              telemetry: { ...initialAdaptive().telemetry, ...(ad.telemetry ?? {}) },
+            }
+          }
           return next
         }),
       setLastSyncedAt: (t) => set({ lastSyncedAt: t }),
@@ -883,8 +903,12 @@ export const usePlayer = create<PlayerState>()(
         set((state) => {
           // Write back the updated BKT skill + recency (the hook does the
           // math pure; the store persists it). Without this, mastery freezes.
-          const skills = { ...state.adaptive.snapshot.skills, [code]: skill }
-          const snapshot = recordPick({ ...state.adaptive.snapshot, skills }, code)
+          const prevSnap = state.adaptive.snapshot
+          const skills = { ...prevSnap.skills, [code]: skill }
+          const seenCodes = prevSnap.seenCodes.includes(code)
+            ? prevSnap.seenCodes
+            : [...prevSnap.seenCodes, code]
+          const snapshot = recordPick({ ...prevSnap, skills, seenCodes }, code)
           const raw = state.adaptive.attempts.length >= ADAPTIVE_CONFIG.ATTEMPT_LOG_CAP
             ? [...state.adaptive.attempts.slice(-(ADAPTIVE_CONFIG.ATTEMPT_LOG_CAP - 1)), entry]
             : [...state.adaptive.attempts, entry]

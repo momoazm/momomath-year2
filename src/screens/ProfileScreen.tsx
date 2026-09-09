@@ -468,6 +468,7 @@ export function ProfileScreen({ onPracticeLesson, onPracticeRetry }: {
                       {lessonForCode(w.objectiveCode)?.title ?? w.lessonId}
                       {' · '}level {'★'.repeat(Math.min(3, Math.max(1, w.difficulty ?? 1)))}
                       {w.difficulty === 3 ? ' 🔥 hardest' : ''}
+                      {w.rushed ? <span className="text-rose-500"> · ⚡ rushed</span> : ''}
                     </p>
                   </div>
                   {onPracticeRetry && single.length > 0 && (
@@ -504,12 +505,16 @@ export function ProfileScreen({ onPracticeLesson, onPracticeRetry }: {
                   <th className="px-1 py-1 font-display text-right">Tries</th>
                   <th className="px-1 py-1 font-display text-right">Acc</th>
                   <th className="px-1 py-1 font-display">Trend</th>
+                  <th className="px-1 py-1 font-display">Curve</th>
                 </tr>
               </thead>
               <tbody>
                 {insights.map((i) => {
                   const h = hardest.get(i.code)
                   const lesson = lessonForCode(i.code)
+                  // Few tries = low evidence: grey the mastery so parents
+                  // don't read a 20% as a verdict. Confidence = tries/20.
+                  const lowConfidence = i.attempts < 5
                   return (
                     <tr key={i.code} className="border-t border-slate-100">
                       <td className="px-1 py-1">
@@ -522,8 +527,18 @@ export function ProfileScreen({ onPracticeLesson, onPracticeRetry }: {
                           </span>
                         )}
                       </td>
-                      <td className="px-1 py-1 text-right font-display font-extrabold text-speed-blue">
+                      <td
+                        className={`px-1 py-1 text-right font-display font-extrabold ${
+                          lowConfidence ? 'text-slate-400' : 'text-speed-blue'
+                        }`}
+                        title={lowConfidence ? `Only ${i.attempts} tries so far — still forming a picture` : `${i.attempts} tries`}
+                      >
                         {Math.round(i.mastery * 100)}%
+                        {lowConfidence && (
+                          <span className="ml-1 rounded-full bg-slate-100 px-1.5 py-0.5 text-[9px] font-extrabold uppercase text-slate-400">
+                            new
+                          </span>
+                        )}
                       </td>
                       <td
                         className={`px-1 py-1 text-right font-display font-extrabold ${
@@ -536,6 +551,9 @@ export function ProfileScreen({ onPracticeLesson, onPracticeRetry }: {
                       <td className="px-1 py-1 text-right text-slate-500">{i.attempts}</td>
                       <td className="px-1 py-1 text-right text-slate-500">{Math.round(i.accuracy * 100)}%</td>
                       <td className="px-1 py-1 text-slate-500">{i.trend}</td>
+                      <td className="px-1 py-1">
+                        <Sparkline points={s.adaptive.masteryHistory[i.code] ?? []} />
+                      </td>
                     </tr>
                   )
                 })}
@@ -640,5 +658,23 @@ function Stat({ icon, label, value, sub }: { icon: string; label: string; value:
       <p className="font-display text-lg font-extrabold">{icon} {value}</p>
       <p className="text-xs font-bold text-slate-400">{label}{sub ? ` · ${sub}` : ''}</p>
     </div>
+  )
+}
+
+/** Tiny mastery curve (last 20 snapshots) for the insights table. */
+function Sparkline({ points }: { points: { ts: number; pL: number }[] }) {
+  const tail = points.slice(-20)
+  if (tail.length < 2) return <span className="text-slate-300">—</span>
+  const W = 48
+  const H = 16
+  const step = tail.length > 1 ? W / (tail.length - 1) : 0
+  const d = tail
+    .map((p, idx) => `${idx === 0 ? 'M' : 'L'}${(idx * step).toFixed(1)},${(H - 2 - p.pL * (H - 4)).toFixed(1)}`)
+    .join(' ')
+  const up = tail[tail.length - 1]!.pL >= tail[0]!.pL
+  return (
+    <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} aria-hidden="true">
+      <path d={d} fill="none" stroke={up ? '#10b981' : '#f43f5e'} strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
   )
 }

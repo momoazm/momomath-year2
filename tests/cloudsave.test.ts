@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { mergeCloudSave, snapshotFromPlayer, type CloudSave } from '../src/engine/cloudsave'
+import { mergeAdaptive, mergeCloudSave, snapshotFromPlayer, type CloudSave } from '../src/engine/cloudsave'
+import { buildAttemptEntry } from '../src/engine/adaptive/model'
+import { initialAdaptive } from '../src/engine/store'
+import type { AdaptiveStore } from '../src/engine/adaptive/types'
 
 function save(overrides: Partial<CloudSave> = {}): CloudSave {
   return {
@@ -23,6 +26,7 @@ function save(overrides: Partial<CloudSave> = {}): CloudSave {
     streakSavers: 0,
     doubleXpLessons: 0,
     luckyTickets: 0,
+    adaptive: null,
     updatedAt: 1000,
     ...overrides,
   }
@@ -107,5 +111,58 @@ describe('cloud merge (same Google account, two devices)', () => {
     const only = save()
     expect(mergeCloudSave(null, only)).toBe(only)
     expect(mergeCloudSave(only, null)).toBe(only)
+  })
+})
+
+function adaptiveWith(attempts: number, pL: number, ts: number): AdaptiveStore {
+  const base = initialAdaptive()
+  return {
+    ...base,
+    snapshot: {
+      skills: {
+        '2Nc.01': {
+          pL, attempts, correct: attempts, incorrect: 0, recent: [],
+          trend: pL, lastPracticedAt: ts, avgResponseMs: 3000,
+          difficulty: 1, streakCorrect: 0, streakWrong: 0, firstSeenAt: ts,
+        },
+      },
+      seenCodes: ['2Nc.01'],
+      recentPicks: ['2Nc.01'],
+      lastRecommendation: null,
+    },
+    attempts: [
+      buildAttemptEntry({
+        lessonId: 'u1l1', objectiveCode: '2Nc.01', kind: 'type-number',
+        difficulty: 1, answer: '5', correct: true, responseTimeMs: 3000,
+        masteryBefore: 0.1, masteryAfter: pL, reason: 'in-lesson', ts,
+      }),
+    ],
+    masteryHistory: { '2Nc.01': [{ ts, pL }] },
+  }
+}
+
+describe('adaptive cloud merge', () => {
+  it('passes null through and keeps one-sided slices', () => {
+    expect(mergeAdaptive(null, null)).toBeNull()
+    const one = adaptiveWith(3, 0.5, 100)
+    expect(mergeAdaptive(one, null)).toBe(one)
+    expect(mergeAdaptive(null, one)).toBe(one)
+  })
+
+  it('more evidence wins per skill; logs interleave by time', () => {
+    const merged = mergeAdaptive(adaptiveWith(2, 0.3, 100), adaptiveWith(9, 0.8, 200))!
+    expect(merged.snapshot.skills['2Nc.01']!.attempts).toBe(9)
+    expect(merged.snapshot.skills['2Nc.01']!.pL).toBe(0.8)
+    expect(merged.attempts.map((e) => e.ts)).toEqual([100, 200])
+    expect(merged.masteryHistory['2Nc.01']!.length).toBe(2)
+  })
+
+  it('merges through mergeCloudSave end to end', () => {
+    const merged = mergeCloudSave(
+      save({ adaptive: adaptiveWith(2, 0.3, 100) }),
+      save({ adaptive: adaptiveWith(9, 0.8, 200), updatedAt: 2000 }),
+    )!
+    expect(merged.adaptive!.snapshot.skills['2Nc.01']!.attempts).toBe(9)
+    expect(merged.adaptive!.attempts.length).toBe(2)
   })
 })
