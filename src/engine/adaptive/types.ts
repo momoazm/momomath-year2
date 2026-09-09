@@ -1,4 +1,5 @@
 import type { QuestionKind, Question } from '../../content/types'
+import type { MistakeKind } from './mistakes'
 
 /** Difficulty level 1/2/3 — small, easy, harder. */
 export type Difficulty = 1 | 2 | 3
@@ -63,6 +64,12 @@ export interface AttemptLogEntry {
   /** Full question snapshot — stored ONLY for wrong first attempts so the
    *  child can retry the exact question later. Old entries won't have it. */
   q?: Question | null
+  /** Deterministic mistake classification for wrong attempts (null when
+   *  correct or unclassified). Powers per-lesson misconception patterns. */
+  mistakeKind?: MistakeKind | null
+  /** True when a wrong answer came suspiciously fast (likely a rushed
+   *  guess, not a knowledge gap). See isRushedAttempt. */
+  rushed?: boolean
 }
 
 export type AdaptiveReasonCode =

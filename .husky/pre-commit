@@ -1,5 +1,4 @@
-#!/bin/sh
-. "$(dirname "$0")/_/husky.sh"
-
-echo "Running pre-commit build check..."
-npm run build
+#!/usr/bin/env sh
+# Pre-commit safety net (no husky required; callable as a plain git hook).
+# Catches: type errors, catastrophic file shrinkage, duplicate test titles.
+exec node "$(git rev-parse --show-toplevel)/scripts/precommit.mjs"

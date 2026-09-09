@@ -5,19 +5,23 @@ import {
   ACHIEVEMENTS,
   DAILY_QUESTS,
   advanceLeague,
-  leagueOutcomeByRank,
   LEAGUES,
-  nextWeekKey,
+  leagueOutcomeByRank,
+  leagueOutcomeByXp,
+  leagueWeekElapsed,
+  streakMilestoneFor,
   todayISO,
-  weekKey,
   yesterdayISO,
   type LeagueName,
 } from './gamification'
 import { SHOP_ITEMS } from './shop'
 import { setMuted, sfx } from './sfx'
+import { STAR_THRESHOLDS } from './cards'
 import type { ChestResult } from './cards'
 import type { AdaptiveStore } from './adaptive/types'
 import { ADAPTIVE_CONFIG } from './adaptive/config'
+import { capSnapshots } from './adaptive/attempts'
+import { recordPick } from './adaptive/recommender'
 
 const initialAdaptive = (): AdaptiveStore => ({
   snapshot: { skills: {}, seenCodes: [], recentPicks: [], lastRecommendation: null },
@@ -58,8 +62,8 @@ interface PlayerState {
   mascot: MascotId
   subject: Subject
   /** Optional DLC-style extras. German / Arabic / Religion / Social never appear
-   *  unless the player opts in (Profile → Extra adventures) or opens
-   *  ?subject=. Core Math ⇄ English ⇄ Science loop is unaffected when false. */
+   *  unless the player opts in (Profile "Extra adventures") or opens
+   *  ?subject=. Core Math / English / Science loop is unaffected when false. */
   germanEnabled: boolean
   arabicEnabled: boolean
   religionEnabled: boolean
@@ -83,16 +87,30 @@ interface PlayerState {
   achievements: string[]
   currentLeague: LeagueName
   leagueHistory: LeagueHistoryEntry[]
+  /** most recent promotion/demotion — shown as a banner until dismissed */
+  lastLeagueSettle: LeagueHistoryEntry | null
+  /** finished week awaiting rank-based settlement (written by rollLeagueWeek
+   *  at lesson time, consumed by syncLeagueWeekByRank on the Leagues tab).
+   *  Lets the TOP-3/promote bands run on real ranks instead of being
+   *  pre-empted by the lesson-time XP settle. */
+  pendingLeagueSettle: { weekKey: string; xp: number } | null
   soundOn: boolean
   onboarded: boolean
   shopInventory: Record<string, number>
   streakSavers: number
+  /** streak value at which the last milestone chest was granted (7, 14, …) */
+  lastStreakReward: number
+  /** milestone (7/14/21…) whose HIGH-RARITY bonus chest is waiting to be shown */
+  pendingStreakMilestone: number | null
   doubleXpLessons: number
   chestBoost: boolean
   megaChest: boolean
-  /** card stars by id (missing = unowned; 0 = new, up to MAX_STARS via duplicates) */
+  /** per-character star level (0-5); 0 = not yet earned, 1-5 = star progress. A card is owned if cardStars[id] > 0. */
   cardStars: Record<string, number>
-  /** consecutive chests without any card - drives hidden card pity (see cards.ts) */
+  /** DEPRECATED - use cardStars instead. */
+  cardCounts: Record<string, number>
+  /** consecutive chests without a still-LOCKED character drop - drives the
+   *  locked-pity guarantee (see cards.ts LOCKED_PITY) */
   cardPity: number
   /** shop Lucky Ticket stack; consumed on the next chest */
   luckyTickets: number
@@ -133,6 +151,8 @@ interface PlayerState {
   setMegaChest: (v: boolean) => void
   useMegaChest: () => void
   grantChest: (chest: ChestResult) => void
+  /** Consume a pending streak milestone; returns the milestone (7/14/21…) or null. */
+  consumeStreakChest: () => number | null
   addLuckyTickets: (n: number) => void
   /** consume one Lucky Ticket if available; returns true if it was active */
   consumeLuckyTicket: () => boolean
@@ -141,11 +161,20 @@ interface PlayerState {
 
   // --- adaptive learning ---
   adaptive: AdaptiveStore
-  recordAdaptiveAttempt: (entry: import('./adaptive/types').AttemptLogEntry) => void
+  recordAdaptiveAttempt: (entry: import('./adaptive/types').AttemptLogEntry, skill: import('./adaptive/types').SkillState, code: string) => void
   setLastAdaptiveRecommendation: (rec: import('./adaptive/types').AdaptiveRecommendation | null) => void
   bumpLlm: (args: { hit: boolean; provider: string | null; latencyMs: number | null }) => void
   bumpRecommendationShown: (accepted: boolean) => void
   resetAdaptive: () => void
+  /** settle last week's league (promote/demote) if the 7-day week has elapsed */
+  syncLeagueWeek: () => void
+  /** rank-based settle: top 3 promote, middle stay, bottom 3 demote (clamps
+   *  at Bronze / Diamond). `totalRanks` is the primary board size (defaults
+   *  to 10 if you don't know). */
+  syncLeagueWeekByRank: (myRank: number, totalRanks?: number) => void
+  /** promote the league leader into the next league when the week ends */
+  promoteLeader: () => void
+  dismissLeagueSettle: () => void
 }
 
 function rollDay(s: PlayerState) {
@@ -164,31 +193,217 @@ function rollDay(s: PlayerState) {
   }
 }
 
-/** Weekly league rollover (auto every Monday): settle last week by RANK on the
- *  10-racer practice board (ranks 1-3 promote, 4-7 stay, 8-10 demote),
- *  then reset the weekly XP counter for the fresh league. */
-function rollWeek(s: PlayerState) {
-  const wk = weekKey()
-  if (s.weeklyXpWeek === wk) return
-  const prevWeek = s.weeklyXpWeek || wk
+/** Fields of PlayerState that weekly league settlement reads/writes. */
+export interface LeagueWeekFields {
+  weeklyXpWeek: string
+  weeklyXp: number
+  currentLeague: LeagueName
+  leagueHistory: LeagueHistoryEntry[]
+  lastLeagueSettle: LeagueHistoryEntry | null
+  pendingLeagueSettle?: { weekKey: string; xp: number } | null
+}
+
+/** Valid "YYYY-MM-DD" league-week anchor? Rejects impossible dates (e.g. 2026-02-30). */
+export function isValidAnchor(a: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(a)) return false
+  const d = new Date(`${a}T00:00:00`)
+  if (Number.isNaN(d.getTime())) return false
+  // Engines roll impossible dates over (2026-02-30 -> Mar 2), so round-trip.
+  const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
+    d.getDate(),
+  ).padStart(2, '0')}`
+  return iso === a
+}
+
+/**
+ * Weekly league settlement (standard XP rules).
+ *
+ * NOTE: retained + unit-tested, but the live store no longer settles through
+ * this path — lesson time snapshots via rollLeagueWeek and the Leagues tab
+ * settles by rank (settleLeagueWeekByRank), so the top-3 promotion bands
+ * always run on real ranks.
+ *
+ * A league week runs from 12:00 AM of its anchor day (`weeklyXpWeek`) for
+ * exactly 7 days. When that window elapses: settle last week by XP earned —
+ * promote / demote / stay — record history, reset the XP counter, and anchor
+ * the fresh week at TODAY's 12:00 AM (so the timer reads ~7 days again).
+ * Returns TRUE whenever the league-week state changed (a settlement OR a
+ * fresh-start repair of a missing/corrupt anchor), so store actions persist
+ * the mutated copy. Pure: mutates only league fields of `s`.
+ */
+export function settleLeagueWeek<T extends LeagueWeekFields>(
+  s: T,
+  now: Date = new Date(),
+): boolean {
+  const anchor = s.weeklyXpWeek
+  if (!isValidAnchor(anchor)) {
+    // Legacy/corrupt state without a playable week: start fresh at 12 AM today.
+    s.weeklyXpWeek = todayISO(now)
+    s.weeklyXp = 0
+    return true
+  }
+  if (!leagueWeekElapsed(anchor, now)) return false
+  const prevWeek = anchor
   const prevLeague = s.currentLeague
-  const outcome = leagueOutcomeByRank(prevLeague, s.weeklyXp, prevWeek)
+  const history = Array.isArray(s.leagueHistory) ? s.leagueHistory : []
+  // Legacy persisted states can carry undefined/NaN XP — never let that
+  // poison the outcome (treat as 0, which means demote unless Bronze).
+  const earned = Number.isFinite(s.weeklyXp) ? s.weeklyXp : 0
+  // Only the league leader may be promoted (handled separately by
+  // promoteLeaderWeek). Everyone else settles by XP but can never move UP —
+  // a non-leader who hits the goal stays instead of promoting.
+  const raw = leagueOutcomeByXp(prevLeague, earned)
+  const outcome = raw === 'promoted' ? 'stayed' : raw
   s.currentLeague = advanceLeague(prevLeague, outcome)
   s.leagueHistory = [
-    ...s.leagueHistory.slice(-9),
-    { weekKey: prevWeek, league: prevLeague, outcome, xp: s.weeklyXp },
+    ...history.slice(-9),
+    { weekKey: prevWeek, league: prevLeague, outcome, xp: earned },
   ]
-  s.weeklyXpWeek = wk
+  s.weeklyXpWeek = todayISO(now) // new week starts 12:00 AM today
   s.weeklyXp = 0
+  s.lastLeagueSettle =
+    outcome === 'stayed' ? null : s.leagueHistory[s.leagueHistory.length - 1]
+  return true
+}
+
+/**
+ * Rank-based settlement for the shared board. The board is partitioned into
+ * bands (see `leagueOutcomeByRank`):
+ *   - top 3   -> promote (clamped to Diamond)
+ *   - middle  -> stay
+ *   - bottom  -> demote (clamped to Bronze)
+ *
+ * This is the ONLY production settlement path (s169+): lesson time only
+ * snapshots the finished week into `pendingLeagueSettle` (see
+ * rollLeagueWeek), and the Leagues tab settles it once the rank is known —
+ * so an XP settle can never pre-empt the top-3 promotion again.
+ *
+ * The board is padded to 10 via `botsForPlayerCount` when fewer than 10 real
+ * players are present. If more than 10 real players join, the "extras" appear
+ * in a secondary leaderboard for their current league; this function only
+ * settles the player's own rank in the **primary** board.
+ *
+ * Returns true on any state change (settlement or fresh-start repair).
+ */
+export function settleLeagueWeekByRank<T extends LeagueWeekFields>(
+  s: T,
+  myRank: number,
+  totalRanks: number,
+  now: Date = new Date(),
+): boolean {
+  const anchor = s.weeklyXpWeek
+  if (!isValidAnchor(anchor)) {
+    s.weeklyXpWeek = todayISO(now)
+    s.weeklyXp = 0
+    return true
+  }
+  const pending = s.pendingLeagueSettle ?? null
+  if (!pending && !leagueWeekElapsed(anchor, now)) return false
+  const prevLeague = s.currentLeague
+  const history = Array.isArray(s.leagueHistory) ? s.leagueHistory : []
+  // Prefer the snapshotted week (written at lesson time, before the counter
+  // reset); fall back to the live counter when the tab is opened after the
+  // week elapsed with no lesson played since.
+  const srcWeek = pending?.weekKey ?? anchor
+  const rawXp = pending?.xp ?? s.weeklyXp
+  const earned = Number.isFinite(rawXp) ? (rawXp as number) : 0
+  const outcome = leagueOutcomeByRank(myRank, totalRanks)
+  s.currentLeague = advanceLeague(prevLeague, outcome)
+  s.leagueHistory = [
+    ...history.slice(-9),
+    { weekKey: srcWeek, league: prevLeague, outcome, xp: earned },
+  ]
+  s.weeklyXpWeek = todayISO(now) // new week starts 12:00 AM today
+  s.weeklyXp = 0
+  s.pendingLeagueSettle = null
+  s.lastLeagueSettle =
+    outcome === 'stayed' ? null : s.leagueHistory[s.leagueHistory.length - 1]
+  return true
+}
+
+/**
+ * The league leader's promotion: same 7-day anchor, but the #1 player always
+ * moves UP into the next league when the week ends (regardless of XP), with
+ * XP and the weekly timer restarted at today's 12:00 AM. Returns true when
+ * the league-week state changed (promotion or fresh-start repair).
+ */
+export function promoteLeaderWeek<T extends LeagueWeekFields>(
+  s: T,
+  now: Date = new Date(),
+): boolean {
+  const anchor = s.weeklyXpWeek
+  if (!isValidAnchor(anchor)) {
+    s.weeklyXpWeek = todayISO(now)
+    s.weeklyXp = 0
+    return true
+  }
+  if (!leagueWeekElapsed(anchor, now)) return false
+  const prevWeek = anchor
+  const prevLeague = s.currentLeague
+  const history = Array.isArray(s.leagueHistory) ? s.leagueHistory : []
+  const earned = Number.isFinite(s.weeklyXp) ? s.weeklyXp : 0
+  s.currentLeague = advanceLeague(prevLeague, 'promoted')
+  s.leagueHistory = [
+    ...history.slice(-9),
+    { weekKey: prevWeek, league: prevLeague, outcome: 'promoted', xp: earned },
+  ]
+  s.weeklyXpWeek = todayISO(now) // new week starts 12:00 AM today
+  s.weeklyXp = 0
+  s.lastLeagueSettle = s.leagueHistory[s.leagueHistory.length - 1]
+  return true
+}
+
+/** Weekly league rollover used by the live store.
+ *
+ * Lesson time NEVER settles promotion/demotion directly: when the 7-day week
+ * has elapsed it snapshots the finished week into `pendingLeagueSettle`,
+ * resets the counter + timer, and leaves the outcome to the rank-based
+ * settle on the Leagues tab (so top-3 promotion can't be pre-empted).
+ * Exported pure for tests; the store calls it via rollWeek. */
+export function rollLeagueWeek<T extends LeagueWeekFields>(
+  s: T,
+  now: Date = new Date(),
+): boolean {
+  const anchor = s.weeklyXpWeek
+  if (!isValidAnchor(anchor)) {
+    // Legacy/corrupt state without a playable week: start fresh at 12 AM today.
+    s.weeklyXpWeek = todayISO(now)
+    s.weeklyXp = 0
+    return true
+  }
+  if (!leagueWeekElapsed(anchor, now)) return false
+  const rawXp = s.weeklyXp
+  const earned = Number.isFinite(rawXp) ? (rawXp as number) : 0
+  if (!s.pendingLeagueSettle) {
+    s.pendingLeagueSettle = { weekKey: anchor, xp: earned }
+  } else if (earned > 0) {
+    // Another week elapsed before the Leagues tab settled the first one:
+    // fold the newer XP into the pending snapshot so no earned XP is lost
+    // (the outcome stays rank-based; XP is only recorded for display).
+    s.pendingLeagueSettle = { ...s.pendingLeagueSettle, xp: s.pendingLeagueSettle.xp + earned }
+  }
+  s.weeklyXpWeek = todayISO(now) // new week starts 12:00 AM today
+  s.weeklyXp = 0
+  return true
+}
+
+/** Store-level wrapper (mutates only league fields of `s`). */
+function rollWeek(s: PlayerState) {
+  rollLeagueWeek(s)
 }
 
 export function updateStreak(
-  s: Pick<PlayerState, 'streakCurrent' | 'streakLongest' | 'lastActiveDay'>,
+  s: Pick<PlayerState, 'streakCurrent' | 'streakLongest' | 'lastActiveDay' | 'streakSavers'>,
   today: string = todayISO(),
   yesterday: string = yesterdayISO(),
 ) {
   if (s.lastActiveDay === today) return
   if (s.lastActiveDay === yesterday) {
+    s.streakCurrent += 1
+  } else if (s.streakSavers > 0) {
+    // A day was missed, but a Streak Saver absorbs the gap: the streak
+    // CONTINUES instead of resetting to 1 (saver is consumed automatically).
+    s.streakSavers -= 1
     s.streakCurrent += 1
   } else {
     s.streakCurrent = 1
@@ -222,6 +437,9 @@ function checkAchievements(s: PlayerState) {
 
 const firstDay = todayISO()
 
+type ExtraKey = 'germanEnabled' | 'arabicEnabled' | 'religionEnabled' | 'socialEnabled'
+type ExtraSubject = 'german' | 'arabic' | 'religion' | 'social'
+
 function initialSubjectFromUrl(): Subject {
   if (typeof window === 'undefined') return 'math'
   const q = new URLSearchParams(window.location.search).get('subject')
@@ -229,7 +447,7 @@ function initialSubjectFromUrl(): Subject {
   return 'math'
 }
 
-function initialExtraEnabled(key: 'germanEnabled' | 'arabicEnabled' | 'religionEnabled' | 'socialEnabled', subject: 'german' | 'arabic' | 'religion' | 'social'): boolean {
+function initialExtraEnabled(key: ExtraKey, subject: ExtraSubject): boolean {
   if (typeof window === 'undefined') return false
   try {
     const raw = window.localStorage.getItem('momomath-year2-player-v2')
@@ -243,32 +461,16 @@ function initialExtraEnabled(key: 'germanEnabled' | 'arabicEnabled' | 'religionE
   return new URLSearchParams(window.location.search).get('subject') === subject
 }
 
-function initialGermanEnabled(): boolean {
-  return initialExtraEnabled('germanEnabled', 'german')
-}
-
-function initialArabicEnabled(): boolean {
-  return initialExtraEnabled('arabicEnabled', 'arabic')
-}
-
-function initialReligionEnabled(): boolean {
-  return initialExtraEnabled('religionEnabled', 'religion')
-}
-
-function initialSocialEnabled(): boolean {
-  return initialExtraEnabled('socialEnabled', 'social')
-}
-
 export const usePlayer = create<PlayerState>()(
   persist(
     (set) => ({
       name: 'Champion',
       mascot: 'sonic' as MascotId,
       subject: initialSubjectFromUrl(),
-      germanEnabled: initialGermanEnabled(),
-      arabicEnabled: initialArabicEnabled(),
-      religionEnabled: initialReligionEnabled(),
-      socialEnabled: initialSocialEnabled(),
+      germanEnabled: initialExtraEnabled('germanEnabled', 'german'),
+      arabicEnabled: initialExtraEnabled('arabicEnabled', 'arabic'),
+      religionEnabled: initialExtraEnabled('religionEnabled', 'religion'),
+      socialEnabled: initialExtraEnabled('socialEnabled', 'social'),
       xpTotal: 0,
       gems: 50,
       streakCurrent: 0,
@@ -281,24 +483,32 @@ export const usePlayer = create<PlayerState>()(
       lessonsToday: 0,
       correctTodayDay: firstDay,
       correctToday: 0,
-      weeklyXpWeek: weekKey(),
+      weeklyXpWeek: todayISO(), // league week anchored at 12:00 AM today
       weeklyXp: 0,
       lessonProgress: {},
       claimedQuests: { day: firstDay, questIds: [] },
       achievements: [],
       currentLeague: 'Bronze',
       leagueHistory: [],
+      lastLeagueSettle: null,
+      pendingLeagueSettle: null,
       soundOn: true,
       onboarded: false,
       shopInventory: {},
       streakSavers: 0,
+      lastStreakReward: 0,
+      pendingStreakMilestone: null,
       doubleXpLessons: 0,
       chestBoost: false,
       megaChest: false,
       cardStars: {},
+      cardCounts: {},
       cardPity: 0,
       luckyTickets: 0,
       lastSyncedAt: null,
+
+      // --- adaptive learning ---
+      adaptive: initialAdaptive(),
 
       completeLesson: ({ lessonId, xp, correct, totalQuestions, crownsGained, accuracy }) =>
         set((state) => {
@@ -328,19 +538,16 @@ export const usePlayer = create<PlayerState>()(
           s.weeklyXp += xp
 
           const wasStreakActive = state.lastActiveDay === todayISO()
-          // Streak Saver: bridge a missed day instead of resetting to 1.
-          // updateStreak looks at lastActiveDay, so move it to yesterday and
-          // spend one saver — the streak then continues (+1) as promised.
-          if (
-            s.streakSavers > 0 &&
-            s.lastActiveDay != null &&
-            s.lastActiveDay !== todayISO() &&
-            s.lastActiveDay !== yesterdayISO()
-          ) {
-            s.streakSavers -= 1
-            s.lastActiveDay = yesterdayISO()
-          }
           updateStreak(s)
+
+          // Streak milestone bonus: every 7 consecutive active days grants a
+          // HIGH-RARITY bonus chest (guaranteed Legendary/Exclusive), awarded
+          // once per milestone and shown on the next chest reveal.
+          const milestone = streakMilestoneFor(s.streakCurrent, s.lastStreakReward)
+          if (milestone !== null) {
+            s.lastStreakReward = milestone
+            s.pendingStreakMilestone = milestone
+          }
 
           checkAchievements(s)
 
@@ -364,6 +571,15 @@ export const usePlayer = create<PlayerState>()(
 
           const wasStreakActive = state.lastActiveDay === todayISO()
           updateStreak(s)
+
+          // Keep the streak-milestone bonus consistent with lessons: a
+          // practice round can push the streak over a 7-day milestone, and
+          // the pending chest waits for the next fresh-lesson reveal.
+          const milestone = streakMilestoneFor(s.streakCurrent, s.lastStreakReward)
+          if (milestone !== null) {
+            s.lastStreakReward = milestone
+            s.pendingStreakMilestone = milestone
+          }
 
           checkAchievements(s)
 
@@ -491,42 +707,26 @@ export const usePlayer = create<PlayerState>()(
             result = { success: false, message: `Max ${item.maxStack} per item!` }
             return state
           }
-          // Boolean boosts have a single active flag — rebuying while active
-          // would burn gems for zero effect.
-          if (itemId === 'chest-boost' && state.chestBoost) {
-            result = { success: false, message: 'Chest Boost already active — finish a lesson first!' }
-            return state
-          }
-          if (itemId === 'mega-chest' && state.megaChest) {
-            result = { success: false, message: 'Mega Chest already active — finish a lesson first!' }
-            return state
-          }
           result = { success: true, message: 'Purchase successful!' }
-          return {
+          // Activate the item's effect on the engine state in the SAME set
+          // callback so the inventory + the effect are committed atomically.
+          const next: Partial<PlayerState> = {
             gems: state.gems - item.price,
             shopInventory: { ...state.shopInventory, [itemId]: current + 1 },
           }
+          if (itemId === 'streak-saver') {
+            next.streakSavers = state.streakSavers + 1
+          } else if (itemId === 'chest-boost') {
+            next.chestBoost = true
+          } else if (itemId === 'mega-chest') {
+            next.megaChest = true
+          } else if (itemId === 'double-xp') {
+            next.doubleXpLessons = state.doubleXpLessons + 3
+          } else if (itemId === 'lucky-ticket') {
+            next.luckyTickets = state.luckyTickets + 1
+          }
+          return next
         })
-        // A purchase must actually switch the boost on — inventory counts
-        // alone never reached the lesson loop, so gems burned for nothing.
-        if (result.success) {
-          set((state) => {
-            switch (itemId) {
-              case 'double-xp':
-                return { doubleXpLessons: state.doubleXpLessons + 1 }
-              case 'chest-boost':
-                return state.chestBoost ? state : { chestBoost: true }
-              case 'mega-chest':
-                return state.megaChest ? state : { megaChest: true }
-              case 'lucky-ticket':
-                return { luckyTickets: state.luckyTickets + 1 }
-              case 'streak-saver':
-                return { streakSavers: state.streakSavers + 1 }
-              default:
-                return state
-            }
-          })
-        }
         return result
       },
       useStreakSaver: () => {
@@ -554,21 +754,40 @@ export const usePlayer = create<PlayerState>()(
       useMegaChest: () => set({ megaChest: false }),
       grantChest: (chest) =>
         set((state) => {
-          const cardStars = { ...state.cardStars }
-          for (const c of chest.cards) {
-            if (c.isNew) {
-              if (!(c.id in cardStars)) cardStars[c.id] = 0
-            } else {
-              cardStars[c.id] = Math.max(cardStars[c.id] ?? 0, c.starAfter)
-            }
+          let cardStars = { ...state.cardStars }
+          let pity = state.cardPity
+          let anyNew = false
+
+          // Award +1 copy for each card in the chest (uncapped — cardStars
+          // tracks total copies received; star LEVEL is derived via toStar())
+          for (const card of chest.cards) {
+            const prev = cardStars[card.cardId] ?? 0
+            cardStars[card.cardId] = prev + 1
+            if (card.isNew) anyNew = true
           }
-          return {
-            gems: state.gems + chest.gems + chest.starBonus,
-            cardStars,
-            cardPity: chest.cards.length > 0 ? 0 : state.cardPity + 1,
-          }
+
+          // Pity resets when a new character is unlocked
+          if (anyNew) pity = 0
+          else pity = pity + 1
+
+          // Double gems if ALL cards in this chest were already at 5★
+          // (5★ means cardStars[id] >= STAR_THRESHOLDS[4] = 21 copies)
+          const allMaxed = chest.cards.every((c) => (cardStars[c.cardId] ?? 0) >= STAR_THRESHOLDS[STAR_THRESHOLDS.length - 1])
+          const gemMultiplier = allMaxed ? 2 : 1
+          const bonusGems = ((chest.gems ?? 0) + (chest.dust ?? 0)) * gemMultiplier
+
+          return { gems: state.gems + bonusGems, cardStars, cardPity: pity }
         }),
       addLuckyTickets: (n) => set((state) => ({ luckyTickets: state.luckyTickets + n })),
+      consumeStreakChest: () => {
+        let milestone: number | null = null
+        set((state) => {
+          if (state.pendingStreakMilestone == null) return state
+          milestone = state.pendingStreakMilestone
+          return { pendingStreakMilestone: null }
+        })
+        return milestone
+      },
       consumeLuckyTicket: () => {
         let active = false
         set((state) => {
@@ -630,6 +849,11 @@ export const usePlayer = create<PlayerState>()(
             }
             next.cardStars = merged
           }
+          if ((snap as any).cardCollection?.length) {
+            const migrated: Record<string, number> = {}
+            for (const id of (snap as any).cardCollection) migrated[id] = 3
+            next.cardCounts = { ...state.cardCounts, ...migrated }
+          }
           if (snap.lessonProgress) {
             const merged: Record<string, LessonProgress> = { ...state.lessonProgress }
             for (const [k, v] of Object.entries(snap.lessonProgress)) {
@@ -650,15 +874,18 @@ export const usePlayer = create<PlayerState>()(
               mergedInv[k] = Math.max(mergedInv[k] ?? 0, v)
             next.shopInventory = mergedInv
           }
-        return next
+          return next
         }),
       setLastSyncedAt: (t) => set({ lastSyncedAt: t }),
 
       // --- adaptive learning ---
-      adaptive: initialAdaptive(),
-      recordAdaptiveAttempt: (entry) =>
+      recordAdaptiveAttempt: (entry, skill, code) =>
         set((state) => {
-          const log = state.adaptive.attempts.length >= ADAPTIVE_CONFIG.ATTEMPT_LOG_CAP
+          // Write back the updated BKT skill + recency (the hook does the
+          // math pure; the store persists it). Without this, mastery freezes.
+          const skills = { ...state.adaptive.snapshot.skills, [code]: skill }
+          const snapshot = recordPick({ ...state.adaptive.snapshot, skills }, code)
+          const raw = state.adaptive.attempts.length >= ADAPTIVE_CONFIG.ATTEMPT_LOG_CAP
             ? [...state.adaptive.attempts.slice(-(ADAPTIVE_CONFIG.ATTEMPT_LOG_CAP - 1)), entry]
             : [...state.adaptive.attempts, entry]
           const mh = state.adaptive.masteryHistory
@@ -667,7 +894,8 @@ export const usePlayer = create<PlayerState>()(
           return {
             adaptive: {
               ...state.adaptive,
-              attempts: log,
+              snapshot,
+              attempts: capSnapshots(raw),
               masteryHistory: { ...mh, [entry.objectiveCode]: nextSeries },
             },
           }
@@ -702,163 +930,104 @@ export const usePlayer = create<PlayerState>()(
           },
         })),
       resetAdaptive: () => set({ adaptive: initialAdaptive() }),
+      syncLeagueWeek: () =>
+        set((state) => {
+          const s: PlayerState = { ...state }
+          // no settlement → return the same state (no re-render/persist write)
+          return settleLeagueWeek(s) ? s : state
+        }),
+      syncLeagueWeekByRank: (myRank, totalRanks = 10) =>
+        set((state) => {
+          const s: PlayerState = { ...state }
+          // no settlement → return the same state (no re-render/persist write)
+          return settleLeagueWeekByRank(s, myRank, totalRanks) ? s : state
+        }),
+      promoteLeader: () =>
+        set((state) => {
+          const s: PlayerState = { ...state }
+          // no promotion → return the same state (no re-render/persist write)
+          return promoteLeaderWeek(s) ? s : state
+        }),
+      dismissLeagueSettle: () => set({ lastLeagueSettle: null }),
     }),
     {
       name: 'momomath-year2-player-v2',
-      version: 8,
+      version: 9,
       migrate: (persisted, version) => {
-        const p = persisted as PlayerState
-        let next: PlayerState = p
-        if (version < 3) {
-          // Backfill any fields added after v2.
-          const legacy = (p as unknown as { cardCollection?: unknown }).cardCollection
-          next = {
-            ...p,
-            cardStars: Array.isArray(legacy)
-              ? Object.fromEntries(legacy.map((id) => [id, 0]))
-              : {},
-            cardPity: typeof p.cardPity === 'number' ? p.cardPity : 0,
-            luckyTickets: typeof p.luckyTickets === 'number' ? p.luckyTickets : 0,
-            lastSyncedAt: typeof p.lastSyncedAt === 'number' ? p.lastSyncedAt : null,
-          }
-        }
+        const p = { ...(persisted as PlayerState) }
         if (version < 4) {
-          // v4: introduce the adaptive learning slice. Always start fresh — the
-          // engine has no signal from before this version.
-          next = {
-            ...next,
-            adaptive: {
-              snapshot: { skills: {}, seenCodes: [], recentPicks: [], lastRecommendation: null },
-              attempts: [],
-              masteryHistory: {},
-              telemetry: {
-                llmRequests: 0,
-                llmHits: 0,
-                llmFallbacks: 0,
-                lastLlmProvider: null,
-                lastLlmLatencyMs: null,
-                recommended: 0,
-                recommendedAccepted: 0,
-              },
-            },
-          }
+          // Backfill any fields added after v3 (streak milestone rewards).
+          p.lastStreakReward = typeof p.lastStreakReward === 'number' ? p.lastStreakReward : 0
+          p.pendingStreakMilestone = p.pendingStreakMilestone === undefined ? null : p.pendingStreakMilestone
         }
         if (version < 5) {
-          // v5: optional German extra. Default OFF so existing players keep the
-          // exact Math ⇄ English experience. Deep-linkers keep German visible.
-          // NOTE: old saves may lack `subject` entirely — never write it back
-          // as undefined (shallow-merge would clobber the 'math' default and
-          // crash getCurriculum().units on boot).
-          const wantsGerman =
-            typeof window !== 'undefined' &&
-            new URLSearchParams(window.location.search).get('subject') === 'german'
-          const stored = next as Partial<PlayerState>
-          const storedSubject = stored.subject
-          const validSubject: Subject =
-            storedSubject === 'math' ||
-            storedSubject === 'english' ||
-            storedSubject === 'science' ||
-            storedSubject === 'german' ||
-            storedSubject === 'arabic'
-              ? storedSubject
-              : 'math'
-          const enabled =
-            typeof stored.germanEnabled === 'boolean' ? stored.germanEnabled : wantsGerman
-          next = {
-            ...next,
-            germanEnabled: enabled,
-            subject:
-              validSubject === 'german' && !enabled && !wantsGerman ? 'math' : validSubject,
+          // League settlement: backfill the banner field and normalise the
+          // week key / XP so a stale or missing week always triggers a proper
+          // settlement (promote/demote) on next launch instead of silently
+          // carrying last week's XP into the new week.
+          p.lastLeagueSettle = p.lastLeagueSettle ?? null
+          if (typeof p.weeklyXpWeek !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(p.weeklyXpWeek)) {
+            p.weeklyXpWeek = ''
           }
+          if (!Number.isFinite(p.weeklyXp)) p.weeklyXp = 0
         }
         if (version < 6) {
-          // v6: optional Arabic extra (Egyptian Tawassol Grade 2). Default OFF
-          // so existing players keep their exact experience. Deep-linkers keep
-          // Arabic visible. Progress keys are `a*` so no collisions.
-          const wantsArabic =
-            typeof window !== 'undefined' &&
-            new URLSearchParams(window.location.search).get('subject') === 'arabic'
-          const stored = next as Partial<PlayerState>
-          const storedSubject = stored.subject
-          const validSubject: Subject =
-            storedSubject === 'math' ||
-            storedSubject === 'english' ||
-            storedSubject === 'science' ||
-            storedSubject === 'german' ||
-            storedSubject === 'arabic'
-              ? storedSubject
-              : 'math'
-          const enabled =
-            typeof stored.arabicEnabled === 'boolean' ? stored.arabicEnabled : wantsArabic
-          next = {
-            ...next,
-            arabicEnabled: enabled,
-            subject:
-              validSubject === 'arabic' && !enabled && !wantsArabic ? 'math' : validSubject,
-          }
+          // cardCollection (string[]) -> cardCounts (Record<string,number>)
+          const oldCards: string[] = (p as any).cardCollection ?? []
+          p.cardCounts = {}
+          for (const id of oldCards) p.cardCounts[id] = 3
+          if (typeof (p as any).cardPity !== 'number') (p as any).cardPity = 0
         }
         if (version < 7) {
-          // v7: optional Religion + Social extras (Egyptian govt Grade 2).
-          // Default OFF. Progress keys are `r*` / `d*` so no collisions.
-          const params = typeof window !== 'undefined'
-            ? new URLSearchParams(window.location.search).get('subject')
-            : null
-          const stored = next as Partial<PlayerState>
-          const storedSubject = stored.subject
-          const validSubject: Subject =
-            storedSubject === 'math' ||
-            storedSubject === 'english' ||
-            storedSubject === 'science' ||
-            storedSubject === 'german' ||
-            storedSubject === 'arabic' ||
-            storedSubject === 'religion' ||
-            storedSubject === 'social'
-              ? storedSubject
-              : 'math'
-          const relEnabled =
-            typeof stored.religionEnabled === 'boolean' ? stored.religionEnabled : params === 'religion'
-          const socEnabled =
-            typeof stored.socialEnabled === 'boolean' ? stored.socialEnabled : params === 'social'
-          next = {
-            ...next,
-            religionEnabled: relEnabled,
-            socialEnabled: socEnabled,
-            subject:
-              validSubject === 'religion' && !relEnabled && params !== 'religion'
-                ? 'math'
-                : validSubject === 'social' && !socEnabled && params !== 'social'
-                  ? 'math'
-                  : validSubject,
+          // cardCounts (copies) -> cardStars (total copies, uncapped)
+          // Star LEVEL is derived via toStar() using STAR_THRESHOLDS
+          const oldCounts: Record<string, number> = (p as any).cardCounts ?? {}
+          p.cardStars = {}
+          for (const [id, copies] of Object.entries(oldCounts)) {
+            if ((copies as number) > 0) p.cardStars[id] = copies as number
           }
         }
         if (version < 8) {
-          // v8: card collection becomes star levels (id -> 0..MAX_STARS).
-          // Old saves kept a plain id array; every previously owned card
-          // converts to 0 stars (owned, no star-ups yet).
-          const stored = next as unknown as {
-            cardCollection?: unknown
-            cardStars?: unknown
+          // Rank-based settlement: backfill the pending-week snapshot so
+          // pre-v8 states settle cleanly on the Leagues tab.
+          if (!p.pendingLeagueSettle) (p as any).pendingLeagueSettle = null
+        }
+        if (version < 9) {
+          // v9 (merge): adaptive learning slice + opt-in extras. Both older
+          // lineages lack them — backfill WITHOUT clobbering real data.
+          const stored = p as Partial<PlayerState> & { adaptive?: unknown }
+          if (!stored.adaptive || typeof stored.adaptive !== 'object') {
+            (p as any).adaptive = initialAdaptive()
           }
-          if (!stored.cardStars || typeof stored.cardStars !== 'object') {
-            const legacy = stored.cardCollection
-            next = {
-              ...next,
-              cardStars: Array.isArray(legacy)
-                ? Object.fromEntries(
-                    (legacy as unknown[]).filter((id) => typeof id === 'string').map((id) => [id, 0]),
-                  )
-                : {},
+          const params = typeof window !== 'undefined'
+            ? new URLSearchParams(window.location.search).get('subject')
+            : null
+          const extras: { flag: 'germanEnabled' | 'arabicEnabled' | 'religionEnabled' | 'socialEnabled'; subject: ExtraSubject }[] = [
+            { flag: 'germanEnabled', subject: 'german' },
+            { flag: 'arabicEnabled', subject: 'arabic' },
+            { flag: 'religionEnabled', subject: 'religion' },
+            { flag: 'socialEnabled', subject: 'social' },
+          ]
+          for (const { flag, subject } of extras) {
+            if (typeof (stored as any)[flag] !== 'boolean') {
+              (p as any)[flag] = params === subject
             }
           }
+          const s = (p as Partial<PlayerState>).subject
+          const valid: Subject =
+            s === 'math' || s === 'english' || s === 'science' || s === 'german' ||
+            s === 'arabic' || s === 'religion' || s === 'social'
+              ? s
+              : 'math'
+          p.subject = valid
+          if ((valid === 'german' && !(p as any).germanEnabled && params !== 'german') ||
+              (valid === 'arabic' && !(p as any).arabicEnabled && params !== 'arabic') ||
+              (valid === 'religion' && !(p as any).religionEnabled && params !== 'religion') ||
+              (valid === 'social' && !(p as any).socialEnabled && params !== 'social')) {
+            p.subject = 'math'
+          }
         }
-        return next
-      },
-      partialize: (state) => {
-        // We persist the adaptive block explicitly so the schema stays stable
-        // when other fields are added in future versions.
-        const { adaptive, ...rest } = state
-        void adaptive
-        return rest
+        return p
       },
     },
   ),

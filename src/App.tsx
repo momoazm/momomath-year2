@@ -10,6 +10,7 @@ import { ProfileScreen } from './screens/ProfileScreen'
 import { ShopScreen } from './screens/ShopScreen'
 import { LibraryScreen } from './screens/LibraryScreen'
 import { WelcomeGate } from './components/ui/WelcomeGate'
+import { AutoLeagueSettle } from './components/ui/AutoLeagueSettle'
 import { Scenery } from './components/ui/Scenery'
 import { MascotGallery } from './components/mascots/Gallery'
 import { startCloudSync } from './engine/cloudsave'
@@ -33,7 +34,18 @@ export default function App() {
   }
 
   if (new URLSearchParams(window.location.search).has('library') || showLibrary) {
-    return <LibraryScreen onClose={() => setShowLibrary(false)} />
+    return (
+      <LibraryScreen
+        onClose={() => {
+          setShowLibrary(false)
+          if (new URLSearchParams(window.location.search).has('library')) {
+            const url = new URL(window.location.href)
+            url.searchParams.delete('library')
+            window.history.replaceState({}, '', url.toString())
+          }
+        }}
+      />
+    )
   }
 
   if (activeLesson || retryItems) {
@@ -51,6 +63,7 @@ export default function App() {
       <Scenery />
       <div className="relative z-10">
         <WelcomeGate />
+        <AutoLeagueSettle />
         <TopBar onLeagueClick={() => setTab('leagues')} onLibraryClick={() => setShowLibrary(true)} />
       <AnimatePresence mode="wait">
         <motion.main

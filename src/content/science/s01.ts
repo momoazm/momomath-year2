@@ -1,7 +1,7 @@
 import type { Question } from '../types'
 import {
-  LIVING_BANK, mcqE, orderQ, tfQ, speakQ,
-  pick, pickOthers, randInt, type Rand,
+  LIVING_BANK, mcqE, matchQ, orderQ, tfQ, speakQ,
+  pick, pickOthers, shuffle, randInt, type Gen, type Rand,
   makeLesson, unitDef,
 } from './helpers'
 
@@ -21,14 +21,12 @@ function gUnSafeTF(rand: Rand): Question {
     return tfQ('True or false: a good science rule.', `Scientists should ${u}.`, false)
 }
 function gSortLiving(rand: Rand): Question {
-  // Binary sort ("living" vs "non-living") can't be a match exercise — the
-  // match renderer needs unique rights. Classify one thing at a time instead.
-  if (randInt(rand, 0, 1) === 0) {
-    const a = pick(rand, Object.keys(LIVING_BANK))
-    return tfQ('Living or not?', `A ${a} is a living thing.`, true)
-  }
-  const b = pick(rand, NONLIVING)
-  return tfQ('Living or not?', `A ${b} is a living thing.`, false)
+  const living = shuffle(rand, Object.keys(LIVING_BANK)).slice(0, 4)
+  const nonliving = shuffle(rand, NONLIVING).slice(0, 4)
+  return matchQ(rand, 'Is it LIVING or NON-LIVING?', [
+    ...living.map((a) => ({ left: a, right: 'living' })),
+    ...nonliving.map((a) => ({ left: a, right: 'non-living' })),
+  ])
 }
 function gPredict(rand: Rand): Question {
   const item = pick(rand, ['ice cube in a warm room', 'seed in a dark cupboard', 'seedling in sunlight', 'bread left out'])

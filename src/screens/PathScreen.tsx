@@ -3,6 +3,7 @@ import { motion } from 'framer-motion'
 import { getCurriculum } from '../content/registry'
 import { isLessonUnlocked, nextActiveLesson } from '../engine/path'
 import { usePlayer } from '../engine/store'
+import { displayStreak, isStreakActive } from '../engine/gamification'
 import { Mascot } from '../components/mascots/Mascots'
 import { sfx } from '../engine/sfx'
 import type { LessonDef, UnitDef } from '../content/types'
@@ -66,7 +67,10 @@ export function PathScreen({ onStartLesson }: { onStartLesson: (lessonId: string
         </div>
         <div className="min-w-0 flex-1">
           <p className="font-display text-sm font-bold text-slate-500">
-            Daily goal · <span className="text-orange-500">🔥 streak day {player.streakCurrent || 'new!'}</span>
+            Daily goal ·{' '}
+            <span className={isStreakActive(player) ? 'text-orange-500' : 'text-slate-400'}>
+              🔥 streak day {isStreakActive(player) ? displayStreak(player) || 'new!' : 'play a lesson today!'}
+            </span>
           </p>
           <div className="mt-1 h-3.5 w-full overflow-hidden rounded-full border border-orange-100 bg-slate-100">
             <div
@@ -79,6 +83,21 @@ export function PathScreen({ onStartLesson }: { onStartLesson: (lessonId: string
           </p>
         </div>
       </div>
+
+      {/* Science is a stub for now — friendly empty state instead of a blank page */}
+      {units.length === 0 && (
+        <div className="card-white mb-5 p-6 text-center">
+          <div className="text-5xl">🔬</div>
+          <h2 className="mt-2 font-display text-lg font-extrabold text-slate-600">
+            Science is coming soon!
+          </h2>
+          <p className="mt-1 text-sm font-bold text-slate-400">
+            Cambridge Year 2 Science (plants, animals, materials, seasons and more)
+            is being built right now. Switch to Maths or English to keep playing
+            while we finish it!
+          </p>
+        </div>
+      )}
 
       {units.map((u, ui) => {
         const done = unitDone(u, player.lessonProgress)

@@ -1,0 +1,9 @@
+[10:56:44] building (tsc + vite, base=/momomath-year2/)...
+npm notice run momo-year2-cambridge@0.1.0 build
+npm notice run tsc -b && vite build --base=/momomath-year2/
+src/engine/store.ts(585,20): error TS2339: Property 'cardCollection' does not exist on type 'Partial<PlayerState>'.
+src/engine/store.ts(587,35): error TS2339: Property 'cardCollection' does not exist on type 'Partial<PlayerState>'.
+[10:56:58] STEP FAILED (attempt 1/3): npm run build -- --base=/momomath-year2/
+[10:56:58] retrying in 10s...
+npm notice run momo-year2-cambridge@0.1.0 build
+npm notice run tsc -b && vite build --base=/momomath-year2/

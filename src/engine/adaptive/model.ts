@@ -158,6 +158,16 @@ export function trendLabel(
   return 'flat'
 }
 
+/** Was this wrong answer likely a rushed guess rather than a knowledge gap?
+ *  Compares against the skill's own average pace (kids vary wildly), with an
+ *  absolute floor for cold skills that have no average yet. Year-2 tuned:
+ *  under ~2.5s you cannot have read the question. */
+export function isRushedAttempt(responseTimeMs: number, avgResponseMs: number): boolean {
+  if (!Number.isFinite(responseTimeMs) || responseTimeMs < 0) return false
+  if (avgResponseMs > 0) return responseTimeMs < Math.max(1200, avgResponseMs * 0.5)
+  return responseTimeMs < 2500
+}
+
 /** Build an AttemptLogEntry given the current snapshot and the new mastery numbers. */
 export function buildAttemptEntry(args: {
   lessonId: string
@@ -175,6 +185,10 @@ export function buildAttemptEntry(args: {
   correctAnswer?: string
   /** Full question snapshot (caller passes it only for wrong attempts). */
   q?: import('../../content/types').Question | null
+  /** Mistake classification (caller passes it only for wrong attempts). */
+  mistakeKind?: import('./mistakes').MistakeKind | null
+  /** Rushed-guess flag (caller passes it only for wrong attempts). */
+  rushed?: boolean
 }): AttemptLogEntry {
   return {
     ts: args.ts ?? Date.now(),
@@ -191,6 +205,8 @@ export function buildAttemptEntry(args: {
     prompt: args.prompt ?? '',
     correctAnswer: args.correctAnswer ?? '',
     q: args.q ?? null,
+    mistakeKind: args.mistakeKind ?? null,
+    rushed: args.rushed ?? false,
   }
 }
 

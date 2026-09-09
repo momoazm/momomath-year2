@@ -88,7 +88,7 @@ describe('fetchExplanation', () => {
     expect(out.source).toBe('template')
   })
 
-  it('caps server text length', async () => {
+  it('caps explanation server text length', async () => {
     const long = 'x'.repeat(10_000)
     const fetcher = vi.fn(async () =>
       new Response(JSON.stringify({ text: long, source: 'llm' }), { status: 200 }),

@@ -3,22 +3,11 @@ import { AnimatePresence, motion } from 'framer-motion'
 import confetti from 'canvas-confetti'
 import { QUESTIONS_PER_LESSON } from '../content/curriculum'
 import { getCurriculum } from '../content/registry'
+import { isLessonRedo, crownsEarned } from '../engine/path'
 import { usePlayer } from '../engine/store'
-import {
-  CARD_BY_ID,
-  KICKS,
-  KICK_UPGRADE,
-  TIER_META,
-  resolveChest,
-  rollStartTier,
-  upgradeStep,
-  type ChestContext,
-  type ChestResult,
-  type ChestTier,
-} from '../engine/cards'
-import { CardArt } from '../components/ui/CardArt'
-import { SHOP_ITEMS } from '../engine/shop'
-import { speakFor, speakSlowFor, stopSpeaking, ttsAvailable, ttsLangFor } from '../engine/tts'
+import { rollChest, CARD_BY_ID, cardImageUrl, KICK_UPGRADE, copiesToNextStar, toStar, type ChestContext, type ChestResult, type ChestTier } from '../engine/cards'
+import { chestGemMultiplier } from '../engine/shop'
+import { speak, speakSlow, stopSpeaking, ttsAvailable } from '../engine/tts'
 import { Mascot } from '../components/mascots/Mascots'
 import { sfx } from '../engine/sfx'
 import { hashString, mulberry32, shuffle } from '../content/rng'
@@ -98,9 +87,9 @@ function Visual({ v }: { v: NonNullable<Question['visual']> }) {
   switch (v.type) {
     case 'emoji-group':
       return (
-        <div className="mx-auto flex max-w-md flex-wrap justify-center gap-3 py-3">
+        <div className="mx-auto flex max-w-md flex-wrap justify-center gap-2 py-2">
           {v.emojis.map((e, i) => (
-            <span key={i} className="gpu animate-bob text-4xl" style={{ animationDelay: `${(i % 6) * 0.15}s` }}>
+            <span key={i} className="gpu animate-bob text-3xl" style={{ animationDelay: `${(i % 6) * 0.15}s` }}>
               {e}
             </span>
           ))}
@@ -215,21 +204,21 @@ export function LessonScreen({ lessonId, onExit, retryItems }: {
   const [firstAttemptCorrect, setFirstAttemptCorrect] = useState(0)
   const [totalFirstAttempts, setTotalFirstAttempts] = useState(0)
   const [xpEarned, setXpEarned] = useState(0)
-  const [prize, setPrize] = useState(0)
-  const [chestOpen, setChestOpen] = useState(false)
   const [firstAttemptMistakes, setFirstAttemptMistakes] = useState(0)
-  // 4-kick rarity ritual: start tier is rolled at finish; each kick can upgrade
-  // Common->Rare->Epic->Legendary; then the chest resolves (gems + maybe card).
-  const [ritual, setRitual] = useState<{
-    ctx: ChestContext
-    startTier: ChestTier
-    tier: ChestTier
-    kicksLeft: number
-    upgradesAt: number[]
-    gemMult: number
-  } | null>(null)
+  // 4-kick chest ritual state (drives the new cards.ts chest engine UI)
   const [chestResult, setChestResult] = useState<ChestResult | null>(null)
-  const [kickMsg, setKickMsg] = useState('')
+  /** true when the finished lesson was a replay — redos earn XP but no stars or chests */
+  const [isRedoResult, setIsRedoResult] = useState(false)
+  /** streak milestone (7/14/21…) whose bonus high-rarity chest is in chestResult */
+  const [streakBonus, setStreakBonus] = useState<number | null>(null)
+  const [kicksLeft, setKicksLeft] = useState(4)
+  const [currentTier, setCurrentTier] = useState<ChestTier>('common')
+  const [revealed, setRevealed] = useState(false)
+  // Per-kick animation state
+  const [kickPulse, setKickPulse] = useState(0)            // increments each tap → forces remount/animation
+  const [flashTier, setFlashTier] = useState<ChestTier | null>(null) // success → flash this color
+  const [floater, setFloater] = useState<{ id: number; tier: ChestTier } | null>(null) // rising "+1 tier" text
+  const [shaking, setShaking] = useState(false)            // brief screen-shake on success
 
   // per-question UI state
   const [choiceIdx, setChoiceIdx] = useState<number | null>(null)
@@ -237,35 +226,30 @@ export function LessonScreen({ lessonId, onExit, retryItems }: {
   const [tapped, setTapped] = useState<Set<number>>(new Set())
   const [pendingLeft, setPendingLeft] = useState<string | null>(null)
   const [matched, setMatched] = useState<Set<string>>(new Set())
+  const [matchErrors, setMatchErrors] = useState(0)
   const [orderPick, setOrderPick] = useState<number[]>([])
   // letter tiles
   const [tilePicks, setTilePicks] = useState<number[]>([])
   // speak
   const [speakPhase, setSpeakPhase] = useState<'idle' | 'listening' | 'heard'>('idle')
-  // track first-attempt state per queue index
-  // track answered question INSTANCES (requeued retries are the same object,
-  // so retries never count as new first attempts — no flawless-bonus leak)
+  // track first-attempt state per question INSTANCE (requeued retries are
+  // the same object, so retries never count as new first attempts — no
+  // flawless-bonus leak and no double BKT updates)
   const [seenQuestions, setSeenQuestions] = useState<Set<Question>>(new Set())
-  // idempotency guards: rapid double-taps must not double-finish or double-pay
-  const finishedRef = useRef(false)
-  const chestClaimedRef = useRef(false)
-  // per-question tap guards: Check fires once per question, Continue advances
-  // once per feedback (double-taps otherwise skip questions / double-count)
-  const checkedRef = useRef(false)
-  const continuedRef = useRef(false)
 
   const q: Question | undefined = queue[qIdx]
 
-  // Adaptive engine — one hook per lesson screen. We pass the primary objective
-  // code of this lesson + the current question so the BKT model + LLM
-  // explanation can fire on the first attempt.
+  // Adaptive engine — BKT update + optional LLM explanation on first
+  // attempts, wrong-question snapshots for the retry tracker.
   const adaptive = useAdaptiveLesson()
   const lessonCode = useMemo(() => primaryCode(lessonId, subject) ?? 'unknown', [lessonId, subject])
 
-  // Reset the adaptive explanation when we move to a new question
+  // Fresh per-question timer for response-time tracking + explanation reset.
   useEffect(() => {
     adaptive.reset()
-  }, [qIdx, adaptive])
+    adaptive.markShown()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [qIdx])
 
   /** Start a session: retry items when given, else a fresh generated lesson. */
   const beginSession = useCallback((items: RetryItem[] | null) => {
@@ -282,18 +266,16 @@ export function LessonScreen({ lessonId, onExit, retryItems }: {
     setMissedCount(0)
     setQIdx(0); setPhase('playing'); setFeedback(null)
     setFirstAttemptCorrect(0); setTotalFirstAttempts(0); setSeenQuestions(new Set())
-    setRitual(null); setChestResult(null); setKickMsg(''); setPrize(0)
-    finishedRef.current = false; chestClaimedRef.current = false
-    checkedRef.current = false; continuedRef.current = false
     resetQState()
-  }, [entry, attempt, lessonCode, lessonId])
+    adaptive.markShown()
+  }, [entry, attempt, lessonCode, lessonId, adaptive])
 
   const startLesson = useCallback(() => {
     beginSession(retry)
   }, [beginSession, retry])
 
-  /** Done-screen / profile action: replay exactly the questions missed in
-   *  this session (or the retry session) — XP only, no double chest. */
+  /** Done-screen action: replay exactly the questions missed in this
+   *  session — XP only, no second chest. */
   function startRetryFromMissed() {
     const items: RetryItem[] = [...missedRef.current.entries()].map(
       ([question, m]) => ({
@@ -312,16 +294,15 @@ export function LessonScreen({ lessonId, onExit, retryItems }: {
 
   function resetQState() {
     setChoiceIdx(null); setTyped(''); setTapped(new Set())
-    setPendingLeft(null); setMatched(new Set()); setOrderPick([])
+    setPendingLeft(null); setMatched(new Set()); setMatchErrors(0); setOrderPick([])
     setTilePicks([]); setSpeakPhase('idle')
   }
 
-  // auto-play audio prompts once per question; stop any speech on unmount.
-  // Subject-aware: the optional German extra plays de-DE, core stays en-GB.
+  // auto-play audio prompts once per question; stop any speech on unmount
   useEffect(() => {
-    if (q && 'audioText' in q && q.audioText) speakFor(subject, q.audioText)
+    if (q && 'audioText' in q && q.audioText) speak(q.audioText)
     return () => stopSpeaking()
-  }, [q, subject])
+  }, [q])
 
   const canCheck = useMemo(() => {
     if (!q) return false
@@ -346,7 +327,7 @@ export function LessonScreen({ lessonId, onExit, retryItems }: {
         if (tapped.size !== q.target) return false
         return [...tapped].every((i) => q.cells[i] === q.targetEmoji)
       }
-      case 'match': return matched.size === q.pairs.length // complete = correct: retries are free
+      case 'match': return matchErrors === 0
       case 'order':
         return orderPick.every((cellIdx, pos) => cellIdx === pos)
       case 'letter-tiles':
@@ -358,7 +339,7 @@ export function LessonScreen({ lessonId, onExit, retryItems }: {
       case 'speak':
         return speakPhase !== 'idle' // self-affirmed or recognised - forgiving by design
     }
-  }, [q, choiceIdx, typed, tapped, matched.size, orderPick, tilePicks, speakPhase])
+  }, [q, choiceIdx, typed, tapped, matched.size, matchErrors, orderPick, tilePicks, speakPhase])
 
   function studentAnswerString(): string {
     if (!q) return ''
@@ -388,9 +369,7 @@ export function LessonScreen({ lessonId, onExit, retryItems }: {
   }
 
   function handleCheck() {
-    if (!canCheck || !q || feedback || checkedRef.current) return
-    checkedRef.current = true
-    continuedRef.current = false
+    if (!canCheck || !q || feedback) return
     const isFirstAttempt = q ? !seenQuestions.has(q) : false
     const ok = isCorrectNow()
     if (ok) sfx.correct()
@@ -399,9 +378,8 @@ export function LessonScreen({ lessonId, onExit, retryItems }: {
       setSeenQuestions((s) => new Set(s).add(q))
       setTotalFirstAttempts((n) => n + 1)
       if (ok) setFirstAttemptCorrect((n) => n + 1)
-      // Adaptive: record the first attempt (BKT update + optional LLM explain).
-      // Origin + live skill difficulty travel with the log so the tracker can
-      // report hardest-question accuracy per lesson.
+      // Adaptive: BKT update + wrong-question snapshot. Origin + live skill
+      // difficulty travel with the log so hardest-question stats are real.
       const origin = retry ? (queueMeta[qIdx] ?? { lessonId, objectiveCode: lessonCode }) : { lessonId, objectiveCode: lessonCode }
       if (!ok) missedRef.current.set(q, origin)
       adaptive.recordFirstAttempt({
@@ -421,9 +399,7 @@ export function LessonScreen({ lessonId, onExit, retryItems }: {
   }
 
   function handleContinue() {
-    if (!q || finishedRef.current || continuedRef.current) return
-    continuedRef.current = true
-    checkedRef.current = false
+    if (!q) return
     const requeued = feedback === 'wrong'
     if (requeued) {
       setQueue((qq) => [...qq, q]) // retry at the end, Duolingo-style
@@ -434,7 +410,6 @@ export function LessonScreen({ lessonId, onExit, retryItems }: {
     setFeedback(null)
     resetQState()
     if (finished) {
-      finishedRef.current = true
       finishLesson()
     } else {
       setQIdx((i) => i + 1)
@@ -442,37 +417,6 @@ export function LessonScreen({ lessonId, onExit, retryItems }: {
   }
 
   function finishLesson() {
-    const accuracy = totalFirstAttempts > 0
-      ? Math.round((firstAttemptCorrect / totalFirstAttempts) * 100)
-      : 100
-
-    // Calculate first-attempt mistakes (drives crowns + flawless bonus text).
-    const firstAttemptMistakes = totalFirstAttempts - firstAttemptCorrect
-    setFirstAttemptMistakes(firstAttemptMistakes)
-    setMissedCount(missedRef.current.size)
-
-    // Retry practice: XP only (1 XP per fixed mistake), streak + dailies move,
-    // but lessonProgress crowns/completions and chests are untouched — loot
-    // stays reserved for fresh clears, so retrying can't farm rewards.
-    if (retry) {
-      let gained = firstAttemptCorrect
-      if (player.doubleXpLessons > 0) {
-        gained *= 2
-        player.useDoubleXp()
-      }
-      player.recordPractice({
-        xp: gained,
-        correct: firstAttemptCorrect,
-        totalQuestions: totalFirstAttempts,
-      })
-      setXpEarned(gained)
-      sfx.complete()
-      confetti({ particleCount: firstAttemptMistakes === 0 ? 120 : 60, spread: 75, origin: { y: 0.7 }, disableForReducedMotion: true })
-      setChestOpen(false)
-      setPhase('done')
-      return
-    }
-
     const isBoss = entry!.lesson.id.endsWith('boss')
     const base = isBoss ? 20 : 10
     const bonus = firstAttemptCorrect === QUESTIONS_PER_LESSON ? 5 : 0
@@ -484,103 +428,154 @@ export function LessonScreen({ lessonId, onExit, retryItems }: {
       player.useDoubleXp()
     }
 
-    // Roll the chest's STARTING rarity tier. Boss lessons draw from the
-    // upgraded no-common table; a shop Lucky Ticket swaps to the lucky table
-    // for this chest (consumed even if no card drops).
-    const ctx: ChestContext = isBoss ? 'boss' : (player.consumeLuckyTicket() ? 'lucky' : 'normal')
+    const accuracy = totalFirstAttempts > 0
+      ? Math.round((firstAttemptCorrect / totalFirstAttempts) * 100)
+      : 100
 
-    // Shop gem boosts multiply the FINAL tier's gem band (consumed now).
-    let gemMult = 1
-    if (player.chestBoost) {
-      gemMult *= 2
-      player.useChestBoost()
-    }
-    if (player.megaChest) {
-      gemMult *= 2
-      player.useMegaChest()
+    const firstAttemptMistakes = totalFirstAttempts - firstAttemptCorrect
+    setFirstAttemptMistakes(firstAttemptMistakes)
+    setMissedCount(missedRef.current.size)
+
+    // Retry practice: XP only (1 XP per fixed mistake), streak + dailies move,
+    // but lessonProgress crowns/completions and chests are untouched — loot
+    // stays reserved for fresh clears, so retrying can't farm rewards.
+    if (retry) {
+      let retryGained = firstAttemptCorrect
+      if (player.doubleXpLessons > 0) {
+        retryGained *= 2
+        player.useDoubleXp()
+      }
+      player.recordPractice({
+        xp: retryGained,
+        correct: firstAttemptCorrect,
+        totalQuestions: totalFirstAttempts,
+      })
+      setXpEarned(retryGained)
+      sfx.complete()
+      confetti({ particleCount: firstAttemptMistakes === 0 ? 120 : 60, spread: 75, origin: { y: 0.7 }, disableForReducedMotion: true })
+      setPhase('done')
+      return
     }
 
-    const startTier = rollStartTier(Math.random, ctx)
-    setRitual({
-      ctx,
-      startTier,
-      tier: startTier,
-      kicksLeft: KICKS,
-      upgradesAt: [],
-      gemMult,
-    })
-    setXpEarned(gained)
+    // Redos (replays of an already-completed lesson) earn XP but never
+    // stars/crowns or chests — loot is reserved for fresh clears.
+    const redo = isLessonRedo(player.lessonProgress, lessonId)
+    setIsRedoResult(redo)
+
+    // Commit lesson results FIRST: this advances the streak and may set a
+    // pending streak milestone (every 7 consecutive days) for THIS lesson.
     player.completeLesson({
       lessonId,
       xp: gained,
       correct: firstAttemptCorrect,
       totalQuestions: totalFirstAttempts,
-      crownsGained: firstAttemptMistakes === 0 ? 1 : 0,
+      crownsGained: crownsEarned(redo, firstAttemptMistakes),
       accuracy,
     })
 
-    // Handle streak saver
-    if (firstAttemptMistakes > 0 && player.streakSavers > 0) {
-      // Could add logic here to protect streak
+    // Streak milestone bonus chest (HIGH rarity, guaranteed Legendary+).
+    // Streak Savers protect missed days automatically inside updateStreak().
+    // Skipped on redos: the pending milestone waits for the next fresh clear.
+    const streakMilestone = redo ? null : player.consumeStreakChest()
+    setStreakBonus(streakMilestone)
+
+    if (!redo) {
+      // New chest engine (cards.ts) - replaces the legacy lessonChestPrize
+      const ctx: ChestContext = streakMilestone !== null
+        ? 'streak'
+        : player.consumeLuckyTicket() ? 'lucky' : isBoss ? 'boss' : 'normal'
+      const chest = rollChest(Math.random, ctx, player.cardStars, player.cardPity)
+      const finalGems = chestGemMultiplier(player.chestBoost, player.megaChest) * chest.gems
+      if (player.chestBoost) player.useChestBoost()
+      if (player.megaChest) player.useMegaChest()
+      const finalChest: ChestResult = { ...chest, gems: finalGems }
+      player.grantChest(finalChest)
+      setChestResult(finalChest)
+      setCurrentTier(chest.startTier)
+    } else {
+      setChestResult(null)
+      setCurrentTier('common')
     }
+    setKicksLeft(4)
+    setRevealed(false)
+    setKickPulse(0)
+    setFlashTier(null)
+    setFloater(null)
+    setShaking(false)
+    setXpEarned(gained)
 
     sfx.complete()
     confetti({ particleCount: firstAttemptMistakes === 0 ? 120 : 60, spread: 75, origin: { y: 0.7 }, disableForReducedMotion: true })
-    setChestOpen(false)
     setPhase('done')
   }
 
-  /** First tap: reveal the chest's starting rarity tier (no rewards yet). */
-  function openChest() {
-    if (chestOpen || !ritual) return
-    sfx.tap('chest')
-    setChestOpen(true)
+  /* Tier metadata for the kick-upgrade UI */
+  const TIER_META: Record<ChestTier, { color: string; label: string; glow: string }> = {
+    common:    { color: '#94a3b8', label: 'Common',    glow: 'rgba(148,163,184,0.4)' },
+    rare:      { color: '#3b82f6', label: 'Rare',      glow: 'rgba(59,130,247,0.4)' },
+    epic:      { color: '#a855f7', label: 'Epic',      glow: 'rgba(168,85,247,0.45)' },
+    legendary: { color: '#f59e0b', label: 'Legendary', glow: 'rgba(245,158,11,0.5)' },
+    exclusive: { color: '#ec4899', label: 'Exclusive', glow: 'rgba(236,72,153,0.5)' },
   }
+  const TIER_RANK: ChestTier[] = ['common', 'rare', 'epic', 'legendary', 'exclusive']
+  const tierIdx = (t: ChestTier) => TIER_RANK.indexOf(t)
 
-  const KICK_MISS_LINES = ['So close!', 'The chest rattles...', 'Almost! Kick again!', 'Nothing... one more!']
+  function onChestKick() {
+    if (revealed) return
+    if (kicksLeft <= 0) return
+    if (!chestResult) return
+    sfx.tap()
+    setKickPulse((n) => n + 1)            // re-trigger shake/flash animation
+    const kicksDone = 4 - kicksLeft       // 0..3
+    const willUpgrade = chestResult.upgradesAt.includes(kicksDone)
+    const fromTier = TIER_RANK[tierIdx(currentTier)]
+    const toTier: ChestTier = willUpgrade && tierIdx(currentTier) < 4
+      ? TIER_RANK[tierIdx(currentTier) + 1]
+      : currentTier
 
-  /** One of the 4 kick taps: chance to upgrade Common->Rare->Epic->Legendary.
-   *  Exclusive/Mythic/Ultimate/Hyper are start-roll only and never upgrade.
-   *  The 4th kick resolves gems + card and grants them exactly once. */
-  function kickChest() {
-    if (!ritual || !chestOpen || chestResult || ritual.kicksLeft <= 0) return
-    const kickIdx = KICKS - ritual.kicksLeft
-    const next = upgradeStep(ritual.tier)
-    let tier = ritual.tier
-    let upgradesAt = ritual.upgradesAt
-    if (next !== tier && Math.random() < KICK_UPGRADE[tier]) {
-      tier = next
-      upgradesAt = [...upgradesAt, kickIdx]
-      sfx.correct()
-      confetti({ particleCount: 40, spread: 70, origin: { y: 0.6 }, disableForReducedMotion: true })
-      setKickMsg(`${TIER_META[tier].icon} UPGRADED to ${TIER_META[tier].label}!`)
+    if (willUpgrade) {
+      setCurrentTier(toTier)
+      setFlashTier(toTier)
+      setFloater({ id: Date.now(), tier: toTier })
+      setShaking(true)
+      sfx.leagueUp()
+      // confetti in the new tier's color
+      const color = TIER_META[toTier].color
+      confetti({
+        particleCount: 60,
+        spread: 90,
+        origin: { y: 0.55 },
+        colors: [color, TIER_META[fromTier].color, '#ffffff'],
+        disableForReducedMotion: true,
+      })
+      // clear transient state after the animation
+      setTimeout(() => {
+        setFlashTier(null)
+        setFloater(null)
+        setShaking(false)
+      }, 900)
     } else {
-      sfx.tap('kick')
-      setKickMsg(KICK_MISS_LINES[Math.floor(Math.random() * KICK_MISS_LINES.length)])
+      // a "miss" still feels punchy: small spark burst in the current tier color
+      const color = TIER_META[currentTier].color
+      confetti({
+        particleCount: 18,
+        spread: 50,
+        origin: { y: 0.6 },
+        colors: [color, '#ffffff'],
+        scalar: 0.6,
+        disableForReducedMotion: true,
+      })
     }
-    const kicksLeft = ritual.kicksLeft - 1
-    if (kicksLeft <= 0) {
-      const result = resolveChest(
-        Math.random,
-        player.cardStars,
-        player.cardPity,
-        ritual.startTier,
-        tier,
-        upgradesAt,
-        ritual.gemMult,
-      )
-      // Grant exactly once no matter how fast little fingers tap.
-      if (!chestClaimedRef.current) {
-        chestClaimedRef.current = true
-        player.grantChest(result)
-      }
-      setPrize(result.gems)
-      setChestResult(result)
-      setKickMsg('')
+
+    const next = kicksLeft - 1
+    if (next <= 0) {
+      setKicksLeft(0)
+      setRevealed(true)
       sfx.leagueUp()
       confetti({ particleCount: 100, spread: 100, origin: { y: 0.6 }, disableForReducedMotion: true })
+    } else {
+      setKicksLeft(next)
     }
-    setRitual({ ...ritual, tier, kicksLeft, upgradesAt })
   }
 
   /* ------------------------------ INTRO ------------------------------ */
@@ -667,28 +662,8 @@ export function LessonScreen({ lessonId, onExit, retryItems }: {
         </div>
       )
     }
-    // Brawl-Stars stage color follows the live rarity: start tier while
-    // kicking, final tier once the chest bursts open.
-    const tierStageColor = chestResult
-      ? TIER_META[chestResult.finalTier].color
-      : ritual
-        ? TIER_META[ritual.tier].color
-        : '#94a3b8'
     return (
-      <div className="relative mx-auto flex h-[100dvh] max-w-xl flex-col items-center justify-center overflow-hidden px-6 pb-24">
-        {/* animated rarity rays + twinkles behind the whole chest show */}
-        {(ritual || chestResult) && (
-          <div className="pointer-events-none absolute inset-0 flex items-center justify-center" aria-hidden="true">
-            <div
-              className="rays animate-spin-slower h-[560px] w-[560px] shrink-0"
-              style={{ '--ray': `${tierStageColor}99`, backgroundColor: `${tierStageColor}1f` } as React.CSSProperties}
-            />
-            <span className="twinkle absolute left-[16%] top-[28%] text-2xl" style={{ animationDelay: '0s' }}>✨</span>
-            <span className="twinkle absolute right-[14%] top-[40%] text-xl" style={{ animationDelay: '0.5s' }}>⭐</span>
-            <span className="twinkle absolute bottom-[28%] left-[22%] text-xl" style={{ animationDelay: '1s' }}>💫</span>
-            <span className="twinkle absolute bottom-[22%] right-[20%] text-2xl" style={{ animationDelay: '1.4s' }}>✨</span>
-          </div>
-        )}
+      <div className="mx-auto flex h-[100dvh] max-w-xl flex-col items-center justify-center px-6 pb-24">
         <motion.div initial={{ scale: 0.5, rotate: -8, opacity: 0 }} animate={{ scale: 1, rotate: 0, opacity: 1 }}
           transition={{ type: 'spring', stiffness: 220, damping: 14 }}
           className="h-40 w-40 gpu">
@@ -696,126 +671,249 @@ export function LessonScreen({ lessonId, onExit, retryItems }: {
         </motion.div>
         <motion.h1 initial={{ y: 12, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.15 }}
           className="mt-3 text-center font-display text-4xl font-extrabold text-yellow-500 drop-shadow">
-          {firstAttemptMistakes === 0 ? 'PERFECT!' : 'Lesson complete!'}
+          {isRedoResult ? 'Nice practice!' : firstAttemptMistakes === 0 ? 'PERFECT!' : 'Lesson complete!'}
         </motion.h1>
         <p className="mt-1 text-center font-body text-sm font-bold text-slate-400">
-          {firstAttemptMistakes === 0 ? 'Flawless run - every answer right!' : `${firstAttemptMistakes} mistake${firstAttemptMistakes === 1 ? '' : 's'} on first try. Practice makes perfect!`}
+          {isRedoResult
+            ? 'Replays earn XP — clear a fresh lesson for stars and chests!'
+            : firstAttemptMistakes === 0 ? 'Flawless run - every answer right!' : `${firstAttemptMistakes} mistake${firstAttemptMistakes === 1 ? '' : 's'} on first try. Practice makes perfect!`}
         </p>
 
-        <motion.button
-          onClick={openChest}
-          disabled={chestOpen}
-          whileTap={{ scale: chestOpen ? 1 : 0.9 }}
-          animate={chestOpen ? { rotate: [0, -6, 6, 0], scale: [1, 1.15, 1] } : { y: [0, -8, 0] }}
-          transition={chestOpen ? { duration: 0.5 } : { repeat: Infinity, duration: 1.6 }}
-          className={`relative z-10 mt-6 text-[110px] leading-none ${chestOpen ? '' : 'cursor-pointer drop-shadow-lg'}`}
-          aria-label={chestOpen ? 'Chest opened' : 'Tap to open your chest'}
-        >
-          {/* every kick shakes the chest (key remount retriggers the shake) */}
-          <span
-            key={ritual && chestOpen ? KICKS - ritual.kicksLeft : 'closed'}
-            className={`inline-block ${chestOpen && ritual && ritual.kicksLeft < KICKS ? 'animate-shake-x' : ''}`}
+        {/* streak milestone bonus banner */}
+        {streakBonus !== null && (
+          <motion.div
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ type: 'spring', stiffness: 220, damping: 16 }}
+            className="mt-4 rounded-2xl border-2 border-amber-300 bg-amber-50 px-4 py-2 text-center font-display text-sm font-extrabold text-amber-600 shadow-pop"
           >
-            {chestOpen ? '🎉' : '🎁'}
-          </span>
-          {!chestOpen && (
-            <span className="absolute -bottom-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-speed-blue px-3 py-1 font-display text-xs font-extrabold text-white">
-              Tap to open!
-            </span>
-          )}
-        </motion.button>
-
-        {/* starting rarity reveal + 4-kick ritual */}
-        {chestOpen && ritual && !chestResult && (
-          <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="relative z-10 mt-6 flex flex-col items-center">
-            <span
-              className="rounded-full px-4 py-1.5 font-display text-lg font-extrabold text-white"
-              style={{ background: `linear-gradient(135deg, ${TIER_META[ritual.tier].color}, ${TIER_META[ritual.tier].color}99)`, boxShadow: `0 0 24px ${TIER_META[ritual.tier].glow}` }}
-            >
-              {TIER_META[ritual.tier].icon} {TIER_META[ritual.tier].label} chest!
-            </span>
-            <p className="mt-2 text-center font-body text-sm font-bold text-slate-400">
-              {ritual.ctx === 'boss' ? '👑 Boss chest — rare loot inside!' : ritual.ctx === 'lucky' ? '🍀 Lucky ticket magic!' : 'Kick it 4 times to upgrade its rarity!'}
-            </p>
-            <button onClick={kickChest} className="btn3d btn-green mt-3 gpu">
-              🦵 Kick! ({ritual.kicksLeft} left)
-            </button>
-            {/* kick progress pips */}
-            <div className="mt-2 flex gap-1.5" aria-hidden="true">
-              {Array.from({ length: KICKS }, (_, i) => (
-                <span
-                  key={i}
-                  className={`h-2.5 w-2.5 rounded-full ${i < KICKS - ritual.kicksLeft ? 'bg-amber-400 shadow-pop' : 'bg-slate-200'}`}
-                />
-              ))}
-            </div>
-            {kickMsg && <p className="mt-2 font-display text-base font-extrabold text-slate-500">{kickMsg}</p>}
-            {ritual.upgradesAt.length > 0 && (
-              <p className="mt-1 text-xs font-bold text-slate-300">
-                Upgrades: {ritual.upgradesAt.length} ⚡
-              </p>
-            )}
+            🔥 {streakBonus}-DAY STREAK! BONUS HIGH-RARITY CHEST! 🎁
           </motion.div>
         )}
 
         {chestResult && (
-          <>
-            {/* full-screen rarity flash the moment the chest bursts */}
-            <div className="animate-flash-out pointer-events-none fixed inset-0 z-40" style={{ backgroundColor: TIER_META[chestResult.finalTier].color }} />
-            <motion.div initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: 'spring', stiffness: 260, damping: 16 }} className="relative z-10 mt-6 flex flex-col items-center text-center">
-              <span
-                className="rounded-full px-4 py-1.5 font-display text-lg font-extrabold text-white"
-                style={{ background: `linear-gradient(135deg, ${TIER_META[chestResult.finalTier].color}, ${TIER_META[chestResult.finalTier].color}99)`, boxShadow: `0 0 24px ${TIER_META[chestResult.finalTier].glow}` }}
+          <motion.div
+            className="relative mt-6 flex flex-col items-center"
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={
+              shaking
+                ? { scale: 1, opacity: 1, x: [0, -10, 10, -8, 8, -4, 4, 0] }
+                : { scale: 1, opacity: 1 }
+            }
+            transition={
+              shaking
+                ? { duration: 0.45, ease: 'easeOut' }
+                : { type: 'spring', stiffness: 220, damping: 18 }
+            }
+            key={revealed ? 'revealed' : 'closed'}
+          >
+            {/* full-screen color flash on successful upgrade */}
+            <AnimatePresence>
+              {flashTier && (
+                <motion.div
+                  key={flashTier + '-' + kickPulse}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 0.45 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.35, ease: 'easeOut' }}
+                  className="pointer-events-none fixed inset-0 z-40"
+                  style={{ background: TIER_META[flashTier].color }}
+                />
+              )}
+            </AnimatePresence>
+            {/* the chest itself - shakes horizontally on every kick */}
+            <motion.button
+              onClick={onChestKick}
+              whileTap={revealed ? {} : { scale: 0.88 }}
+              animate={
+                revealed
+                  ? { rotate: [0, -8, 8, 0], scale: [1, 1.18, 1] }
+                  : { y: [0, -6, 0] }
+              }
+              transition={
+                revealed
+                  ? { duration: 0.6 }
+                  : { repeat: Infinity, duration: 1.6 }
+              }
+              disabled={revealed}
+              className={`relative text-[110px] leading-none ${revealed ? '' : 'cursor-pointer'}`}
+              aria-label={revealed ? 'Chest opened' : 'Tap to kick your chest'}
+            >
+              {/* per-kick shake layer - remounts on each tap via the key */}
+              <motion.div
+                key={'kick-' + kickPulse}
+                initial={{ x: 0, rotate: 0 }}
+                animate={
+                  revealed
+                    ? { x: 0, rotate: 0 }
+                    : { x: [0, -22, 22, -16, 16, -8, 8, 0], rotate: [0, -8, 8, -5, 5, -2, 2, 0] }
+                }
+                transition={{ duration: 0.55, ease: 'easeOut' }}
+                className="drop-shadow-lg"
               >
-                {TIER_META[chestResult.finalTier].icon} {TIER_META[chestResult.finalTier].label}!
-              </span>
-              <p className="mt-2 font-display text-3xl font-extrabold text-orange-500">+{prize} 💎</p>
-              {chestResult.starBonus > 0 && (
-                <p className="mt-1 font-display text-lg font-extrabold text-amber-500">+{chestResult.starBonus} ⭐ star power!</p>
-              )}
-              {chestResult.cards.length > 0 ? (
-                <div className="mt-3 flex flex-wrap items-start justify-center gap-4">
-                  {chestResult.cards.map((c, i) => (
-                    <motion.div
-                      key={`${c.id}-${i}`}
-                      initial={{ rotateY: 90, scale: 0.6, opacity: 0 }}
-                      animate={{ rotateY: 0, scale: 1, opacity: 1 }}
-                      transition={{ delay: 0.15 * i + 0.1, type: 'spring', stiffness: 260, damping: 16 }}
-                      className="relative flex w-32 flex-col items-center"
-                    >
-                      <div className="relative flex h-32 w-32 items-center justify-center">
-                        <div
-                          className="rays animate-spin-slower absolute -inset-5"
-                          style={{ '--ray': `${TIER_META[chestResult.finalTier].color}aa` } as React.CSSProperties}
-                        />
-                        <div className="relative h-28 w-28 drop-shadow-xl">
-                          <CardArt cardId={c.id} character={CARD_BY_ID[c.id]?.character ?? 'sonic'} expression="excited" />
-                        </div>
-                      </div>
-                      {c.isNew ? (
-                        <p className="mt-1 rounded-full bg-violet-500 px-2 py-0.5 font-display text-xs font-extrabold text-white shadow-pop">
-                          🃏 NEW: {CARD_BY_ID[c.id]?.name ?? c.id}!
-                        </p>
-                      ) : (
-                        <p className="mt-1 rounded-full bg-amber-400 px-2 py-0.5 font-display text-xs font-extrabold text-amber-900 shadow-pop">
-                          ⭐ STAR UP! {CARD_BY_ID[c.id]?.name ?? c.id} {'★'.repeat(Math.max(1, c.starAfter))}
-                        </p>
-                      )}
-                    </motion.div>
-                  ))}
+                {/* persistent glow ring (sized to the chest) */}
+                <div
+                  className="absolute inset-0 -m-4 rounded-[2.5rem] pointer-events-none"
+                  style={{
+                    boxShadow: `0 0 60px 10px ${TIER_META[currentTier].glow}, inset 0 0 40px ${TIER_META[currentTier].glow}`,
+                    opacity: 0.85,
+                  }}
+                />
+                {/* the radial-gradient "chest" panel */}
+                <div
+                  className="relative rounded-3xl px-8 py-4"
+                  style={{
+                    background: `radial-gradient(circle, ${TIER_META[currentTier].glow}, transparent 70%)`,
+                  }}
+                >
+                  {revealed ? '🎉' : '🎁'}
                 </div>
-              ) : chestResult.jackpot ? (
-                <p className="mt-2 font-display text-base font-extrabold text-yellow-500">🎰 JACKPOT! Collection maxed!</p>
-              ) : (
-                <p className="mt-2 text-xs font-bold text-slate-400">No cards this time — every chest brings you closer!</p>
+              </motion.div>
+            </motion.button>
+            {/* rising "+1 tier" floater on successful upgrade */}
+            <AnimatePresence>
+              {floater && (
+                <motion.div
+                  key={floater.id}
+                  initial={{ y: 0, opacity: 0, scale: 0.6 }}
+                  animate={{ y: -90, opacity: 1, scale: 1.1 }}
+                  exit={{ y: -130, opacity: 0, scale: 1 }}
+                  transition={{ duration: 0.85, ease: 'easeOut' }}
+                  className="pointer-events-none absolute top-0 left-1/2 -translate-x-1/2 z-10 whitespace-nowrap font-display text-2xl font-extrabold"
+                  style={{ color: TIER_META[floater.tier].color, textShadow: `0 0 14px ${TIER_META[floater.tier].glow}` }}
+                >
+                  +1 {TIER_META[floater.tier].label}!
+                </motion.div>
               )}
-              <p className="mt-1 font-display font-extrabold text-emerald-500">+{xpEarned} ⚡ XP</p>
+            </AnimatePresence>
+
+            {/* tier badge - bounces in when the tier changes */}
+            <motion.div
+              key={'badge-' + currentTier}
+              initial={{ scale: 0.4, y: -8, opacity: 0 }}
+              animate={{ scale: 1, y: 0, opacity: 1 }}
+              transition={{ type: 'spring', stiffness: 320, damping: 14 }}
+              className="mt-3 rounded-full px-3 py-0.5 font-display text-sm font-extrabold uppercase tracking-wider"
+              style={{
+                color: 'white',
+                background: TIER_META[currentTier].color,
+                textShadow: `0 1px 0 rgba(0,0,0,0.25)`,
+                boxShadow: `0 0 18px ${TIER_META[currentTier].glow}`,
+              }}
+            >
+              {TIER_META[currentTier].label}
             </motion.div>
-          </>
+
+            {/* probability line: "Next kick: 22% chance to become Rare" */}
+            {!revealed && (() => {
+              const idx = tierIdx(currentTier)
+              const canUpgrade = idx < 3 // not at Legendary/Exclusive
+              if (!canUpgrade) {
+                return (
+                  <p className="mt-2 font-display text-xs font-extrabold uppercase tracking-wider text-yellow-500">
+                    ★ Max tier reached ★
+                  </p>
+                )
+              }
+              const pct = Math.round(KICK_UPGRADE[currentTier] * 100)
+              const nextTier = TIER_RANK[idx + 1]
+              const nextMeta = TIER_META[nextTier]
+              return (
+                <p className="mt-2 font-body text-xs font-bold text-slate-500">
+                  Next kick: <span style={{ color: nextMeta.color, fontWeight: 800 }}>{pct}% → {nextMeta.label}</span>
+                </p>
+              )
+            })()}
+
+            {/* 4-dot kick progress */}
+            {!revealed && (
+              <div className="mt-2 flex gap-1.5" aria-label="Kicks remaining">
+                {Array.from({ length: 4 }).map((_, i) => {
+                  const filled = i < 4 - kicksLeft
+                  return (
+                    <motion.span
+                      key={i}
+                      animate={
+                        filled
+                          ? { scale: [1, 1.4, 1] }
+                          : { scale: 1 }
+                      }
+                      transition={filled ? { duration: 0.4, ease: 'easeOut' } : {}}
+                      className="h-2 w-2 rounded-full"
+                      style={{ background: filled ? TIER_META[currentTier].color : '#cbd5e1' }}
+                    />
+                  )
+                })}
+              </div>
+            )}
+
+            {/* CTA below the progress */}
+            {!revealed && (
+              <span className="mt-2 whitespace-nowrap rounded-full bg-speed-blue px-3 py-1 font-display text-xs font-extrabold text-white">
+                {kicksLeft === 4 ? 'Tap to open!' : `Kick! (${kicksLeft} left)`}
+              </span>
+            )}
+          </motion.div>
         )}
 
-        <div className="relative z-10 mt-8 w-full max-w-xs space-y-3">
-          {chestResult ? (
+        {revealed && chestResult && (
+          <motion.div
+            initial={{ scale: 0, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ type: 'spring', stiffness: 260, damping: 16 }}
+            className="mt-6 text-center"
+          >
+            <p className="font-display text-3xl font-extrabold text-orange-500">+{chestResult.gems} 💎</p>
+            <p className="mt-1 font-display font-extrabold text-emerald-500">+{xpEarned} ⚡ XP</p>
+            <p className="mt-2 font-display text-sm font-extrabold text-blue-600">
+              {chestResult.cards.some(c => c.isNew) ? '✨ NEW CARD(S)!' : '3 cards unlocked'}
+            </p>
+            <div className="mt-4 grid grid-cols-3 gap-2">
+              {chestResult.cards.map((card, idx) => {
+                const def = CARD_BY_ID[card.cardId]
+                if (!def) return null
+                const count = player.cardStars[card.cardId] ?? 0
+                const stars = toStar(count)
+                return (
+                  <motion.div
+                    key={card.cardId + idx}
+                    initial={{ rotateY: 180, opacity: 0 }}
+                    animate={{ rotateY: 0, opacity: 1 }}
+                    transition={{ type: 'spring', stiffness: 200, damping: 18, delay: idx * 0.15 }}
+                    className="card-white overflow-hidden"
+                    style={{ borderColor: TIER_META[def.tier].color }}
+                  >
+                    <div className="h-20 bg-gradient-to-b from-white/40 to-transparent flex items-center justify-center px-1 pt-1">
+                      <img
+                        src={cardImageUrl(def)}
+                        alt={def.name}
+                        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
+                        className="h-full w-full object-contain drop-shadow"
+                      />
+                    </div>
+                    <div className="px-1.5 pb-1.5">
+                      <p className="font-display text-[9px] font-extrabold text-blue-600 leading-tight">
+                        {card.isNew ? '✨ NEW!' : '×1'}
+                      </p>
+                      <p className="font-display text-xs font-extrabold text-slate-800 leading-tight">{def.name}</p>
+                      <div className="flex gap-0.5 mt-0.5 justify-center">
+                        {[1,2,3,4,5].map(s => (
+                          <span key={s} className="text-[8px]" style={{ color: s <= stars ? '#f59e0b' : '#e2e8f0' }}>★</span>
+                        ))}
+                      </div>
+                      <p className="font-display text-[8px] font-extrabold text-slate-400 leading-tight">
+                        ×{count} {copiesToNextStar(count) > 0 ? `· +${copiesToNextStar(count)} → ${stars + 1}★` : '· MAX ★'}
+                      </p>
+                    </div>
+                  </motion.div>
+                )
+              })}
+            </div>
+          </motion.div>
+        )}
+
+        <div className="mt-8 w-full max-w-xs space-y-3">
+          {revealed || isRedoResult ? (
             <>
               <button onClick={onExit} className="btn3d btn-green w-full gpu">
                 Continue to roadmap ▶
@@ -828,7 +926,7 @@ export function LessonScreen({ lessonId, onExit, retryItems }: {
             </>
           ) : (
             <p className="text-center font-body text-xs font-bold text-slate-300">
-              {chestOpen ? 'Kick the chest 4 times to claim your loot!' : 'Open your chest to claim the gems inside!'}
+              Kick your chest 4 times to reveal the loot!
             </p>
           )}
         </div>
@@ -866,7 +964,7 @@ export function LessonScreen({ lessonId, onExit, retryItems }: {
               if (side === 'left') { setPendingLeft(key); sfx.tap(key) } else if (pendingLeft) {
                 const ok = q.pairs.find((p) => p.left === pendingLeft)?.right === key
                 if (ok) { sfx.correct(); setMatched((m) => new Set(m).add(pendingLeft + '|' + key)) }
-                else sfx.wrong() // forgiving: wrong taps cost nothing, keep trying until every pair lands
+                else { sfx.wrong(); setMatchErrors((e) => e + 1) }
                 setPendingLeft(null)
               }
             }} /> :
@@ -995,19 +1093,18 @@ function StoryPanelView({ panel }: { panel: StoryPanel }) {
 }
 
 function AudioBar({ audioText }: { audioText: string }) {
-  const subject = usePlayer((s) => s.subject)
   if (!ttsAvailable()) return null
   return (
     <div className="mx-auto mt-2 flex w-fit items-center gap-2">
       <button
-        onClick={() => { sfx.tap('audio'); speakFor(subject, audioText) }}
+        onClick={() => { sfx.tap('audio'); speak(audioText) }}
         className="btn3d btn-blue flex items-center gap-2 !px-5 !py-3 text-xl"
         title="Play again"
       >
         🔊 Listen
       </button>
       <button
-        onClick={() => { sfx.tap('slow'); speakSlowFor(subject, audioText) }}
+        onClick={() => { sfx.tap('slow'); speakSlow(audioText) }}
         className="btn3d btn-grey !px-4 !py-3 text-xl"
         title="Slow replay (turtle mode)"
       >
@@ -1086,10 +1183,9 @@ function TrueFalseView({ q, choice, onChoice }: {
   )
 }
 
-/** Normalises words so forgiving ASR comparison works ("dog." ~ "dog").
- *  Keeps German ä ö ü ß for the optional Deutsch extra. */
+/** Normalises words so forgiving ASR comparison works ("dog." ~ "dog"). */
 const normWords = (s: string): string[] =>
-  s.toLowerCase().replace(/[^a-zäöüß' ]/g, ' ').split(/\s+/).filter(Boolean)
+  s.toLowerCase().replace(/[^a-z' ]/g, ' ').split(/\s+/).filter(Boolean)
 
 function wordMatchScore(said: string[], target: string[]): number {
   if (!target.length) return 0
@@ -1104,7 +1200,6 @@ function SpeakView({ q, phase, onPhase, onHeard }: {
   onPhase: (p: 'idle' | 'listening' | 'heard') => void
   onHeard: () => void
 }) {
-  const subject = usePlayer((s) => s.subject)
   function startListening() {
     onPhase('listening')
     const SR = (window as unknown as Record<string, unknown>).webkitSpeechRecognition ??
@@ -1117,7 +1212,7 @@ function SpeakView({ q, phase, onPhase, onHeard }: {
         onresult: ((e: { results: { transcript: string }[][] }) => void) | null
         onend: (() => void) | null
       })()
-      rec.lang = ttsLangFor(subject); rec.interimResults = false; rec.maxAlternatives = 3
+      rec.lang = 'en-GB'; rec.interimResults = false; rec.maxAlternatives = 3
       rec.onresult = (e) => {
         const said = normWords(String(e.results[0]?.[0]?.transcript ?? ''))
         if (wordMatchScore(said, normWords(q.targetText)) >= 0.6) {
@@ -1232,8 +1327,8 @@ function MatchView({ q, pendingLeft, matched, onPick }: {
     <div>
       <Prompt>{q.prompt}</Prompt>
       {q.audioText && <AudioBar audioText={q.audioText} />}
-      <div className="grid grid-cols-2 gap-3 px-1 pt-1">
-        <div className="flex flex-col gap-3">
+      <div className="grid grid-cols-2 gap-3 px-1">
+        <div className="flex flex-col gap-2">
           {lefts.map((l) => (
             <button key={l} onClick={() => onPick('left', l)} disabled={[...matched].some((m) => m.split('|')[0] === l)}
               className={`choice-btn text-center ${pendingLeft === l ? 'selected' : ''} ${[...matched].some((m) => m.split('|')[0] === l) ? 'correct' : ''}`}>
@@ -1241,7 +1336,7 @@ function MatchView({ q, pendingLeft, matched, onPick }: {
             </button>
           ))}
         </div>
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-2">
           {rights.map((r) => (
             <button key={r} onClick={() => onPick('right', r)}
               className={`choice-btn text-center ${[...matched].some((m) => m.split('|')[1] === r) ? 'correct' : ''}`}>

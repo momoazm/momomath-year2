@@ -63,9 +63,10 @@ describe('shuffle', () => {
     expect([...out].sort((a, b) => a - b)).toEqual(input)
   })
 
-  it('is deterministic for a given seed', () => {
-    const arr = [1, 2, 3, 4, 5]
-    expect(shuffle(mulberry32(77), arr)).toEqual(shuffle(mulberry32(77), arr))
+  it('shuffle is deterministic for a given seed', () => {
+    const a = shuffle(mulberry32(77), [1, 2, 3, 4, 5])
+    const b = shuffle(mulberry32(77), [1, 2, 3, 4, 5])
+    expect(a).toEqual(b)
   })
 
   it('does not always return the identity order', () => {

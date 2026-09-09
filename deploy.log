@@ -1,0 +1,193 @@
+[10:49:52] building (tsc + vite, base=/momomath-year2/)...
+npm notice run momo-year2-cambridge@0.1.0 build
+npm notice run tsc -b && vite build --base=/momomath-year2/
+src/components/mascots/Mascots.tsx(875,2): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,4): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,6): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,8): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,10): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,12): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,14): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,16): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,18): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,20): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,22): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,24): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,26): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,28): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,30): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,32): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,34): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,36): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,38): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,40): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,42): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,44): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,46): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,48): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,49): error TS1128: Declaration or statement expected.
+src/components/mascots/Mascots.tsx(875,50): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,52): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,54): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,56): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,58): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,60): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,62): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,64): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,66): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,68): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,70): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,72): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,74): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,75): error TS1128: Declaration or statement expected.
+src/components/mascots/Mascots.tsx(875,76): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,78): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,80): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,82): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,84): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,86): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,88): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,90): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,92): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,94): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,95): error TS1109: Expression expected.
+src/components/mascots/Mascots.tsx(875,96): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,98): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,100): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,102): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,104): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,106): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,108): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,110): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,111): error TS1128: Declaration or statement expected.
+src/components/mascots/Mascots.tsx(875,112): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,113): error TS1128: Declaration or statement expected.
+src/components/mascots/Mascots.tsx(875,114): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,115): error TS1128: Declaration or statement expected.
+src/components/mascots/Mascots.tsx(875,116): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,118): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,120): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,122): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,124): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,126): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,128): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,130): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,132): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,133): error TS1128: Declaration or statement expected.
+src/components/mascots/Mascots.tsx(875,134): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,136): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,138): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,140): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,142): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,144): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,146): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,148): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,150): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,151): error TS1128: Declaration or statement expected.
+src/components/mascots/Mascots.tsx(875,152): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,190): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,192): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,194): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,196): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,197): error TS1161: Unterminated regular expression literal.
+src/components/mascots/Mascots.tsx(875,204): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(876,1): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(877,1): error TS1127: Invalid character.
+[10:49:56] STEP FAILED (attempt 1/3): npm run build -- --base=/momomath-year2/
+[10:49:56] retrying in 10s...
+npm notice run momo-year2-cambridge@0.1.0 build
+npm notice run tsc -b && vite build --base=/momomath-year2/
+src/components/mascots/Mascots.tsx(875,2): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,4): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,6): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,8): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,10): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,12): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,14): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,16): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,18): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,20): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,22): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,24): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,26): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,28): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,30): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,32): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,34): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,36): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,38): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,40): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,42): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,44): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,46): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,48): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,49): error TS1128: Declaration or statement expected.
+src/components/mascots/Mascots.tsx(875,50): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,52): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,54): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,56): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,58): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,60): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,62): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,64): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,66): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,68): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,70): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,72): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,74): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,75): error TS1128: Declaration or statement expected.
+src/components/mascots/Mascots.tsx(875,76): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,78): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,80): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,82): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,84): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,86): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,88): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,90): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,92): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,94): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,95): error TS1109: Expression expected.
+src/components/mascots/Mascots.tsx(875,96): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,98): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,100): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,102): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,104): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,106): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,108): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,110): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,111): error TS1128: Declaration or statement expected.
+src/components/mascots/Mascots.tsx(875,112): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,113): error TS1128: Declaration or statement expected.
+src/components/mascots/Mascots.tsx(875,114): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,115): error TS1128: Declaration or statement expected.
+src/components/mascots/Mascots.tsx(875,116): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,118): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,120): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,122): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,124): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,126): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,128): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,130): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,132): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,133): error TS1128: Declaration or statement expected.
+src/components/mascots/Mascots.tsx(875,134): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,136): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,138): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,140): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,142): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,144): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,146): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,148): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,150): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,151): error TS1128: Declaration or statement expected.
+src/components/mascots/Mascots.tsx(875,152): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,190): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,192): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,194): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,196): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(875,197): error TS1161: Unterminated regular expression literal.
+src/components/mascots/Mascots.tsx(875,204): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(876,1): error TS1127: Invalid character.
+src/components/mascots/Mascots.tsx(877,1): error TS1127: Invalid character.
+[10:50:11] STEP FAILED (attempt 2/3): npm run build -- --base=/momomath-year2/
+[10:50:11] retrying in 10s...

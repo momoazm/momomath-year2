@@ -21,6 +21,7 @@ export {
   buildAttemptEntry,
   confidence,
   ensureSkill,
+  isRushedAttempt,
   newSkillState,
   overallAccuracy,
   recentAccuracy,
@@ -54,6 +55,7 @@ export {
 export {
   appendAttempt,
   appendMasterySnapshot,
+  capSnapshots,
   summariseSkill,
   type SkillSummary,
 } from './attempts'
@@ -63,8 +65,10 @@ export {
   hardestByCode,
   lessonForCode,
   lessonsToRepeat,
+  MISTAKE_HINTS,
   recentWrong,
   retryItemsFrom,
+  topMistakeKind,
   type LessonRepeatInfo,
   type SummariseLessonsInput,
 } from './lessons'

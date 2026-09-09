@@ -1,3 +1,18 @@
+/* ---------------- Streak milestone rewards ---------------- */
+
+/** Every N consecutive active days the player earns a HIGH-RARITY bonus chest. */
+export const STREAK_CHEST_EVERY = 7
+
+/**
+ * Returns the streak milestone (7, 14, 21 …) the player just reached, or null.
+ * `lastReward` is the streak value at which the previous milestone chest was
+ * granted, so replaying lessons on the same day never double-rewards.
+ */
+export function streakMilestoneFor(streak: number, lastReward: number): number | null {
+  const milestone = Math.floor(streak / STREAK_CHEST_EVERY) * STREAK_CHEST_EVERY
+  return milestone >= STREAK_CHEST_EVERY && milestone > lastReward ? milestone : null
+}
+
 export const LEAGUES = [
   'Bronze',
   'Silver',
@@ -62,6 +77,41 @@ export function leagueOutcomeByXp(
   return 'demoted'
 }
 
+/**
+ * Rank-based league outcome (used for the shared board, where XP varies per
+ * league and rank is what matters). Bands are tuned for the target 10-player
+ * board, but scale down naturally for smaller boards:
+ *   - total >= 10: top 3 promote, middle 4-7 stay, bottom 3 demote
+ *   - total 5-9:   top ceil(30%) promote, middle stays, bottom ceil(30%) demote
+ *   - total <= 4:  rank 1 promotes, rank 2 stays, ranks 3-4 demote
+ *
+ * 1-based `rank`. `total` is the number of ranked players.
+ */
+export function leagueOutcomeByRank(
+  rank: number,
+  total: number,
+): 'promoted' | 'demoted' | 'stayed' {
+  if (total <= 0) return 'stayed'
+  // 1-based: clamp rank into [1, total]
+  const r = Math.max(1, Math.min(rank, total))
+  if (total >= 10) {
+    if (r <= 3) return 'promoted'
+    if (r <= 7) return 'stayed'
+    return 'demoted'
+  }
+  if (total >= 5) {
+    const promoteCutoff = Math.max(1, Math.ceil(total * 0.3))
+    const demoteCutoff = total - Math.max(1, Math.ceil(total * 0.3)) + 1
+    if (r <= promoteCutoff) return 'promoted'
+    if (r >= demoteCutoff) return 'demoted'
+    return 'stayed'
+  }
+  // total 1-4: rank 1 promotes, 2 stays, 3+ demote
+  if (r === 1) return 'promoted'
+  if (r === 2) return 'stayed'
+  return 'demoted'
+}
+
 /** local-date "YYYY-MM-DD" (never uses UTC, so +04:00-style timezones stay correct) */
 function localISO(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
@@ -69,7 +119,9 @@ function localISO(d: Date): string {
   ).padStart(2, '0')}`
 }
 
-/** Monday-based ISO week key, e.g. "2026-08-17" */
+/** Monday-based ISO week key, e.g. "2026-08-17".
+ *  Used as the SHARED identity across all players on the leaderboard so
+ *  everyone's entry is comparable for the same calendar week. */
 export function weekKey(d = new Date()): string {
   const date = new Date(d)
   const day = (date.getDay() + 6) % 7 // Mon=0..Sun=6
@@ -77,20 +129,50 @@ export function weekKey(d = new Date()): string {
   return localISO(date)
 }
 
+/** The date 7 days after `k` (used to roll shared-board week identity). */
 export function nextWeekKey(k: string): string {
   const d = new Date(k + 'T00:00:00')
   d.setDate(d.getDate() + 7)
   return localISO(d)
 }
 
-export function todayISO(): string {
-  return localISO(new Date())
+/** Local-date "YYYY-MM-DD" for the given moment (defaults to now). */
+export function todayISO(now: Date = new Date()): string {
+  return localISO(now)
 }
 
 export function yesterdayISO(): string {
   const d = new Date()
   d.setDate(d.getDate() - 1)
   return localISO(d)
+}
+
+/* -------- League weekly timer: anchored 7-day windows -------- */
+
+/** One league week = exactly 7 days (in ms). */
+export const LEAGUE_WEEK_MS = 7 * 86400000
+
+/**
+ * A league week runs from 12:00 AM of its anchor day and ends EXACTLY a week
+ * later. `weeklyXpWeek` stores that anchor, so the live countdown restarts at
+ * "12 AM of the day the week began" and reaches zero one week later.
+ * Calendar arithmetic (setDate + 7) keeps the end at local 12:00 AM even
+ * across daylight-saving transitions.
+ */
+export function leagueWeekEndsAt(anchor: string): number {
+  const d = new Date(`${anchor}T00:00:00`)
+  d.setDate(d.getDate() + 7)
+  return d.getTime()
+}
+
+/** True once the 7-day league week anchored at `anchor` has fully elapsed. */
+export function leagueWeekElapsed(anchor: string, now: Date = new Date()): boolean {
+  return now.getTime() >= leagueWeekEndsAt(anchor)
+}
+
+/** Live countdown helper: ms until the anchored league week ends (0 once elapsed). */
+export function msUntilWeekEnd(anchor: string, now: Date = new Date()): number {
+  return Math.max(0, leagueWeekEndsAt(anchor) - now.getTime())
 }
 
 export function advanceLeague(current: LeagueName, outcome: 'promoted' | 'demoted' | 'stayed'): LeagueName {
@@ -151,15 +233,6 @@ export function rivalXp(
   return Math.round(target * Math.pow(frac, paceExp))
 }
 
-/** Live countdown helper: ms until the given Monday-based week key ends. */
-export function msUntilWeekEnd(now: Date = new Date()): number {
-  const d = new Date(now)
-  d.setDate(d.getDate() - ((d.getDay() + 6) % 7)) // back to this Monday
-  d.setDate(d.getDate() + 7) // next Monday
-  d.setHours(0, 0, 0, 0)
-  return d.getTime() - now.getTime()
-}
-
 /* ---------------- Rank zones: 3 promote, 4 safe, 3 demote ---------------- */
 /* The weekly board is 10 racers (you + 9 practice bots; real friends swap bots
  * out one-for-one). Zones are RANK-based, Duolingo-style:
@@ -186,10 +259,11 @@ export function finalRivalXp(rival: LeagueRival, league: LeagueName, wk: string)
   return rivalXp(rival, league, wk, new Date(endMs))
 }
 
-/** Weekly outcome by RANK on the 10-racer practice board (you + strongest 9
+/** Weekly outcome vs the 10-racer practice board (you + strongest 9
  *  bots — the same board a solo player sees all week). Deterministic for
- *  (league, week, xp): rank 1-3 promoted, 4-7 stayed, 8-10 demoted. */
-export function leagueOutcomeByRank(
+ *  (league, week, xp): rank 1-3 promoted, 4-7 stayed, 8-10 demoted.
+ *  (The shared-board production path uses leagueOutcomeByRank instead.) */
+export function leagueOutcomeVsBots(
   league: LeagueName,
   weeklyXp: number,
   wk: string,
@@ -326,6 +400,31 @@ export interface AchievementSnapshot {
   streakCurrent: number
   lessonsCompleted: number
   crowns: number
+}
+
+/**
+ * What the streak UI should show RIGHT NOW, given the player's state.
+ *   - If the player has already completed a lesson today, show `streakCurrent`.
+ *   - Otherwise (new day, no lesson yet), show 0 so the indicator doesn't
+ *     carry yesterday's count over until the next `completeLesson`.
+ *
+ * Pure display helper. The underlying `streakCurrent` is only mutated by
+ * `updateStreak` (called from `completeLesson`).
+ */
+export function displayStreak(
+  s: { streakCurrent: number; lastActiveDay: string | null },
+  today: string = todayISO(),
+): number {
+  return s.lastActiveDay === today ? s.streakCurrent : 0
+}
+
+/** True when the streak indicator should "light up" (a lesson was completed
+ *  today). Use this to switch the UI between active/greyed states. */
+export function isStreakActive(
+  s: { lastActiveDay: string | null },
+  today: string = todayISO(),
+): boolean {
+  return s.lastActiveDay === today
 }
 
 export const ACHIEVEMENTS: AchievementDef[] = [

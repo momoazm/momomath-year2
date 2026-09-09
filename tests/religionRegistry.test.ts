@@ -4,7 +4,7 @@ import { getCurriculum } from '../src/content/registry'
 import { RELIGION_UNITS } from '../src/content/religion'
 
 describe('religion optional extra registry', () => {
-  it('exposes six units in roadmap order without touching other subjects', () => {
+  it('exposes six religion units in roadmap order without touching other subjects', () => {
     const religion = getCurriculum('religion')
     expect(religion.units.length).toBe(6)
     expect(religion.units.map((u) => u.order)).toEqual([1, 2, 3, 4, 5, 6])
@@ -23,7 +23,7 @@ describe('religion optional extra registry', () => {
     }
   })
 
-  it('marks every unit with a consistent trailing boss lesson', () => {
+  it('marks every religion unit with a consistent trailing boss lesson', () => {
     for (const u of getCurriculum('religion').units) {
       expect(u.bossLessonIds).toEqual([`${u.id}boss`])
       expect(u.lessons.at(-1)?.id).toBe(`${u.id}boss`)

@@ -3,45 +3,39 @@ import { motion } from 'framer-motion'
 import {
   LEAGUES,
   LEAGUE_META,
+  advanceLeague,
+  leagueOutcomeByRank,
+  leagueWeekElapsed,
   msUntilWeekEnd,
-  rivalXp,
   weekKey,
   weeklyGoal,
-  zoneOfRank,
-  type BoardZone,
+  type LeagueName,
 } from '../engine/gamification'
 import {
-  botsForPlayerCount,
   fetchSharedPlayers,
   pushSharedPlayer,
   weeklyXpOf,
   type SharedPlayer,
 } from '../engine/leaderboard'
-import { usePlayer } from '../engine/store'
+import { buildStandings } from '../engine/standings'
+import { isValidAnchor, usePlayer } from '../engine/store'
 import { useAuth } from '../engine/auth'
 import { Mascot } from '../components/mascots/Mascots'
 
-type Zone = BoardZone
+type Zone = 'promo' | 'stay' | 'danger'
 
-type Row = {
-  id: string
-  name: string
-  xp: number
-  isYou: boolean
-  kind: 'you' | 'real' | 'bot'
-  mascotId?: string
-  icon?: string
-}
-
-/** Rank-based zones on the 10-racer board: ranks 1-3 promote, 4-7 safe, 8+ demote. */
-function zoneOfRankOnBoard(rank: number, boardSize: number): Zone {
-  return zoneOfRank(rank, boardSize)
+function zoneOfRank(rank: number, total: number): Zone {
+  // Zone dividers follow BOARD RANK so the display matches the settle bands:
+  // top 3 promote, next 4 safe, last 3 demote on a 10-player board
+  // (scales for other sizes via leagueOutcomeByRank).
+  const o = leagueOutcomeByRank(rank, total)
+  return o === 'promoted' ? 'promo' : o === 'demoted' ? 'danger' : 'stay'
 }
 
 const ZONE_DIVIDER: Record<Zone, { label: string; cls: string }> = {
-  promo: { label: '⬆️ Top 3 · Promotion zone', cls: 'text-emerald-500' },
-  stay: { label: '➖ Ranks 4–7 · Safe zone', cls: 'text-slate-400' },
-  danger: { label: '⬇️ Bottom 3 · Demotion zone', cls: 'text-red-400' },
+  promo: { label: '⬆️ Promotion zone', cls: 'text-emerald-500' },
+  stay: { label: '➖ Safe zone', cls: 'text-slate-400' },
+  danger: { label: '⬇️ Demotion zone', cls: 'text-red-400' },
 }
 
 function formatCountdown(msLeft: number): string {
@@ -62,7 +56,19 @@ export function LeaguesScreen() {
   const myId = authUser?.sub
     ? `g:${authUser.sub}`
     : `name:${s.name.trim().toLowerCase()}`
-  const wk = weekKey()
+
+  // League weeks are anchored at 12:00 AM of the day they began and run for
+  // exactly 7 days. `boardWeek` is the shared Monday-based key used on the
+  // leaderboard so all players' entries compare the same calendar week.
+  const anchor = s.weeklyXpWeek
+  // boardWeek (Monday identity for the shared board) is derived from the SAME
+  // nowMs clock as weekLive so both flip at the same tick and old-week XP can
+  // never be pushed under the new week's key at the boundary.
+  const boardWeek = weekKey(new Date(nowMs))
+
+  const weekLive = isValidAnchor(anchor) && !leagueWeekElapsed(anchor, new Date(nowMs))
+  const needsSettle = !weekLive
+  // anchorBoardWeek removed - using boardWeek directly
 
   // tick every second for the live countdown + rival progress
   useEffect(() => {
@@ -85,9 +91,11 @@ export function LeaguesScreen() {
     }
   }, [])
 
-  // share my progress whenever it changes (and once on entry)
+  // share my progress whenever it changes (and once on entry).
+  // Never push a stale or elapsed week: while `needsSettle` is true the XP still
+  // belongs to the finished week, so we wait for the settle/promote to reset it.
   useEffect(() => {
-    if (!s.name.trim()) return
+    if (!s.name.trim() || !weekLive) return
     let alive = true
     pushSharedPlayer({
       id: myId,
@@ -95,51 +103,82 @@ export function LeaguesScreen() {
       xp: s.weeklyXp,
       league: s.currentLeague,
       mascot: s.mascot,
-      week: wk,
+      week: boardWeek,
     }).then((entries) => {
       if (alive && entries.length) setShared(entries)
     })
     return () => {
       alive = false
     }
-  }, [myId, s.name, s.weeklyXp, s.currentLeague, s.mascot, wk])
+  }, [myId, s.name, s.weeklyXp, s.currentLeague, s.mascot, s.weeklyXpWeek, boardWeek, weekLive])
 
   const meta = LEAGUE_META[s.currentLeague]
   const goal = weeklyGoal(s.currentLeague)
-  const countdown = formatCountdown(msUntilWeekEnd(new Date(nowMs)))
+  const countdown = formatCountdown(msUntilWeekEnd(anchor, new Date(nowMs)))
 
-  const others = shared.filter((p) => p.id !== myId)
-  const realCount = 1 + others.length
-  const bots = botsForPlayerCount(realCount)
+  // Primary board via the shared builder — the background auto-settler
+  // ranks identically, so tab and auto settle always agree.
+  const { standings, myRank, others, realCount } = buildStandings({
+    shared,
+    myId,
+    myName: s.name.trim().toLowerCase(),
+    name: s.name,
+    weeklyXp: s.weeklyXp,
+    mascot: s.mascot,
+    currentLeague: s.currentLeague,
+    anchor,
+    boardWeek,
+    now: new Date(nowMs),
+  })
 
-  const standings: Row[] = [
-    ...others.map((p) => ({
-      id: p.id,
-      name: p.name,
-      xp: weeklyXpOf(p, wk),
-      isYou: false,
-      kind: 'real' as const,
-      mascotId: p.mascot,
-    })),
-    ...bots.map((r) => ({
-      id: r.id,
-      name: r.name,
-      xp: rivalXp(r, s.currentLeague, wk, new Date(nowMs)),
-      isYou: false,
-      kind: 'bot' as const,
-      icon: r.icon,
-    })),
-    {
-      id: myId,
-      name: s.name,
-      xp: s.weeklyXp,
-      isYou: true,
-      kind: 'you' as const,
-      mascotId: s.mascot,
-    },
-  ].sort((a, b) => b.xp - a.xp)
+  // Secondary board: other real players whose `league` differs from ours.
+  // When the API has >10 real players on the same week, the primary board
+  // shows the top 10 and the rest are grouped here by their own league.
+  type SecondaryRow = { id: string; name: string; xp: number; mascot: string }
+  const secondaryLeagues: [LeagueName, SecondaryRow[]][] = (() => {
+    const groups = new Map<LeagueName, SecondaryRow[]>()
+    for (const p of others) {
+      if (p.league === s.currentLeague) continue
+      const list = groups.get(p.league) ?? []
+      list.push({
+        id: p.id,
+        name: p.name,
+        xp: weeklyXpOf(p, boardWeek),
+        mascot: p.mascot,
+      })
+      groups.set(p.league, list)
+    }
+    // sort each league's rows by XP desc
+    for (const rows of groups.values()) rows.sort((a, b) => b.xp - a.xp)
+    // order leagues by the canonical order (Bronze -> Diamond)
+    return Array.from(groups.entries()).sort(
+      (a, b) => LEAGUES.indexOf(a[0]) - LEAGUES.indexOf(b[0]),
+    )
+  })()
 
-  const myRank = standings.findIndex((p) => p.isYou) + 1
+  // banner copy: at the top/bottom league the move is a no-op, so say so
+  const settle = s.lastLeagueSettle
+  const settleNext = settle ? advanceLeague(settle.league, settle.outcome) : null
+  const settleMoved = settle != null && settleNext !== settle.league
+
+  // When the 7-day league week ends, the whole board settles by rank:
+  //   - top 3   promote (clamped to Diamond)
+  //   - middle  stay
+  //   - bottom  demote (clamped to Bronze)
+  // XP resets to 0 and the timer restarts at 12:00 AM of the new week.
+  // The board is padded to 10 by bots when fewer real players are present;
+  // any extras (>10) appear in a secondary leaderboard grouped by league
+  // (rendered below). Idempotent.
+  // Settle when the week elapsed OR a finished week is pending from lesson
+  // time — the pending snapshot carries the finished week's XP into the
+  // rank bands (top 3 promote / middle stay / bottom 3 demote). Idempotent.
+  useEffect(() => {
+    if (!needsSettle && !s.pendingLeagueSettle) return
+    s.syncLeagueWeekByRank(myRank, standings.length)
+    // re-run only when the settle state or the final rank changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [needsSettle, s.pendingLeagueSettle, myRank, standings.length])
+
   const pct = Math.min(100, Math.round((s.weeklyXp / goal) * 100))
 
   return (
@@ -150,7 +189,7 @@ export function LeaguesScreen() {
           {s.currentLeague} League
         </h1>
         <p className="text-center font-body text-sm font-bold text-slate-400">
-          Top 3 go up ⬆️ &middot; 4&ndash;7 safe ➖ &middot; bottom 3 drop ⬇️ &middot; you&rsquo;re #{myRank}
+          Reach {goal} XP to be promoted &middot; you&rsquo;re #{myRank}
         </p>
         {/* live countdown to Monday reset */}
         <p
@@ -160,6 +199,35 @@ export function LeaguesScreen() {
         >
           ⏳ Resets in {countdown}
         </p>
+        {/* last week's promotion/demotion result — shown until dismissed */}
+        {s.lastLeagueSettle && (
+          <div
+            data-testid="league-settle-banner"
+            className={`mt-3 flex w-full items-center justify-between gap-2 rounded-xl px-3 py-2 font-body text-sm font-bold ${
+              s.lastLeagueSettle.outcome === 'promoted'
+                ? 'bg-emerald-50 text-emerald-600'
+                : 'bg-red-50 text-red-500'
+            }`}
+          >
+            <span>
+              {settle?.outcome === 'promoted'
+                ? settleMoved
+                  ? `🎉 Promoted to ${settleNext} League!`
+                  : `🏆 You're already in the top league — ${settleNext}!`
+                : settleMoved
+                  ? `💪 Demoted to ${settleNext} League — climb back up!`
+                  : "You're at the first league — keep going!"}
+            </span>
+            <button
+              type="button"
+              onClick={() => s.dismissLeagueSettle()}
+              className="shrink-0 rounded-lg px-2 py-1 text-xs font-extrabold opacity-60 hover:opacity-100"
+              aria-label="Dismiss"
+            >
+              ✕
+            </button>
+          </div>
+        )}
       </div>
 
       {/* weekly XP progress toward promotion */}
@@ -169,7 +237,7 @@ export function LeaguesScreen() {
             This week&rsquo;s XP
           </p>
           <p className="font-display font-extrabold text-orange-400">
-            {s.weeklyXp} XP this week
+            {s.weeklyXp} / {goal} XP
           </p>
         </div>
         <div className="mt-2 h-5 overflow-hidden rounded-full bg-slate-100 ring-2 ring-slate-200">
@@ -189,11 +257,11 @@ export function LeaguesScreen() {
         </h2>
         <ol>
           {standings.map((p, i) => {
-            const rank = i + 1
-            const zone = zoneOfRankOnBoard(rank, standings.length)
+            const zone = zoneOfRank(i + 1, standings.length)
             const prevZone =
-              i > 0 ? zoneOfRankOnBoard(rank - 1, standings.length) : null
+              i > 0 ? zoneOfRank(i, standings.length) : null
             const showDivider = zone !== prevZone
+            const rank = i + 1
             return (
               <li key={p.id}>
                 {showDivider && (
@@ -247,6 +315,50 @@ export function LeaguesScreen() {
             : `${realCount} real players this week — bots fill the rest`}
         </p>
       </section>
+
+      {/* secondary boards: extras from other leagues (only when >10 real
+          players are present on the API). Each league's extras are rendered
+          in a small card; empty leagues are skipped. */}
+      {secondaryLeagues.length > 0 && (
+        <section className="card-white mt-5">
+          <h2 className="mb-3 font-display text-sm font-bold uppercase tracking-wide text-slate-400">
+            Other leagues ({secondaryLeagues.length})
+          </h2>
+          <ul className="space-y-2">
+            {secondaryLeagues.map(([lg, rows]) => (
+              <li key={lg}>
+                <div className="mb-1 flex items-baseline justify-between">
+                  <span
+                    className="font-display text-xs font-extrabold"
+                    style={{ color: LEAGUE_META[lg].color }}
+                  >
+                    {LEAGUE_META[lg].icon} {lg}
+                  </span>
+                  <span className="text-[10px] font-bold text-slate-400">
+                    {rows.length} player{rows.length === 1 ? '' : 's'}
+                  </span>
+                </div>
+                <ol>
+                  {rows.map((p, i) => (
+                    <li
+                      key={p.id}
+                      className={`flex items-center gap-2 rounded-md px-2 py-1 text-sm ${
+                        i % 2 === 0 ? 'bg-slate-50' : ''
+                      }`}
+                    >
+                      <span className="w-5 text-center text-xs font-bold text-slate-400">{i + 1}</span>
+                      <span className="min-w-0 flex-1 truncate font-body font-bold text-slate-600">{p.name}</span>
+                      <span className="font-display text-xs font-extrabold tabular-nums text-orange-400">
+                        {p.xp} XP
+                      </span>
+                    </li>
+                  ))}
+                </ol>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {/* league ladder */}
       <section className="card-white mt-6">

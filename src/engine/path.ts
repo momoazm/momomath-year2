@@ -29,8 +29,7 @@ export function isLessonUnlocked(
  * unlocked and not yet perfected. A lesson finished below 100% stays active
  * for replay, so the badge never lands on a locked node (e.g. the boss after
  * lesson 6).
- */
-export function nextActiveLesson(
+ */export function nextActiveLesson(
   progress: ProgressMap,
   units: UnitDef[] = UNITS,
 ): { unitIdx: number; lessonIdx: number } | null {
@@ -42,4 +41,17 @@ export function nextActiveLesson(
     }
   }
   return null
+}
+
+/** True when this lesson was completed before — a replay ("redo").
+ *  Redos still earn XP but never stars/crowns or chests. */
+export function isLessonRedo(progress: ProgressMap, lessonId: string): boolean {
+  return (progress[lessonId]?.completions ?? 0) > 0
+}
+
+/** Crowns earned for finishing a lesson: a first clear with zero
+ *  first-try mistakes earns 1 (capped at 3 in the store); redos earn 0. */
+export function crownsEarned(isRedo: boolean, firstAttemptMistakes: number): number {
+  if (isRedo) return 0
+  return firstAttemptMistakes === 0 ? 1 : 0
 }

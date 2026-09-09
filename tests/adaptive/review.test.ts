@@ -89,7 +89,7 @@ describe('fetchReview', () => {
     await expect(fetchReview(stats(), { fetcher })).rejects.toThrow('bad key')
   })
 
-  it('caps server text length', async () => {
+  it('caps review server text length', async () => {
     const review = {
       summary: 'x'.repeat(5000),
       strengths: [],

@@ -21,7 +21,7 @@ describe('german optional extra registry', () => {
     }
   })
 
-  it('marks every unit with a consistent trailing boss lesson', () => {
+  it('marks every german unit with a consistent trailing boss lesson', () => {
     for (const u of getCurriculum('german').units) {
       expect(u.bossLessonIds).toEqual([`${u.id}boss`])
       expect(u.lessons.at(-1)?.id).toBe(`${u.id}boss`)

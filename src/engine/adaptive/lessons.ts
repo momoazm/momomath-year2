@@ -18,6 +18,7 @@ import type { Subject } from '../../content/types'
 import { buildCatalog } from './catalog'
 import { isDueForReview } from './recommender'
 import { ensureSkill } from './model'
+import type { MistakeKind } from './mistakes'
 import type {
   AdaptiveSnapshot,
   AttemptLogEntry,
@@ -77,6 +78,32 @@ export function hardestByCode(
   return out
 }
 
+/** Parent-friendly reading of a deterministic mistake kind. */
+export const MISTAKE_HINTS: Record<Exclude<MistakeKind, 'unknown'>, string> = {
+  'off-by-one': 'answers landing one away — count once more together',
+  'place-value-swap': 'swapping tens and ones — name each digit\'s place',
+  'operation-confusion': 'mixing up which operation to use',
+  'distractor-lock-in': 'picking near-miss choices — re-read before tapping',
+  'order-error': 'ordering slips — check smallest-first vs biggest-first',
+  'tap-extra': 'tapping extra items — tap only the matching ones',
+}
+
+/** Dominant misconception in a set of attempts (needs 2+ identified to count). */
+export function topMistakeKind(
+  attempts: AttemptLogEntry[],
+): { kind: Exclude<MistakeKind, 'unknown'>; count: number } | null {
+  const counts = new Map<Exclude<MistakeKind, 'unknown'>, number>()
+  for (const a of attempts) {
+    if (a.correct || !a.mistakeKind || a.mistakeKind === 'unknown') continue
+    counts.set(a.mistakeKind, (counts.get(a.mistakeKind) ?? 0) + 1)
+  }
+  let best: { kind: Exclude<MistakeKind, 'unknown'>; count: number } | null = null
+  for (const [kind, count] of counts) {
+    if (count >= 2 && (!best || count > best.count)) best = { kind, count }
+  }
+  return best
+}
+
 export interface LessonRepeatInfo {
   lessonId: string
   title: string
@@ -90,6 +117,10 @@ export interface LessonRepeatInfo {
   avgMastery: number
   /** how many of the lesson's skills are due for spaced review */
   dueCount: number
+  /** dominant misconception pattern (2+ identified misses), if any */
+  topMistake: { kind: Exclude<MistakeKind, 'unknown'>; count: number } | null
+  /** rushed guesses (fast wrong answers) in this lesson */
+  rushedCount: number
   /** why this lesson is flagged (empty when it's fine) */
   reasons: string[]
   needsRepeat: boolean
@@ -152,6 +183,14 @@ export function lessonsToRepeat(input: SummariseLessonsInput): LessonRepeatInfo[
     if (avgMastery > 0 && avgMastery < 0.5) {
       reasons.push(`Mastery ${pct(avgMastery)} — still learning`)
     }
+    const topMistake = topMistakeKind(list)
+    if (topMistake) {
+      reasons.push(`Often ${MISTAKE_HINTS[topMistake.kind]} (${topMistake.count}×)`)
+    }
+    const rushedCount = list.filter((a) => !a.correct && a.rushed).length
+    if (rushedCount >= 2) {
+      reasons.push(`${rushedCount} rushed guesses — slow down and read each question`)
+    }
     if (dueCount > 0) {
       reasons.push(`Due for a check-up 🔔`)
     }
@@ -171,6 +210,8 @@ export function lessonsToRepeat(input: SummariseLessonsInput): LessonRepeatInfo[
       hardestAccuracy,
       avgMastery,
       dueCount,
+      topMistake,
+      rushedCount,
       reasons,
       needsRepeat: true,
       score,

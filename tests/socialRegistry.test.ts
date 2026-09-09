@@ -4,7 +4,7 @@ import { getCurriculum } from '../src/content/registry'
 import { SOCIAL_UNITS } from '../src/content/social'
 
 describe('social optional extra registry', () => {
-  it('exposes six units in roadmap order without touching other subjects', () => {
+  it('exposes six social units in roadmap order without touching other subjects', () => {
     const social = getCurriculum('social')
     expect(social.units.length).toBe(6)
     expect(social.units.map((u) => u.order)).toEqual([1, 2, 3, 4, 5, 6])
@@ -23,7 +23,7 @@ describe('social optional extra registry', () => {
     }
   })
 
-  it('marks every unit with a consistent trailing boss lesson', () => {
+  it('marks every social unit with a consistent trailing boss lesson', () => {
     for (const u of getCurriculum('social').units) {
       expect(u.bossLessonIds).toEqual([`${u.id}boss`])
       expect(u.lessons.at(-1)?.id).toBe(`${u.id}boss`)

@@ -13,6 +13,28 @@ export function appendAttempt(
   return next
 }
 
+/** Keep full question snapshots only on the newest `keep` wrong attempts.
+ *  Older misses keep their prompt/answer/kind stats but drop the bulky
+ *  question object — this bounds localStorage and cloud payloads while the
+ *  retry list always has fresh material. Log is oldest-first. */
+export function capSnapshots(
+  log: AttemptLogEntry[],
+  keep = 50,
+): AttemptLogEntry[] {
+  let seen = 0
+  const out = new Array<AttemptLogEntry>(log.length)
+  for (let i = log.length - 1; i >= 0; i--) {
+    const e = log[i]!
+    if (!e.correct && e.q) {
+      seen += 1
+      out[i] = seen > keep ? { ...e, q: null } : e
+    } else {
+      out[i] = e
+    }
+  }
+  return out
+}
+
 /** Append a mastery snapshot for trend visualisation. */
 export function appendMasterySnapshot(
   history: Record<string, { ts: number; pL: number }[]>,

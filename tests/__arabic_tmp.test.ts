@@ -73,7 +73,7 @@ function checkLesson(id: string, lesson: LessonDef) {
         for (const q of qs) expectValidArabicQuestion(q)
       }
     })
-    it('is deterministic per (lessonId, seed) and varies with seed', () => {
+    it('arabic lessons are deterministic per (lessonId, seed) and vary with seed', () => {
       const a = lesson.generate(10, 7)
       const b = lesson.generate(10, 7)
       expect(a).toEqual(b)

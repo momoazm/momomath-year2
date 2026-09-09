@@ -17,19 +17,9 @@ const ADAPTATION_PAIRS: { animal: string; trait: string; explains: string }[] = 
 const CYCLE_KEYS = Object.keys(ANIMAL_LIFE_CYCLES)
 
 function gHabitat(rand: Rand): Question {
-  // Sample animals with DISTINCT homes — the match renderer needs unique
-  // rights (several animals share one habitat emoji).
-  const entries = shuffle(rand, Object.entries(HABITAT_BANK))
-  const chosen: [string, string][] = []
-  const seen = new Set<string>()
-  for (const [a, h] of entries) {
-    if (seen.has(h)) continue
-    seen.add(h)
-    chosen.push([a, h])
-    if (chosen.length === 4) break
-  }
+  const keys = shuffle(rand, Object.keys(HABITAT_BANK)).slice(0, 4)
   return matchQ(rand, "Match each animal to its home (habitat)",
-    chosen.map(([a, h]) => ({ left: a, right: h })),
+    keys.map((a) => ({ left: a, right: HABITAT_BANK[a] })),
     { visual: { type: "emoji-group", emojis: ["🌍"] } },
   )
 }
@@ -56,10 +46,9 @@ function gAdaptation(rand: Rand): Question {
   const a = pick(rand, ADAPTATION_PAIRS)
   return mcqE(rand, `How does the ${a.animal}'s ${a.trait} help it survive?`, a.explains, ["tastes better", "scares its friends away"], { visual: { type: "emoji-group", emojis: ["🐻", "🐸", "🦅", "🐫"] } })
 }
-const CYCLE_EMOJI: Record<string, string[]> = { butterfly: ["🦋"], frog: ["🐸"], plant: ["🌱"] }
 function gCycle(rand: Rand): Question {
   const key = pick(rand, CYCLE_KEYS)
-  return orderQ(`Put the ${key}'s life cycle in order, from start to end.`, ANIMAL_LIFE_CYCLES[key], { visual: { type: "emoji-group", emojis: CYCLE_EMOJI[key] ?? ["🦋"] } })
+  return orderQ(`Put the ${key}'s life cycle in order, from start to end.`, ANIMAL_LIFE_CYCLES[key], { visual: { type: "emoji-group", emojis: ["🦋"] } })
 }
 function gHabitatIsHome(rand: Rand): Question {
   return tfQ("Science check", "The place a plant or animal naturally lives is its habitat.", true, { visual: { type: "emoji-group", emojis: ["🏡", "🌳"] } })

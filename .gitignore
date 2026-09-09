@@ -15,3 +15,13 @@ vite.log
 vite-err.log
 deploy-out.txt
 deploy-err.txt
+deploy.done
+build-log.txt
+vitest-log.txt
+
+# scratch logs/tools
+_*.log
+_*.vbs
+
+# research scratch (firecrawl outputs)
+.firecrawl/

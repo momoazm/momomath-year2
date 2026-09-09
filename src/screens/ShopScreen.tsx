@@ -103,7 +103,7 @@ export function ShopScreen() {
                     <h3 className="font-display font-extrabold text-slate-800">{item.name}</h3>
                     <span className="font-display font-extrabold text-orange-500">{formatPrice(item.price)}</span>
                   </div>
-                  <p className="mt-1 text-sm font-medium text-slate-500 truncate">{item.description}</p>
+                  <p className="mt-1 text-sm font-medium text-slate-500 break-words whitespace-normal">{item.description}</p>
                   <div className="mt-2 flex items-center justify-between">
                     <span className={`text-xs font-bold ${count > 0 ? 'text-emerald-600' : 'text-slate-400'}`}>
                       Owned: {count}/{item.maxStack || '∞'}

@@ -247,7 +247,7 @@ export const LIFE_STAGES = ['baby', 'toddler', 'child', 'adult'] as const
 export const ANIMAL_LIFE_CYCLES: Record<string, string[]> = {
   butterfly: ['egg', 'caterpillar', 'chrysalis', 'butterfly'],
   frog: ['egg', 'tadpole', 'tadpole with legs', 'froglet', 'frog'],
-  plant: ['seed', 'sprout', 'plant with leaves', 'flower', 'new seeds'],
+  plant: ['seed', 'sprout', 'plant with leaves', 'flower', 'seed'],
 }
 
 export function emojiPair(word: string): string {

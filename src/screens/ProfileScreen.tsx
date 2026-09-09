@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ACHIEVEMENTS, LEAGUES, LEAGUE_META } from '../engine/gamification'
+import { ACHIEVEMENTS, LEAGUES, LEAGUE_META, displayStreak, isStreakActive } from '../engine/gamification'
 import { usePlayer } from '../engine/store'
 import { GrownUpsReview } from '../components/ui/GrownUpsReview'
 import { MASCOTS, Mascot } from '../components/mascots/Mascots'
@@ -17,6 +17,7 @@ import {
   type RetryItem,
 } from '../engine/adaptive'
 import type { MascotId } from '../content/types'
+import { CARDS, STAR_THRESHOLDS, toStar } from '../engine/cards'
 
 export function ProfileScreen({ onPracticeLesson, onPracticeRetry }: {
   /** Jump into a lesson (repeat highlights). */
@@ -84,7 +85,16 @@ export function ProfileScreen({ onPracticeLesson, onPracticeRetry }: {
       {/* stats grid */}
       <section className="card-white mt-6 grid grid-cols-2 gap-3 text-center sm:grid-cols-4">
         <Stat icon="⚡" label="Total XP" value={String(s.xpTotal)} />
-        <Stat icon="🔥" label="Streak" value={`${s.streakCurrent}`} sub={`best ${s.streakLongest}`} />
+        <Stat
+          icon="🔥"
+          label="Streak"
+          value={`${displayStreak(s)}`}
+          sub={
+            isStreakActive(s)
+              ? `best ${s.streakLongest}`
+              : `best ${s.streakLongest} · complete a lesson today to keep it going`
+          }
+        />
         <Stat icon="👑" label="Crowns" value={String(crowns)} />
         <Stat icon="📚" label="Lessons" value={String(lessonsCompleted)} />
       </section>
@@ -313,6 +323,34 @@ export function ProfileScreen({ onPracticeLesson, onPracticeRetry }: {
           </div>
         )}
       </section>
+      {/* card collection */}
+      <section className="card-white mt-4">
+        <p className="font-display text-sm font-bold uppercase tracking-wide text-slate-400">Card Collection</p>
+        <div className="mt-2 grid grid-cols-2 gap-3 text-center sm:grid-cols-4">
+          <Stat
+            icon="🃏"
+            label="Unique Cards"
+            value={`${Object.keys(s.cardStars).filter((id) => s.cardStars[id] > 0).length}/${CARDS.length}`}
+          />
+          <Stat
+            icon="📦"
+            label="Total Copies"
+            value={String(Object.values(s.cardStars).reduce((a, b) => a + b, 0))}
+          />
+        </div>
+        <div className="mt-3 flex flex-wrap justify-center gap-2">
+          {[1, 2, 3, 4, 5].map((star) => {
+            const count = CARDS.filter((c) => toStar(s.cardStars[c.id] ?? 0) === star).length
+            return (
+              <div key={star} className="flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1.5 font-display text-sm font-bold">
+                {'★'.repeat(star)}{'☆'.repeat(5 - star)} {count}
+              </div>
+            )
+          })}
+        </div>
+      </section>
+
+
 
       {/* cross-device sync */}
       <section className="card-white mt-4">

@@ -1,8 +1,8 @@
 import type { Question } from "../types"
 import {
   MATERIALS, MATERIAL_BANK, MATERIAL_PROPERTY, MATERIAL_CHANGES, PROPERTY_BANK,
-  mcqE, orderQ, tfQ,
-  pick, pickOthers, randInt, type Rand,
+  mcqE, matchQ, orderQ, tfQ,
+  pick, pickOthers, shuffle, type Gen, type Rand,
   makeLesson, unitDef,
 } from "./helpers"
 
@@ -43,16 +43,12 @@ function gChange(rand: Rand): Question {
   const a = pick(rand, MATERIAL_CHANGES)
   return mcqE(rand, `Is ${a.item} a reversible or irreversible change?`, a.kind, ["a colour change", "a different kind of change"], { visual: { type: "emoji-group", emojis: ["🔁"] } })
 }
-const HARD_MATS = ["wood", "stone", "brick", "glass", "metal"]
-const SOFT_MATS = ["paper", "rubber", "fabric", "plastic"]
-const cap = (w: string) => w[0].toUpperCase() + w.slice(1)
 function gHardVsSoft(rand: Rand): Question {
-  // Binary sort ("hard" vs "soft") can't be a match exercise — the match
-  // renderer needs unique rights. Test one material at a time instead.
-  const hard = randInt(rand, 0, 1) === 0
-  const m = pick(rand, hard ? HARD_MATS : SOFT_MATS)
-  return tfQ("Material test", `${cap(m)} is a HARD material.`, hard,
-    { visual: { type: "emoji-group", emojis: [MATERIAL_BANK[m]] } },
+  return matchQ(rand, "Is each material HARD or SOFT?",
+    [
+      { left: "wood", right: "hard" }, { left: "stone", right: "hard" },
+      { left: "paper", right: "soft" }, { left: "rubber", right: "soft" },
+    ], { visual: { type: "emoji-group", emojis: ["🪵", "🪨", "📄", "🏀"] } },
   )
 }
 function gReversibleIdea(rand: Rand): Question {
