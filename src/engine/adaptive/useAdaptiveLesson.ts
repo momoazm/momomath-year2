@@ -10,6 +10,7 @@ import {
   classifyMistake,
   fetchExplanation,
   recordAttempt,
+  snapshotQuestion,
   templateExplain,
   withUpdatedDifficulty,
   type MistakeAnalysis,
@@ -26,6 +27,8 @@ export interface UseAdaptiveLessonArgs {
   question: Question | undefined
   studentAnswer: string
   correctAnswer: string
+  /** Display prompt (falls back to question.prompt when omitted). */
+  prompt?: string
   correct: boolean
   isFirstAttempt: boolean
   enabled: boolean
@@ -76,6 +79,11 @@ export function useAdaptiveLesson(): AdaptiveLessonResult & {
         masteryBefore: r.before,
         masteryAfter: r.after,
         reason: 'in-lesson',
+        prompt: a.prompt ?? '',
+        correctAnswer: a.correctAnswer,
+        // Keep the exact question ONLY when it was missed — that's what
+        // powers "retry your tricky ones". Correct ones stay lightweight.
+        q: !a.correct && a.question ? snapshotQuestion(a.question) : null,
       })
       if (!a.correct) {
         const m = classifyMistake(a.question, a.studentAnswer, a.correctAnswer)

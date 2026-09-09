@@ -171,6 +171,10 @@ export function buildAttemptEntry(args: {
   masteryAfter: number
   reason: AttemptLogEntry['reason']
   ts?: number
+  prompt?: string
+  correctAnswer?: string
+  /** Full question snapshot (caller passes it only for wrong attempts). */
+  q?: import('../../content/types').Question | null
 }): AttemptLogEntry {
   return {
     ts: args.ts ?? Date.now(),
@@ -184,6 +188,9 @@ export function buildAttemptEntry(args: {
     masteryBefore: args.masteryBefore,
     masteryAfter: args.masteryAfter,
     reason: args.reason,
+    prompt: args.prompt ?? '',
+    correctAnswer: args.correctAnswer ?? '',
+    q: args.q ?? null,
   }
 }
 

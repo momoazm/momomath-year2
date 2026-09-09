@@ -1,7 +1,12 @@
 import type { Question, UnitDef } from '../types'
 import {
+  buildDe,
+  buildEn,
   makeLesson,
+  matchDeEn,
   matchQ,
+  mcqDeToEn,
+  mcqEnToDe,
   mcqE,
   pick,
   say,
@@ -63,6 +68,36 @@ function gFeelTrueFalse(rand: Rand): Question {
   return tfQ('True or false?', item.s, item.a)
 }
 
+/* ----- Duolingo-style EN ⇄ DE: both directions + sentence builds ----- */
+const FEEL_GLOSS = FEELINGS.map((f) => ({ de: f.de, en: f.en }))
+
+function gFeelDeToEn(rand: Rand): Question {
+  return mcqDeToEn(rand, FEEL_GLOSS)
+}
+
+function gFeelEnToDe(rand: Rand): Question {
+  return mcqEnToDe(rand, FEEL_GLOSS)
+}
+
+function gFeelMatchDeEn(rand: Rand): Question {
+  return matchDeEn(rand, FEEL_GLOSS, 'Match the feeling: German to English')
+}
+
+const FEEL_BUILDS: { en: string; de: string[]; back: string[] }[] = [
+  { en: 'I feel good.', de: ['Mir', 'geht', 'es', 'gut.'], back: ['I', 'feel', 'good.'] },
+  { en: 'And you?', de: ['Und', 'dir?'], back: ['And', 'you?'] },
+]
+
+function gBuildFeelDe(rand: Rand): Question {
+  const s = pick(rand, FEEL_BUILDS)
+  return buildDe(s.en, s.de)
+}
+
+function gBuildFeelEn(rand: Rand): Question {
+  const s = pick(rand, FEEL_BUILDS)
+  return buildEn(s.de.join(' '), s.back)
+}
+
 const g2l1 = makeLesson(
   'g2l1',
   'Wie geht es dir?',
@@ -70,7 +105,7 @@ const g2l1 = makeLesson(
   'cream',
   'Gefühle!',
   'How are you? Mir geht es gut! Learn feelings and answer back with Und dir?',
-  [gFeelPicture, gFeelMatch],
+  [gFeelPicture, gFeelMatch, gFeelDeToEn, gFeelEnToDe],
 )
 
 const g2l2 = makeLesson(
@@ -80,7 +115,7 @@ const g2l2 = makeLesson(
   'tails',
   'Ohren auf!',
   'Listen like a detective. Tap the feeling you hear — Felix speaks fast!',
-  [gHearFeeling, gFeelTrueFalse],
+  [gHearFeeling, gFeelTrueFalse, gFeelMatchDeEn, gBuildFeelDe],
 )
 
 const g2l3 = makeLesson(
@@ -90,7 +125,7 @@ const g2l3 = makeLesson(
   'shadow',
   'Umlaut-Alarm!',
   'Ä Ö Ü and ß are German super-letters. Build them tile by tile!',
-  [gUmlautTiles, gFeelPicture],
+  [gUmlautTiles, gFeelPicture, gBuildFeelEn, gFeelEnToDe],
 )
 
 const g2boss = makeLesson(
@@ -100,8 +135,8 @@ const g2boss = makeLesson(
   'eggman',
   'BOSS TIME!',
   'Feelings, listening and umlauts — show Eggman your German heart!',
-  [gFeelMatch, gHearFeeling, gUmlautTiles, gFeelTrueFalse],
-  gHearFeeling,
+  [gFeelMatchDeEn, gHearFeeling, gBuildFeelDe, gBuildFeelEn],
+  gFeelDeToEn,
 )
 
 export const UNIT_G2: UnitDef = unitDef(

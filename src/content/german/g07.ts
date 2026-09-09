@@ -1,7 +1,12 @@
 import type { Question, UnitDef } from '../types'
 import {
+  buildDe,
+  buildEn,
   makeLesson,
+  matchDeEn,
   matchQ,
+  mcqDeToEn,
+  mcqEnToDe,
   mcqE,
   pick,
   say,
@@ -13,16 +18,16 @@ import {
 } from './helpers'
 
 const FOOD = [
-  { de: 'der Apfel', bare: 'Apfel', emoji: '🍎' },
-  { de: 'die Banane', bare: 'Banane', emoji: '🍌' },
-  { de: 'die Traube', bare: 'Traube', emoji: '🍇' },
-  { de: 'die Erdbeere', bare: 'Erdbeere', emoji: '🍓' },
-  { de: 'das Brot', bare: 'Brot', emoji: '🍞' },
-  { de: 'der Käse', bare: 'Käse', emoji: '🧀' },
-  { de: 'der Kuchen', bare: 'Kuchen', emoji: '🍰' },
-  { de: 'die Milch', bare: 'Milch', emoji: '🥛' },
-  { de: 'der Saft', bare: 'Saft', emoji: '🧃' },
-  { de: 'das Wasser', bare: 'Wasser', emoji: '💧' },
+  { de: 'der Apfel', bare: 'Apfel', en: 'apple', apples: 'apples', emoji: '🍎' },
+  { de: 'die Banane', bare: 'Banane', en: 'banana', apples: 'bananas', emoji: '🍌' },
+  { de: 'die Traube', bare: 'Traube', en: 'grape', apples: 'grapes', emoji: '🍇' },
+  { de: 'die Erdbeere', bare: 'Erdbeere', en: 'strawberry', apples: 'strawberries', emoji: '🍓' },
+  { de: 'das Brot', bare: 'Brot', en: 'bread', apples: 'bread', emoji: '🍞' },
+  { de: 'der Käse', bare: 'Käse', en: 'cheese', apples: 'cheese', emoji: '🧀' },
+  { de: 'der Kuchen', bare: 'Kuchen', en: 'cake', apples: 'cake', emoji: '🍰' },
+  { de: 'die Milch', bare: 'Milch', en: 'milk', apples: 'milk', emoji: '🥛' },
+  { de: 'der Saft', bare: 'Saft', en: 'juice', apples: 'juice', emoji: '🧃' },
+  { de: 'das Wasser', bare: 'Wasser', en: 'water', apples: 'water', emoji: '💧' },
 ]
 
 function gFoodPicture(rand: Rand): Question {
@@ -66,6 +71,41 @@ function gSpeakYummy(rand: Rand): Question {
   })
 }
 
+/* ----- Duolingo-style EN ⇄ DE: both directions + sentence builds ----- */
+const FOOD_GLOSS = FOOD.map((f) => ({ de: f.de, en: f.en }))
+
+function gFoodDeToEn(rand: Rand): Question {
+  return mcqDeToEn(rand, FOOD_GLOSS)
+}
+
+function gFoodEnToDe(rand: Rand): Question {
+  return mcqEnToDe(rand, FOOD_GLOSS)
+}
+
+function gFoodMatchDeEn(rand: Rand): Question {
+  return matchDeEn(rand, FOOD_GLOSS, 'Match the food: German to English')
+}
+
+function gBuildMagDe(rand: Rand): Question {
+  const item = pick(rand, FOOD)
+  return buildDe(`I like ${item.apples}.`, ['Ich', 'mag', `${item.bare}.`])
+}
+
+function gBuildMagEn(rand: Rand): Question {
+  const item = pick(rand, FOOD)
+  return buildEn(`Ich mag ${item.bare}.`, ['I', 'like', `${item.apples}.`])
+}
+
+function gBuildMagNichtDe(rand: Rand): Question {
+  const item = pick(rand, FOOD)
+  return buildDe(`I do not like ${item.apples}.`, ['Ich', 'mag', item.bare, 'nicht.'])
+}
+
+function gBuildMagNichtEn(rand: Rand): Question {
+  const item = pick(rand, FOOD)
+  return buildEn(`Ich mag ${item.bare} nicht.`, ['I', 'do', 'not', 'like', `${item.apples}.`])
+}
+
 const g7l1 = makeLesson(
   'g7l1',
   'Obstsalat',
@@ -73,7 +113,7 @@ const g7l1 = makeLesson(
   'tails',
   'Lecker!',
   'Fruit salad time! Apfel, Banane, Traube — taste every word with its article!',
-  [gFoodPicture, gFoodMatch],
+  [gFoodPicture, gFoodMatch, gFoodDeToEn, gFoodEnToDe],
 )
 
 const g7l2 = makeLesson(
@@ -83,7 +123,7 @@ const g7l2 = makeLesson(
   'amy',
   'Magst du?',
   'Likes and dislikes: Ich mag / Ich mag nicht. Sort the foods!',
-  [gMagMatch, gFoodTiles],
+  [gMagMatch, gFoodTiles, gBuildMagDe, gBuildMagEn],
 )
 
 const g7l3 = makeLesson(
@@ -93,7 +133,7 @@ const g7l3 = makeLesson(
   'cream',
   'Guten Appetit!',
   'Breakfast with Felix! Spell foods and read your favourite line aloud!',
-  [gFoodTiles, gSpeakYummy],
+  [gFoodTiles, gSpeakYummy, gBuildMagNichtDe, gBuildMagNichtEn],
 )
 
 const g7boss = makeLesson(
@@ -103,8 +143,8 @@ const g7boss = makeLesson(
   'eggman',
   'BOSS TIME!',
   'Foods, mag/mag nicht and breakfast lines — eat the boss for breakfast!',
-  [gFoodMatch, gMagMatch, gFoodTiles, gSpeakYummy],
-  gFoodPicture,
+  [gFoodMatchDeEn, gBuildMagDe, gBuildMagEn, gBuildMagNichtDe],
+  gFoodEnToDe,
 )
 
 export const UNIT_G7: UnitDef = unitDef(

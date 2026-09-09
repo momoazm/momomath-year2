@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { usePlayer } from '../engine/store'
-import { CARDS, type CardDef, type ChestTier } from '../engine/cards'
+import { CARDS, CARD_CHANCE, type CardDef, type ChestTier } from '../engine/cards'
+import { CardArt } from '../components/ui/CardArt'
 import { RARITY_META, type ChestRarity } from '../engine/gamification'
 import { AnimatePresence, motion } from 'framer-motion'
 
@@ -11,24 +12,28 @@ const TIER_TO_RARITY: Record<ChestTier, ChestRarity> = {
   epic: 'epic',
   legendary: 'legendary',
   exclusive: 'legendary',
+  mythic: 'mythic',
+  ultimate: 'ultimate',
+  hyper: 'hyper',
 }
 
-const TIER_ORDER: ChestTier[] = ['common', 'rare', 'epic', 'legendary', 'exclusive']
+const TIER_ORDER: ChestTier[] = ['common', 'rare', 'epic', 'legendary', 'exclusive', 'mythic', 'ultimate', 'hyper']
 
 export function LibraryScreen({ onClose }: { onClose?: () => void }) {
-  const { cardCollection } = usePlayer()
+  const { cardStars } = usePlayer()
   const [filterTier, setFilterTier] = useState<ChestTier | 'all'>('all')
   const [selectedCard, setSelectedCard] = useState<CardDef | null>(null)
   const [lockedToast, setLockedToast] = useState<{card: CardDef; rarity: ChestRarity} | null>(null)
 
-  const owned = new Set(cardCollection)
+  const owned = new Set(Object.keys(cardStars))
+  const totalStars = Object.values(cardStars).reduce((s, n) => s + n, 0)
   const allCards = CARDS
 
   const filteredCards = filterTier === 'all'
     ? allCards
     : allCards.filter((c) => c.tier === filterTier)
 
-  const tiers: (ChestTier | 'all')[] = ['all', 'common', 'rare', 'epic', 'legendary', 'exclusive']
+  const tiers: (ChestTier | 'all')[] = ['all', 'common', 'rare', 'epic', 'legendary', 'exclusive', 'mythic', 'ultimate', 'hyper']
 
   const isOwned = (id: string) => owned.has(id)
 
@@ -54,11 +59,12 @@ export function LibraryScreen({ onClose }: { onClose?: () => void }) {
 
   return (
     <div className="mx-auto max-w-5xl p-4 pb-24">
-      <LibraryHeader ownedCount={owned.size} totalCount={allCards.length} onClose={onClose} />
+      <LibraryHeader ownedCount={owned.size} totalCount={allCards.length} totalStars={totalStars} onClose={onClose} />
       <TierFilterTabs filterTier={filterTier} setFilterTier={setFilterTier} />
       <CardGrid
         cards={filteredCards}
         isOwned={isOwned}
+        starsOf={(id) => cardStars[id] ?? 0}
         onCardClick={handleCardClick}
         getHiddenCardStyle={getHiddenCardStyle}
       />
@@ -67,6 +73,7 @@ export function LibraryScreen({ onClose }: { onClose?: () => void }) {
         selectedCard={selectedCard}
         setSelectedCard={setSelectedCard}
         allCards={allCards}
+        stars={selectedCard ? (cardStars[selectedCard.id] ?? 0) : 0}
       />
       {lockedToast && (
         <LockedCardToast card={lockedToast.card} rarity={lockedToast.rarity} />
@@ -77,13 +84,14 @@ export function LibraryScreen({ onClose }: { onClose?: () => void }) {
 
 /* --- Sub-components below --- */
 
-function LibraryHeader({ ownedCount, totalCount, onClose }: { ownedCount: number; totalCount: number; onClose?: () => void }) {
+function LibraryHeader({ ownedCount, totalCount, totalStars, onClose }: { ownedCount: number; totalCount: number; totalStars: number; onClose?: () => void }) {
   return (
     <div className="flex items-center justify-between mb-6">
       <h1 className="font-display text-3xl font-extrabold text-slate-800">Card Library</h1>
       <div className="flex items-center gap-4">
-        <div className="text-sm text-slate-500">
-          {ownedCount} / {totalCount} collected
+        <div className="text-right text-sm text-slate-500">
+          <div>{ownedCount} / {totalCount} collected</div>
+          <div className="font-display font-extrabold text-amber-500">★ {totalStars} star-ups</div>
         </div>
         {onClose && (
           <button
@@ -103,7 +111,7 @@ function TierFilterTabs({
   filterTier,
   setFilterTier,
 }: { filterTier: ChestTier | 'all'; setFilterTier: (t: ChestTier | 'all') => void }) {
-  const tiers: (ChestTier | 'all')[] = ['all', 'common', 'rare', 'epic', 'legendary', 'exclusive']
+  const tiers: (ChestTier | 'all')[] = ['all', 'common', 'rare', 'epic', 'legendary', 'exclusive', 'mythic', 'ultimate', 'hyper']
   return (
     <div className="mb-4 flex flex-wrap gap-2" role="tablist">
       {tiers.map((tier) => (
@@ -127,11 +135,21 @@ function TierFilterTabs({
 interface CardGridProps {
   cards: CardDef[]
   isOwned: (id: string) => boolean
+  starsOf: (id: string) => number
   onCardClick: (card: CardDef) => void
   getHiddenCardStyle: (tier: ChestTier) => React.CSSProperties
 }
 
-function CardGrid({ cards, isOwned, onCardClick, getHiddenCardStyle }: CardGridProps) {
+function StarPips({ stars, max = 5 }: { stars: number; max?: number }) {
+  return (
+    <span className="font-display text-sm font-extrabold tracking-tight text-amber-400 drop-shadow" title={`${stars}/${max} stars`}>
+      {'★'.repeat(Math.min(stars, max))}
+      <span className="text-slate-300">{'★'.repeat(Math.max(0, max - Math.min(stars, max)))}</span>
+    </span>
+  )
+}
+
+function CardGrid({ cards, isOwned, starsOf, onCardClick, getHiddenCardStyle }: CardGridProps) {
   return (
     <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
       {cards.map((card) => {
@@ -139,6 +157,7 @@ function CardGrid({ cards, isOwned, onCardClick, getHiddenCardStyle }: CardGridP
         const rarity = TIER_TO_RARITY[card.tier]
         const meta = RARITY_META[rarity]
         const hiddenStyle = getHiddenCardStyle(card.tier)
+        const stars = starsOf(card.id)
 
         return (
           <motion.button
@@ -148,7 +167,7 @@ function CardGrid({ cards, isOwned, onCardClick, getHiddenCardStyle }: CardGridP
               owned_ ? 'cursor-pointer' : 'cursor-default'
             }`}
             whileTap={{ scale: 0.95 }}
-            style={owned_ ? undefined : hiddenStyle}
+            style={owned_ ? { borderColor: meta.color, boxShadow: `0 0 0 2px ${meta.color}, 0 0 24px ${meta.glowColor}` } : hiddenStyle}
           >
             <AnimatePresence mode="wait">
               {!owned_ && (
@@ -188,50 +207,31 @@ function CardGrid({ cards, isOwned, onCardClick, getHiddenCardStyle }: CardGridP
               )}
             </AnimatePresence>
 
-            <div className={`absolute inset-0 flex flex-col ${owned_ ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-              <div className="absolute inset-0" style={{
-                background: 'linear-gradient(180deg, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.7) 100%)',
-                boxShadow: `inset 0 0 60px ${meta.glowColor}`,
-              }} />
-
-              <div className="relative z-10 px-3 py-1.5 flex items-center justify-between"
-                   style={{ background: `linear-gradient(90deg, ${meta.color}20, transparent)` }}>
-                <span className="font-display text-xs font-extrabold px-2 py-0.5 rounded-full"
-                      style={{ background: meta.color, color: 'white' }}>
-                  {meta.label}
-                </span>
-                <span className="text-xs font-bold text-slate-400">
-                  #{String(CARDS.findIndex(c => c.id === card.id) + 1).padStart(2, '0')}
-                </span>
-              </div>
-
-              <div className="relative z-10 flex-1 flex items-center justify-center p-4">
-                <div className="w-full h-full max-w-48 max-h-48 flex items-center justify-center">
-                  <span className="text-8xl opacity-80">🃏</span>
+            {owned_ && (
+              <div className="absolute inset-0">
+                {/* full-bleed artwork: no need to open the card to see it */}
+                <div className="absolute inset-0">
+                  <CardArt cardId={card.id} character={card.character} expression="cheer" className="h-full w-full object-cover" />
+                </div>
+                <div className="absolute inset-x-0 top-0 flex items-center justify-between px-2 pt-1.5"
+                     style={{ background: `linear-gradient(180deg, ${meta.color}55, transparent)` }}>
+                  <span className="font-display text-[11px] font-extrabold px-2 py-0.5 rounded-full"
+                        style={{ background: meta.color, color: 'white' }}>
+                    {meta.label}
+                  </span>
+                  <span className="text-[11px] font-bold text-white drop-shadow">
+                    #{String(CARDS.findIndex(c => c.id === card.id) + 1).padStart(2, '0')}
+                  </span>
+                </div>
+                <div className="absolute inset-x-0 bottom-0 px-2 pb-2 pt-6 text-center"
+                     style={{ background: 'linear-gradient(0deg, rgba(2,6,23,0.82) 30%, transparent)' }}>
+                  <StarPips stars={stars} />
+                  <h3 className="font-display text-base font-extrabold leading-tight text-white drop-shadow">
+                    {card.name}
+                  </h3>
                 </div>
               </div>
-
-              <div className="relative z-10 px-3 pb-3 text-center">
-                <h3 className="font-display text-base font-extrabold text-slate-800">
-                  {card.name}
-                </h3>
-                <p className="text-xs text-slate-500 mt-1 line-clamp-2">
-                  {card.flavor}
-                </p>
-              </div>
-
-              {owned_ && (
-                <motion.div
-                  initial={{ scale: 0, rotate: -180 }}
-                  animate={{ scale: 1, rotate: 0 }}
-                  className="absolute top-2 right-2"
-                >
-                  <span className="bg-emerald-500 text-white text-xs font-extrabold px-1.5 py-0.5 rounded-full">
-                    NEW
-                  </span>
-                </motion.div>
-              )}
-            </div>
+            )}
           </motion.button>
         )
       })}
@@ -252,9 +252,10 @@ interface CardModalProps {
   selectedCard: CardDef | null
   setSelectedCard: (card: CardDef | null) => void
   allCards: CardDef[]
+  stars: number
 }
 
-function CardModal({ selectedCard, setSelectedCard, allCards }: CardModalProps) {
+function CardModal({ selectedCard, setSelectedCard, allCards, stars }: CardModalProps) {
   if (!selectedCard) return null
 
   const rarity = TIER_TO_RARITY[selectedCard.tier]
@@ -283,7 +284,9 @@ function CardModal({ selectedCard, setSelectedCard, allCards }: CardModalProps) 
             <div className="h-48 flex items-center justify-center p-6" style={{
               boxShadow: `inset 0 0 80px ${meta.glowColor}`,
             }}>
-              <span className="text-12xl">🃏</span>
+              <div className="h-full">
+                <CardArt cardId={selectedCard.id} character={selectedCard.character} expression="cheer" />
+              </div>
             </div>
             <div className="absolute top-4 left-4 right-4 flex justify-between">
               <span className="font-display text-xs font-extrabold px-2 py-1 rounded-full"
@@ -306,7 +309,7 @@ function CardModal({ selectedCard, setSelectedCard, allCards }: CardModalProps) 
             <p className="mt-2 text-slate-600">{selectedCard.flavor}</p>
 
             <div className="mt-4 flex items-center justify-center gap-2">
-              {['common', 'rare', 'epic', 'legendary', 'exclusive']
+              {['common', 'rare', 'epic', 'legendary', 'exclusive', 'mythic', 'ultimate', 'hyper']
                 .slice(0, TIER_ORDER.indexOf(selectedCard.tier) + 1)
                 .map((t, i) => (
                   <motion.span
@@ -319,13 +322,17 @@ function CardModal({ selectedCard, setSelectedCard, allCards }: CardModalProps) 
                   />
                 ))}
             </div>
+            <div className="mt-3 flex items-center justify-center gap-2">
+              <StarPips stars={stars} />
+              <span className="text-xs font-bold text-slate-400">
+                {stars >= 5 ? 'MAXED OUT!' : 'duplicates star it up'}
+              </span>
+            </div>
 
             <div className="mt-6 p-4 rounded-xl bg-slate-50">
               <p className="text-sm text-slate-600">
-                Obtained from <strong className="font-display capitalize">{selectedCard.tier}</strong> chests
-                {selectedCard.tier === 'legendary' || selectedCard.tier === 'exclusive'
-                  ? ' (guaranteed card drop)'
-                  : ' (~10% chance per chest)'}
+                Drops from <strong className="font-display capitalize">{selectedCard.tier}</strong> chests
+                ({Math.round(CARD_CHANCE[selectedCard.tier] * 100)}% per card slot — rarer chest, rarer card!)
               </p>
             </div>
 

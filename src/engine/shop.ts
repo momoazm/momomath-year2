@@ -21,7 +21,7 @@ export const SHOP_ITEMS: ShopItem[] = [
   {
     id: 'double-xp',
     name: 'Double XP Boost',
-    description: 'Next 3 lessons earn 2× XP. Stacks with chest bonus!',
+    description: 'Next lesson earns 2× XP. Stacks with chest bonus!',
     price: 100,
     icon: '⚡',
     category: 'boost',
@@ -30,7 +30,7 @@ export const SHOP_ITEMS: ShopItem[] = [
   {
     id: 'chest-boost',
     name: 'Chest Boost',
-    description: 'Your next lesson chest contains DOUBLE the gems and XP!',
+    description: 'Your next lesson chest contains DOUBLE the gems!',
     price: 75,
     icon: '🍀',
     category: 'boost',
@@ -39,7 +39,7 @@ export const SHOP_ITEMS: ShopItem[] = [
   {
     id: 'mega-chest',
     name: 'Mega Chest',
-    description: 'Your next lesson chest contains DOUBLE gems AND 2× XP!',
+    description: 'Your next lesson chest contains DOUBLE gems!',
     price: 150,
     icon: '🎁',
     category: 'boost',
@@ -48,7 +48,7 @@ export const SHOP_ITEMS: ShopItem[] = [
   {
     id: 'lucky-ticket',
     name: 'Lucky Ticket',
-    description: 'Boosts your next chest: way better odds of a Rare, Epic or Legendary card!',
+    description: 'A lucky charm for your collection.',
     price: 120,
     icon: '🎟️',
     category: 'boost',

@@ -1,4 +1,4 @@
-import type { QuestionKind } from '../../content/types'
+import type { QuestionKind, Question } from '../../content/types'
 
 /** Difficulty level 1/2/3 — small, easy, harder. */
 export type Difficulty = 1 | 2 | 3
@@ -56,6 +56,13 @@ export interface AttemptLogEntry {
   masteryBefore: number
   masteryAfter: number
   reason: AdaptiveReasonCode
+  /** Display prompt (always stored — cheap, powers the "tricky ones" list). */
+  prompt: string
+  /** Correct answer as display text (always stored). */
+  correctAnswer: string
+  /** Full question snapshot — stored ONLY for wrong first attempts so the
+   *  child can retry the exact question later. Old entries won't have it. */
+  q?: Question | null
 }
 
 export type AdaptiveReasonCode =

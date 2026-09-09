@@ -1,12 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import {
   LEAGUES,
+  LEAGUE_RIVALS,
   advanceLeague,
+  leagueOutcomeByRank,
   leagueOutcomeByXp,
   lessonChestPrize,
   nextWeekKey,
   weekKey,
   weeklyGoal,
+  zoneOfRank,
 } from '../src/engine/gamification'
 import { updateStreak } from '../src/engine/store'
 
@@ -87,5 +90,35 @@ describe('leagues', () => {
     expect(advanceLeague('Bronze', 'demoted')).toBe('Bronze')
     expect(advanceLeague('Diamond', 'promoted')).toBe('Diamond')
     expect(advanceLeague('Gold', 'promoted')).toBe('Sapphire')
+  })
+
+  it('rank zones are 3 promote / 4 safe / 3 demote on a 10-board', () => {
+    expect([1, 2, 3].map((r) => zoneOfRank(r, 10))).toEqual(['promo', 'promo', 'promo'])
+    expect([4, 5, 6, 7].map((r) => zoneOfRank(r, 10))).toEqual(['stay', 'stay', 'stay', 'stay'])
+    expect([8, 9, 10].map((r) => zoneOfRank(r, 10))).toEqual(['danger', 'danger', 'danger'])
+  })
+
+  it('weekly outcome follows rank: huge XP promotes, zero XP demotes', () => {
+    // Deterministic for a fixed week; bots scale with the league goal.
+    expect(leagueOutcomeByRank('Bronze', 100000, '2026-08-17')).toBe('promoted')
+    expect(leagueOutcomeByRank('Bronze', 0, '2026-08-17')).toBe('demoted')
+    expect(leagueOutcomeByRank('Diamond', 100000, '2026-08-17')).toBe('promoted')
+    // Mid-pack XP stays: goal-level effort lands mid-board, not auto-promoted.
+    const mid = weeklyGoal('Gold')
+    expect(['promoted', 'stayed', 'demoted']).toContain(leagueOutcomeByRank('Gold', mid, '2026-08-17'))
+  })
+
+  it('bots are competitive: drives descend and goal-level effort never auto-promotes', () => {
+    const drives = LEAGUE_RIVALS.map((r) => r.drive)
+    for (let i = 1; i < drives.length; i++) expect(drives[i]).toBeLessThan(drives[i - 1])
+    expect(drives[0]).toBeGreaterThanOrEqual(1.5) // the front-runner always outruns the goal
+    expect(drives[drives.length - 1]).toBeGreaterThanOrEqual(0.2) // even the tail never idles
+    // Hitting exactly the weekly goal must be earned mid-board, not a free promotion.
+    for (const league of ['Bronze', 'Gold', 'Diamond'] as const) {
+      const outcome = leagueOutcomeByRank(league, weeklyGoal(league), '2026-08-17')
+      expect(outcome, `${league} goal-level effort`).not.toBe('promoted')
+    }
+    // Token effort still demotes.
+    expect(leagueOutcomeByRank('Bronze', 5, '2026-08-17')).toBe('demoted')
   })
 })

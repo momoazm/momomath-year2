@@ -1,8 +1,13 @@
 import type { Question, UnitDef } from '../types'
 import {
   PICTURE_BANK,
+  buildDe,
+  buildEn,
   makeLesson,
+  matchDeEn,
   matchQ,
+  mcqDeToEn,
+  mcqEnToDe,
   mcqE,
   pick,
   say,
@@ -13,18 +18,18 @@ import {
 } from './helpers'
 
 const ANIMALS = [
-  { de: 'der Frosch', bare: 'Frosch', art: 'der', pic: PICTURE_BANK.frosch },
-  { de: 'die Ente', bare: 'Ente', art: 'die', pic: PICTURE_BANK.ente },
-  { de: 'die Katze', bare: 'Katze', art: 'die', pic: PICTURE_BANK.katze },
-  { de: 'der Hund', bare: 'Hund', art: 'der', pic: PICTURE_BANK.hund },
-  { de: 'das Pferd', bare: 'Pferd', art: 'das', pic: PICTURE_BANK.pferd },
-  { de: 'die Kuh', bare: 'Kuh', art: 'die', pic: PICTURE_BANK.kuh },
-  { de: 'das Schaf', bare: 'Schaf', art: 'das', pic: PICTURE_BANK.schaf },
-  { de: 'die Maus', bare: 'Maus', art: 'die', pic: PICTURE_BANK.maus },
-  { de: 'der Hase', bare: 'Hase', art: 'der', pic: PICTURE_BANK.hase },
-  { de: 'der Bär', bare: 'Bär', art: 'der', pic: PICTURE_BANK.bär },
-  { de: 'der Löwe', bare: 'Löwe', art: 'der', pic: PICTURE_BANK.löwe },
-  { de: 'der Affe', bare: 'Affe', art: 'der', pic: PICTURE_BANK.affe },
+  { de: 'der Frosch', bare: 'Frosch', art: 'der', en: 'frog', pic: PICTURE_BANK.frosch },
+  { de: 'die Ente', bare: 'Ente', art: 'die', en: 'duck', pic: PICTURE_BANK.ente },
+  { de: 'die Katze', bare: 'Katze', art: 'die', en: 'cat', pic: PICTURE_BANK.katze },
+  { de: 'der Hund', bare: 'Hund', art: 'der', en: 'dog', pic: PICTURE_BANK.hund },
+  { de: 'das Pferd', bare: 'Pferd', art: 'das', en: 'horse', pic: PICTURE_BANK.pferd },
+  { de: 'die Kuh', bare: 'Kuh', art: 'die', en: 'cow', pic: PICTURE_BANK.kuh },
+  { de: 'das Schaf', bare: 'Schaf', art: 'das', en: 'sheep', pic: PICTURE_BANK.schaf },
+  { de: 'die Maus', bare: 'Maus', art: 'die', en: 'mouse', pic: PICTURE_BANK.maus },
+  { de: 'der Hase', bare: 'Hase', art: 'der', en: 'rabbit', pic: PICTURE_BANK.hase },
+  { de: 'der Bär', bare: 'Bär', art: 'der', en: 'bear', pic: PICTURE_BANK.bär },
+  { de: 'der Löwe', bare: 'Löwe', art: 'der', en: 'lion', pic: PICTURE_BANK.löwe },
+  { de: 'der Affe', bare: 'Affe', art: 'der', en: 'monkey', pic: PICTURE_BANK.affe },
 ]
 
 function gAnimalPicture(rand: Rand): Question {
@@ -72,6 +77,31 @@ function gZooTrueFalse(rand: Rand): Question {
   return tfQ('True or false?', item.s, item.a)
 }
 
+/* ----- Duolingo-style EN ⇄ DE: both directions + sentence builds ----- */
+const ANIMAL_GLOSS = ANIMALS.map((a) => ({ de: a.de, en: a.en }))
+
+function gAnimalDeToEn(rand: Rand): Question {
+  return mcqDeToEn(rand, ANIMAL_GLOSS)
+}
+
+function gAnimalEnToDe(rand: Rand): Question {
+  return mcqEnToDe(rand, ANIMAL_GLOSS)
+}
+
+function gAnimalMatchDeEn(rand: Rand): Question {
+  return matchDeEn(rand, ANIMAL_GLOSS, 'Match the animal: German to English')
+}
+
+function gBuildAnimalDe(rand: Rand): Question {
+  const item = pick(rand, ANIMALS)
+  return buildDe(`This is the ${item.en}.`, ['Das', 'ist', item.art, `${item.bare}.`])
+}
+
+function gBuildAnimalEn(rand: Rand): Question {
+  const item = pick(rand, ANIMALS)
+  return buildEn(`Das ist ${item.art} ${item.bare}.`, ['This', 'is', 'the', `${item.en}.`])
+}
+
 const g5l1 = makeLesson(
   'g5l1',
   'Besuch aus Deutschland',
@@ -79,7 +109,7 @@ const g5l1 = makeLesson(
   'tails',
   'Zoo Berlin!',
   'Felix and Franzi bring friends from Zoo Berlin. Meet every animal WITH its article!',
-  [gAnimalPicture, gAnimalMatch],
+  [gAnimalPicture, gAnimalMatch, gAnimalDeToEn, gAnimalEnToDe],
 )
 
 const g5l2 = makeLesson(
@@ -89,7 +119,7 @@ const g5l2 = makeLesson(
   'shadow',
   'Artikel-Alarm!',
   'German nouns wear der, die or das. Match each bare noun to its article frame!',
-  [gArticleMatch, gAnimalPicture],
+  [gArticleMatch, gAnimalPicture, gAnimalMatchDeEn, gBuildAnimalDe],
 )
 
 const g5l3 = makeLesson(
@@ -99,7 +129,7 @@ const g5l3 = makeLesson(
   'sonic',
   'Hör zu!',
   'Listen and sort the zoo. Tap the animal you hear, then prove the zoo facts!',
-  [gHearAnimal, gZooTrueFalse],
+  [gHearAnimal, gZooTrueFalse, gAnimalDeToEn, gBuildAnimalEn],
 )
 
 const g5boss = makeLesson(
@@ -109,8 +139,8 @@ const g5boss = makeLesson(
   'eggman',
   'BOSS TIME!',
   'Animals plus articles — tame the Tier Boss like a true zookeeper!',
-  [gAnimalMatch, gArticleMatch, gHearAnimal, gZooTrueFalse],
-  gAnimalPicture,
+  [gAnimalMatchDeEn, gArticleMatch, gBuildAnimalDe, gBuildAnimalEn],
+  gAnimalEnToDe,
 )
 
 export const UNIT_G5: UnitDef = unitDef(

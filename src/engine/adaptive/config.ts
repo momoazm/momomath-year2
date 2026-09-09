@@ -98,6 +98,14 @@ export const ADAPTIVE_CONFIG = {
   /** Per-request timeout. */
   EXPLAIN_TIMEOUT_MS: 3000,
 
+  /** Grown-ups-only AI review. Provider chain lives in api/year2/review.ts.
+   *  Rendered in the Profile "For grown-ups" section — never to the child. */
+  REVIEW_ROUTE: '/api/year2/review',
+  /** Client-side cache size for reviews. */
+  REVIEW_CACHE_SIZE: 20,
+  /** Per-request timeout (parent-initiated, can wait longer than a lesson). */
+  REVIEW_TIMEOUT_MS: 20000,
+
   /** Student-facing age band. Used only for tone in LLM fallback prompts; the model
    *  is never told names or ids. */
   AGE_BAND: 'Year 2 (age 6-7)',

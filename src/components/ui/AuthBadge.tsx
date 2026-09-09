@@ -10,9 +10,9 @@ export function GoogleSignInInline() {
   useEffect(() => {
     if (!GOOGLE_CLIENT_ID || !btnRef.current || failed) return
     let cancelled = false
-    renderGoogleButton(btnRef.current, (u: AuthUser) => {
+    renderGoogleButton(btnRef.current, (u: AuthUser, credential: string) => {
       if (cancelled) return
-      signIn(u)
+      signIn(u, credential)
       const p = usePlayer.getState()
       if (p.name === 'Champion' && u.name) p.setName(u.name.split(' ')[0])
       p.setOnboarded()
@@ -51,9 +51,9 @@ export function AuthBadge() {
   useEffect(() => {
     if (!GOOGLE_CLIENT_ID || !btnRef.current || failed) return
     let cancelled = false
-    renderGoogleButton(btnRef.current, (u: AuthUser) => {
+    renderGoogleButton(btnRef.current, (u: AuthUser, credential: string) => {
       if (cancelled) return
-      signIn(u)
+      signIn(u, credential)
       const p = usePlayer.getState()
       if (p.name === 'Champion' && u.name) p.setName(u.name.split(' ')[0])
       p.setOnboarded()

@@ -37,6 +37,11 @@ Format reuse only (`mcq/match/order/tap-count/letter-tiles/truefalse/speak`):
 gender = match + mcq cloze; umlauts = letter-tiles with ä/ö/ü/ß single tiles;
 listening = existing `audioText` + de-DE TTS turtle replay; speaking = existing
 `speak` with forgiving self-check.
+Duolingo-style two-way translation (`helpers.ts`: `mcqDeToEn` / `mcqEnToDe` /
+`matchDeEn` / `buildDe` / `buildEn`): every unit drills DE → EN *and* EN → DE —
+word MCQs both directions, DE ⇄ EN tap-the-pairs, plus word-bank sentence
+builders (`buildDe` has no audio since the source is English; `buildEn`
+attaches German audio so players hear then translate).
 
 ## 3. Integration (optional-by-design)
 

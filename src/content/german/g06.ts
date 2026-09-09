@@ -1,7 +1,12 @@
 import type { Question, UnitDef } from '../types'
 import {
+  buildDe,
+  buildEn,
   makeLesson,
+  matchDeEn,
   matchQ,
+  mcqDeToEn,
+  mcqEnToDe,
   mcqE,
   mcqFixed,
   orderQ,
@@ -63,6 +68,53 @@ function gIntroOrder(rand: Rand): Question {
   })
 }
 
+/* ----- Duolingo-style EN ⇄ DE: both directions + sentence builds ----- */
+const FAMILY_GLOSS = FAMILY.map((f) => ({ de: f.de, en: f.en }))
+
+function gFamilyDeToEn(rand: Rand): Question {
+  return mcqDeToEn(rand, FAMILY_GLOSS)
+}
+
+function gFamilyEnToDe(rand: Rand): Question {
+  return mcqEnToDe(rand, FAMILY_GLOSS)
+}
+
+function gFamilyMatchDeEn(rand: Rand): Question {
+  return matchDeEn(rand, FAMILY_GLOSS, 'Match the family: German to English')
+}
+
+/** mein (masculine) vs meine (feminine) — mirrors the gDasIst rule. */
+function meinFor(de: string): 'mein' | 'meine' {
+  return de.startsWith('der') ? 'mein' : 'meine'
+}
+
+function gBuildFamilyDe(rand: Rand): Question {
+  const item = pick(rand, FAMILY)
+  const noun = item.de.split(' ')[1]
+  return buildDe(`This is my ${item.en}.`, ['Das', 'ist', meinFor(item.de), `${noun}.`])
+}
+
+function gBuildFamilyEn(rand: Rand): Question {
+  const item = pick(rand, FAMILY)
+  const noun = item.de.split(' ')[1]
+  return buildEn(`Das ist ${meinFor(item.de)} ${noun}.`, ['This', 'is', 'my', `${item.en}.`])
+}
+
+const NAME_BUILDS: { en: string; de: string[]; back: string[] }[] = [
+  { en: 'I am Felix.', de: ['Ich', 'heiße', 'Felix.'], back: ['I', 'am', 'Felix.'] },
+  { en: 'I am Franzi.', de: ['Ich', 'heiße', 'Franzi.'], back: ['I', 'am', 'Franzi.'] },
+]
+
+function gBuildNameDe(rand: Rand): Question {
+  const s = pick(rand, NAME_BUILDS)
+  return buildDe(s.en, s.de)
+}
+
+function gBuildNameEn(rand: Rand): Question {
+  const s = pick(rand, NAME_BUILDS)
+  return buildEn(s.de.join(' '), s.back)
+}
+
 const g6l1 = makeLesson(
   'g6l1',
   'Meine Familie',
@@ -70,7 +122,7 @@ const g6l1 = makeLesson(
   'amy',
   'Familie!',
   'Meet Mama, Papa, Bruder, Schwester, Oma and Opa — each WITH der or die!',
-  [gFamilyMatch, gFamilyPicture],
+  [gFamilyMatch, gFamilyPicture, gFamilyDeToEn, gFamilyEnToDe],
 )
 
 const g6l2 = makeLesson(
@@ -80,7 +132,7 @@ const g6l2 = makeLesson(
   'cream',
   'Vorstellen!',
   'Introduce people: Das ist mein/meine… Learn when mein becomes meine!',
-  [gDasIst, gFamilyMatch],
+  [gDasIst, gFamilyMatchDeEn, gBuildFamilyDe, gBuildFamilyEn],
 )
 
 const g6l3 = makeLesson(
@@ -90,7 +142,7 @@ const g6l3 = makeLesson(
   'sonic',
   'Ich bin…!',
   'Say your name like Felix: Ich heiße… Build the intro in the right order!',
-  [gIntroOrder, gFamilyPicture],
+  [gIntroOrder, gFamilyPicture, gBuildNameDe, gBuildNameEn],
 )
 
 const g6boss = makeLesson(
@@ -100,8 +152,8 @@ const g6boss = makeLesson(
   'eggman',
   'BOSS TIME!',
   'Family, mein/meine and introductions — introduce the boss to defeat him!',
-  [gFamilyMatch, gDasIst, gIntroOrder, gFamilyPicture],
-  gDasIst,
+  [gFamilyMatchDeEn, gBuildFamilyDe, gBuildFamilyEn, gBuildNameDe],
+  gFamilyEnToDe,
 )
 
 export const UNIT_G6: UnitDef = unitDef(

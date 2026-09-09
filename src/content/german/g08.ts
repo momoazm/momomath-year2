@@ -1,8 +1,13 @@
 import type { Question, UnitDef } from '../types'
 import {
   PICTURE_BANK,
+  buildDe,
+  buildEn,
   makeLesson,
+  matchDeEn,
   matchQ,
+  mcqDeToEn,
+  mcqEnToDe,
   mcqE,
   pick,
   say,
@@ -12,25 +17,25 @@ import {
 } from './helpers'
 
 const BODY = [
-  { de: 'der Kopf', emoji: PICTURE_BANK.kopf },
-  { de: 'das Auge', emoji: PICTURE_BANK.auge },
-  { de: 'das Ohr', emoji: PICTURE_BANK.ohr },
-  { de: 'die Nase', emoji: PICTURE_BANK.nase },
-  { de: 'der Mund', emoji: PICTURE_BANK.mund },
-  { de: 'die Hand', emoji: PICTURE_BANK.hand },
-  { de: 'der Fuß', emoji: PICTURE_BANK.fuß },
-  { de: 'das Bein', emoji: PICTURE_BANK.bein },
+  { de: 'der Kopf', en: 'head', emoji: PICTURE_BANK.kopf },
+  { de: 'das Auge', en: 'eye', emoji: PICTURE_BANK.auge },
+  { de: 'das Ohr', en: 'ear', emoji: PICTURE_BANK.ohr },
+  { de: 'die Nase', en: 'nose', emoji: PICTURE_BANK.nase },
+  { de: 'der Mund', en: 'mouth', emoji: PICTURE_BANK.mund },
+  { de: 'die Hand', en: 'hand', emoji: PICTURE_BANK.hand },
+  { de: 'der Fuß', en: 'foot', emoji: PICTURE_BANK.fuß },
+  { de: 'das Bein', en: 'leg', emoji: PICTURE_BANK.bein },
 ]
 
 const CLOTHES = [
-  { de: 'der Hut', emoji: PICTURE_BANK.hut },
-  { de: 'der Schuh', emoji: PICTURE_BANK.schuh },
-  { de: 'die Socke', emoji: PICTURE_BANK.socke },
-  { de: 'die Jacke', emoji: PICTURE_BANK.jacke },
-  { de: 'das Hemd', emoji: PICTURE_BANK.hemd },
-  { de: 'die Hose', emoji: PICTURE_BANK.hose },
-  { de: 'die Brille', emoji: PICTURE_BANK.brille },
-  { de: 'der Mantel', emoji: '🥼' },
+  { de: 'der Hut', en: 'hat', emoji: PICTURE_BANK.hut },
+  { de: 'der Schuh', en: 'shoe', emoji: PICTURE_BANK.schuh },
+  { de: 'die Socke', en: 'sock', emoji: PICTURE_BANK.socke },
+  { de: 'die Jacke', en: 'jacket', emoji: PICTURE_BANK.jacke },
+  { de: 'das Hemd', en: 'shirt', emoji: PICTURE_BANK.hemd },
+  { de: 'die Hose', en: 'trousers', emoji: PICTURE_BANK.hose },
+  { de: 'die Brille', en: 'glasses', emoji: PICTURE_BANK.brille },
+  { de: 'der Mantel', en: 'coat', emoji: '🥼' },
 ]
 
 function gBodyPicture(rand: Rand): Question {
@@ -83,6 +88,51 @@ function gWeatherClothes(rand: Rand): Question {
   })
 }
 
+/* ----- Duolingo-style EN ⇄ DE: both directions + sentence builds ----- */
+const BODY_GLOSS = BODY.map((b) => ({ de: b.de, en: b.en }))
+const CLOTHES_GLOSS = CLOTHES.map((c) => ({ de: c.de, en: c.en }))
+
+function gBodyDeToEn(rand: Rand): Question {
+  return mcqDeToEn(rand, BODY_GLOSS)
+}
+
+function gBodyEnToDe(rand: Rand): Question {
+  return mcqEnToDe(rand, BODY_GLOSS)
+}
+
+function gBodyMatchDeEn(rand: Rand): Question {
+  return matchDeEn(rand, BODY_GLOSS, 'Match the body part: German to English')
+}
+
+function gClothesDeToEn(rand: Rand): Question {
+  return mcqDeToEn(rand, CLOTHES_GLOSS)
+}
+
+function gClothesEnToDe(rand: Rand): Question {
+  return mcqEnToDe(rand, CLOTHES_GLOSS)
+}
+
+function gClothesMatchDeEn(rand: Rand): Question {
+  return matchDeEn(rand, CLOTHES_GLOSS, 'Match the clothing: German to English')
+}
+
+const WEATHER_BUILDS: { en: string; de: string[]; back: string[] }[] = [
+  { en: 'It is raining.', de: ['Es', 'regnet.'], back: ['It', 'is', 'raining.'] },
+  { en: 'It is snowing.', de: ['Es', 'schneit.'], back: ['It', 'is', 'snowing.'] },
+  { en: 'The sun is shining.', de: ['Die', 'Sonne', 'scheint.'], back: ['The', 'sun', 'is', 'shining.'] },
+  { en: 'It is cold.', de: ['Es', 'ist', 'kalt.'], back: ['It', 'is', 'cold.'] },
+]
+
+function gBuildWeatherDe(rand: Rand): Question {
+  const s = pick(rand, WEATHER_BUILDS)
+  return buildDe(s.en, s.de)
+}
+
+function gBuildWeatherEn(rand: Rand): Question {
+  const s = pick(rand, WEATHER_BUILDS)
+  return buildEn(s.de.join(' '), s.back)
+}
+
 const g8l1 = makeLesson(
   'g8l1',
   'Mein Körper',
@@ -90,7 +140,7 @@ const g8l1 = makeLesson(
   'knuckles',
   'Kopf bis Fuß!',
   'Head to toe: Kopf, Auge, Ohr, Nase, Mund, Hand, Fuß. Point and name!',
-  [gBodyPicture, gBodyMatch],
+  [gBodyPicture, gBodyMatch, gBodyDeToEn, gBodyEnToDe],
 )
 
 const g8l2 = makeLesson(
@@ -100,7 +150,7 @@ const g8l2 = makeLesson(
   'amy',
   'Mode-Show!',
   'Dress Felix for the weather! Hut, Schuh, Jacke, Hose — what fits?',
-  [gClothesPicture, gClothesMatch],
+  [gClothesPicture, gClothesMatch, gClothesDeToEn, gClothesEnToDe],
 )
 
 const g8l3 = makeLesson(
@@ -110,7 +160,7 @@ const g8l3 = makeLesson(
   'tails',
   'Wetter-Detektiv!',
   'German weather changes fast! Match each weather to the right clothing!',
-  [gWeatherClothes, gClothesPicture],
+  [gWeatherClothes, gClothesPicture, gBuildWeatherDe, gBuildWeatherEn],
 )
 
 const g8boss = makeLesson(
@@ -120,7 +170,7 @@ const g8boss = makeLesson(
   'eggman',
   'BOSS TIME!',
   'Body, clothes and weather — dress sharper than the boss!',
-  [gBodyMatch, gClothesMatch, gWeatherClothes, gBodyPicture],
+  [gBodyMatchDeEn, gClothesMatchDeEn, gBuildWeatherDe, gBuildWeatherEn],
   gWeatherClothes,
 )
 

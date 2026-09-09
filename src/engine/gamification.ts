@@ -111,16 +111,16 @@ export interface LeagueRival {
 }
 
 export const LEAGUE_RIVALS: LeagueRival[] = [
-  { id: 'zara', name: 'Zara', icon: '🦊', drive: 1.45 },
-  { id: 'max', name: 'Max', icon: '🐯', drive: 1.2 },
-  { id: 'layla', name: 'Layla', icon: '🐰', drive: 1.05 },
-  { id: 'omar', name: 'Omar', icon: '🐻', drive: 0.9 },
-  { id: 'sara', name: 'Sara', icon: '🐨', drive: 0.75 },
-  { id: 'yusuf', name: 'Yusuf', icon: '🦁', drive: 0.6 },
-  { id: 'mia', name: 'Mia', icon: '🐼', drive: 0.5 },
-  { id: 'ali', name: 'Ali', icon: '🐸', drive: 0.38 },
-  { id: 'nora', name: 'Nora', icon: '🐧', drive: 0.28 },
-  { id: 'adam', name: 'Adam', icon: '🐷', drive: 0.18 },
+  { id: 'zara', name: 'Zara', icon: '🦊', drive: 1.55 },
+  { id: 'max', name: 'Max', icon: '🐯', drive: 1.3 },
+  { id: 'layla', name: 'Layla', icon: '🐰', drive: 1.12 },
+  { id: 'omar', name: 'Omar', icon: '🐻', drive: 0.98 },
+  { id: 'sara', name: 'Sara', icon: '🐨', drive: 0.85 },
+  { id: 'yusuf', name: 'Yusuf', icon: '🦁', drive: 0.7 },
+  { id: 'mia', name: 'Mia', icon: '🐼', drive: 0.58 },
+  { id: 'ali', name: 'Ali', icon: '🐸', drive: 0.45 },
+  { id: 'nora', name: 'Nora', icon: '🐧', drive: 0.35 },
+  { id: 'adam', name: 'Adam', icon: '🐷', drive: 0.24 },
 ]
 
 function hashStr(str: string): number {
@@ -142,7 +142,7 @@ export function rivalXp(
   now: Date = new Date(),
 ): number {
   const rand = mulberry32(hashStr(`${wk}:${rival.id}`))
-  const jitter = 0.75 + rand() * 0.5 // some weeks a rival over/under-performs
+  const jitter = 0.85 + rand() * 0.4 // some weeks a rival over/under-performs (never too lazy)
   const paceExp = 0.7 + rand() * 0.9 // sprinters front-load, grinders finish strong
   const target = LEAGUE_GOALS[league] * Math.min(rival.drive * jitter, 1.7)
 
@@ -160,6 +160,46 @@ export function msUntilWeekEnd(now: Date = new Date()): number {
   return d.getTime() - now.getTime()
 }
 
+/* ---------------- Rank zones: 3 promote, 4 safe, 3 demote ---------------- */
+/* The weekly board is 10 racers (you + 9 practice bots; real friends swap bots
+ * out one-for-one). Zones are RANK-based, Duolingo-style:
+ *   ranks 1-3  -> promoted ⬆️
+ *   ranks 4-7  -> safe, stay ➖
+ *   ranks 8-10 -> demoted ⬇️ */
+
+export const PROMO_SPOTS = 3
+export const SAFE_SPOTS = 4
+export const DEMOTE_SPOTS = 3
+
+export type BoardZone = 'promo' | 'stay' | 'danger'
+
+/** Rank-based zone for a 1-based rank. Top 3 promote, bottom 3 demote. */
+export function zoneOfRank(rank: number, boardSize = PROMO_SPOTS + SAFE_SPOTS + DEMOTE_SPOTS): BoardZone {
+  if (rank <= PROMO_SPOTS) return 'promo'
+  if (rank > boardSize - DEMOTE_SPOTS) return 'danger'
+  return 'stay'
+}
+
+/** A rival's FINAL XP for week `wk` (growth saturates at week end). */
+export function finalRivalXp(rival: LeagueRival, league: LeagueName, wk: string): number {
+  const endMs = new Date(wk + 'T00:00:00').getTime() + 7 * 86400000
+  return rivalXp(rival, league, wk, new Date(endMs))
+}
+
+/** Weekly outcome by RANK on the 10-racer practice board (you + strongest 9
+ *  bots — the same board a solo player sees all week). Deterministic for
+ *  (league, week, xp): rank 1-3 promoted, 4-7 stayed, 8-10 demoted. */
+export function leagueOutcomeByRank(
+  league: LeagueName,
+  weeklyXp: number,
+  wk: string,
+): 'promoted' | 'demoted' | 'stayed' {
+  const botFinals = LEAGUE_RIVALS.slice(0, 9).map((r) => finalRivalXp(r, league, wk))
+  const rank = 1 + botFinals.filter((x) => x > weeklyXp).length
+  const zone = zoneOfRank(rank, botFinals.length + 1)
+  return zone === 'promo' ? 'promoted' : zone === 'danger' ? 'demoted' : 'stayed'
+}
+
 /** Gems inside the end-of-lesson chest. Perfect lessons give bigger loot. */
 export function lessonChestPrize(isBoss: boolean, mistakes: number, rand: () => number = Math.random): number {
   const base = isBoss ? 15 : 8
@@ -175,7 +215,7 @@ export function lessonChestPrize(isBoss: boolean, mistakes: number, rand: () => 
    Lower probability = bigger prize. Legendary drops are extremely rare but
    give streak freezes or exclusive wallpapers. */
 
-export type ChestRarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary'
+export type ChestRarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary' | 'mythic' | 'ultimate' | 'hyper'
 
 export interface ChestLoot {
   rarity: ChestRarity
@@ -228,6 +268,9 @@ export const RARITY_META: Record<ChestRarity, { color: string; glowColor: string
   rare: { color: '#3b82f6', glowColor: 'rgba(59, 130, 246, 0.4)', label: 'RARE!' },
   epic: { color: '#a855f7', glowColor: 'rgba(168, 85, 247, 0.45)', label: 'EPIC!!' },
   legendary: { color: '#f59e0b', glowColor: 'rgba(245, 158, 11, 0.5)', label: '⭐ LEGENDARY!!! ⭐' },
+  mythic: { color: '#ec4899', glowColor: 'rgba(236, 72, 153, 0.5)', label: '💖 MYTHIC' },
+  ultimate: { color: '#14b8a6', glowColor: 'rgba(20, 184, 166, 0.55)', label: '💎 ULTIMATE' },
+  hyper: { color: '#facc15', glowColor: 'rgba(250, 204, 21, 0.6)', label: '🌟 HYPER' },
 }
 
 /* ---------------- Daily quests ---------------- */

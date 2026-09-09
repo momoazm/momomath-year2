@@ -39,7 +39,13 @@ export function PathScreen({ onStartLesson }: { onStartLesson: (lessonId: string
             ? 'Science'
             : player.subject === 'german'
               ? 'Deutsch (extra)'
-              : 'Maths',
+              : player.subject === 'arabic'
+                ? 'العربية (extra)'
+                : player.subject === 'religion'
+                  ? 'الدين (extra)'
+                  : player.subject === 'social'
+                    ? 'دراسات (extra)'
+                    : 'Maths',
     }
   }, [player.subject])
 

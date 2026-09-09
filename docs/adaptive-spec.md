@@ -113,10 +113,15 @@ intentionally defensive:
    return it. **A child making the same mistake twice in a row is one API
    call total.**
 3. Otherwise we POST to `/api/year2/explain`. The route is a ranked chain
-   (Groq → Gemini → Cerebras → OpenRouter → Mistral → Zhipu → Groq-small,
-   ordered for warm-up speed and instruction-following for short
-   kid-friendly sentences). The first provider that returns 2xx + non-empty
-   text within 3 s wins. On any failure the route tries the next provider.
+   (Groq → Cerebras → Gemini → Zen → OpenRouter → Mistral → GitHub Models,
+   free-first and fast-first, paid OpenAI only as a last resort when its key
+   exists). Every provider speaks OpenAI-compatible `/chat/completions`, so
+   there is one call path. The first provider that returns 2xx + non-empty
+   text within 3 s wins (overall deadline 9 s); 429/5xx/timeout/network
+   puts that label on a 60 s cooldown and the route tries the next provider.
+   A grown-up BYOK key (`x-ai-provider` + `x-ai-key` headers, stored only in
+   the browser) jumps the queue. Server keys come from env; any subset works
+   — providers without a key are skipped.
 
 ## UX for the child
 
@@ -187,6 +192,10 @@ A list of metrics we should start collecting from real users:
 | `src/engine/adaptive/useAdaptiveLesson.ts` | React hook that wires the engine into the lesson loop |
 | `src/engine/adaptive/index.ts` | barrel |
 | `api/year2/explain.ts` | serverless route (ranked chain, PII firewall, templates) |
+| `api/year2/review.ts` | grown-ups-only review route (strict-JSON coach, same chain shape) |
+| `src/engine/adaptive/byok.ts` | optional parent key store (localStorage only, forwarded as headers) |
+| `src/engine/adaptive/review.ts` | review client (cache + offline template, throws on 400/401) |
+| `src/components/ui/GrownUpsReview.tsx` | Profile key form + review card (parent-facing only) |
 | `src/engine/store.ts` | new `adaptive` slice + v4 migration |
 | `src/screens/LessonScreen.tsx` | three small hooks (timing, BKT update, explanation) |
 | `src/screens/PathScreen.tsx` | "Recommended for you" card |
@@ -233,3 +242,36 @@ dashboard's trend sparklines.
 The LLM-explanation layer (see below) only ever receives: `prompt`,
 `studentAnswer`, `correctAnswer`, `objectiveCode`, `recentAccuracyPct`,
 `ageBand`. **No names, emails, attempt history, or any other PII.**
+
+## Repeat tracker + wrong-question retry (2026-09-09)
+
+Two parent/child-facing upgrades on top of the log above:
+
+**Per-lesson repeat highlights** (`src/engine/adaptive/lessons.ts` —
+`lessonsToRepeat`). Rolls the attempt log up per `lessonId`: overall
+accuracy, difficulty-3 ("hardest") accuracy, mean BKT mastery of the
+lesson's codes, and spaced-review due count. A lesson is flagged when the
+hardest questions sit under 60% (min 2 tries), overall accuracy is under
+70% (min 3 tries), mastery is under 50%, or a skill is due. Worst first.
+Rendered in Profile as "Lessons to repeat" with a Practice button per
+lesson, plus a red "Hard" column and due bell in the insights table.
+
+**Wrong-question retry.** Wrong first attempts now store `prompt`,
+`correctAnswer`, and a full question snapshot `q` (`snapshotQuestion`;
+correct attempts stay lightweight). Sources:
+
+- Lesson done screen: "Fix my mistakes (N)" replays the session's misses.
+- Profile: "Tricky questions" lists the 5 most recent misses with per-row
+  Retry plus "Practice all (N)".
+
+Retry runs inside `LessonScreen` (`retryItems` prop / internal retry
+state): per-question origin (`lessonId` + `objectiveCode`) travels with
+each item so BKT keeps updating the right skill. Scoring is XP-only
+(`store.recordPractice` — 1 XP per fix, streak + dailies move, no
+lessonProgress/crown/chest changes), so retrying can never farm rewards.
+
+**Difficulty honesty fix.** The lesson loop used to log every attempt as
+`difficulty: 1`. It now logs the skill's live BKT difficulty at check
+time, which is what makes hardest-question stats meaningful. Old log
+entries (all difficulty 1, no snapshots) degrade gracefully: hardest
+shows a dash, prompt-only rows offer no exact retry.

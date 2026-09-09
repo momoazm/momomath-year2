@@ -1,4 +1,4 @@
-/** Tiny Web Speech API wrapper for audio exercises (English + German).
+/** Tiny Web Speech API wrapper for audio exercises (English + German + Arabic).
  *  Never throws - if TTS is unavailable every call is a silent no-op. */
 
 import type { Subject } from '../content/types'
@@ -33,9 +33,11 @@ if (ttsAvailable()) {
   }
 }
 
-/** Preferred TTS locale per subject. German uses de-DE (turtle replay slower). */
+/** Preferred TTS locale per subject. German uses de-DE, Arabic-content extras use ar-EG. */
 export function ttsLangFor(subject: Subject): string {
-  return subject === 'german' ? 'de-DE' : 'en-GB'
+  if (subject === 'german') return 'de-DE'
+  if (subject === 'arabic' || subject === 'religion' || subject === 'social') return 'ar-EG'
+  return 'en-GB'
 }
 
 export function speak(text: string, rate = 0.92, lang = 'en-GB'): void {

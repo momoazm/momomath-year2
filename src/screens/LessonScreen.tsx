@@ -4,14 +4,27 @@ import confetti from 'canvas-confetti'
 import { QUESTIONS_PER_LESSON } from '../content/curriculum'
 import { getCurriculum } from '../content/registry'
 import { usePlayer } from '../engine/store'
-import { lessonChestPrize } from '../engine/gamification'
+import {
+  CARD_BY_ID,
+  KICKS,
+  KICK_UPGRADE,
+  TIER_META,
+  resolveChest,
+  rollStartTier,
+  upgradeStep,
+  type ChestContext,
+  type ChestResult,
+  type ChestTier,
+} from '../engine/cards'
+import { CardArt } from '../components/ui/CardArt'
 import { SHOP_ITEMS } from '../engine/shop'
 import { speakFor, speakSlowFor, stopSpeaking, ttsAvailable, ttsLangFor } from '../engine/tts'
 import { Mascot } from '../components/mascots/Mascots'
 import { sfx } from '../engine/sfx'
 import { hashString, mulberry32, shuffle } from '../content/rng'
 import { layoutMatchColumns } from '../content/matchLayout'
-import { primaryCode, useAdaptiveLesson } from '../engine/adaptive'
+import { primaryCode, questionPrompt, useAdaptiveLesson } from '../engine/adaptive'
+import type { RetryItem } from '../engine/adaptive'
 import type {
   LetterTilesQuestion,
   MatchQuestion,
@@ -85,9 +98,9 @@ function Visual({ v }: { v: NonNullable<Question['visual']> }) {
   switch (v.type) {
     case 'emoji-group':
       return (
-        <div className="mx-auto flex max-w-md flex-wrap justify-center gap-2 py-2">
+        <div className="mx-auto flex max-w-md flex-wrap justify-center gap-3 py-3">
           {v.emojis.map((e, i) => (
-            <span key={i} className="gpu animate-bob text-3xl" style={{ animationDelay: `${(i % 6) * 0.15}s` }}>
+            <span key={i} className="gpu animate-bob text-4xl" style={{ animationDelay: `${(i % 6) * 0.15}s` }}>
               {e}
             </span>
           ))}
@@ -169,10 +182,31 @@ function NumberPad({ value, onChange }: { value: string; onChange: (v: string) =
 
 type Phase = 'intro' | 'playing' | 'done'
 
-export function LessonScreen({ lessonId, onExit }: { lessonId: string; onExit: () => void }) {
+export function LessonScreen({ lessonId, onExit, retryItems }: {
+  lessonId: string
+  onExit: () => void
+  /** Wrong-question practice: replay these exact snapshots instead of
+   *  generating a fresh lesson. XP only — no crowns, no chests. */
+  retryItems?: RetryItem[]
+}) {
   const subject = usePlayer((s) => s.subject)
-  const entry = getCurriculum(subject).allLessons[lessonId]
+  // Retry mode never generates: entry is only needed for fresh lessons.
+  const entry = retryItems?.length
+    ? null
+    : (getCurriculum(subject).allLessons[lessonId] ?? null)
   const player = usePlayer()
+  /** Active retry set (prop on mount, or "fix my mistakes" mid-lesson). */
+  const [retry, setRetry] = useState<RetryItem[] | null>(
+    retryItems?.length ? retryItems : null,
+  )
+  /** Per-queue-index origin (lesson + skill) for adaptive recording. */
+  const [queueMeta, setQueueMeta] = useState<
+    { lessonId: string; objectiveCode: string }[]
+  >([])
+  /** Wrong first-attempt questions of the CURRENT session (for retry). */
+  const missedRef = useRef(new Map<Question, { lessonId: string; objectiveCode: string }>())
+  /** Missed count snapshot for the done screen (refs don't re-render). */
+  const [missedCount, setMissedCount] = useState(0)
   const [attempt, setAttempt] = useState(1)
   const [phase, setPhase] = useState<Phase>('intro')
   const [queue, setQueue] = useState<Question[]>([])
@@ -184,6 +218,18 @@ export function LessonScreen({ lessonId, onExit }: { lessonId: string; onExit: (
   const [prize, setPrize] = useState(0)
   const [chestOpen, setChestOpen] = useState(false)
   const [firstAttemptMistakes, setFirstAttemptMistakes] = useState(0)
+  // 4-kick rarity ritual: start tier is rolled at finish; each kick can upgrade
+  // Common->Rare->Epic->Legendary; then the chest resolves (gems + maybe card).
+  const [ritual, setRitual] = useState<{
+    ctx: ChestContext
+    startTier: ChestTier
+    tier: ChestTier
+    kicksLeft: number
+    upgradesAt: number[]
+    gemMult: number
+  } | null>(null)
+  const [chestResult, setChestResult] = useState<ChestResult | null>(null)
+  const [kickMsg, setKickMsg] = useState('')
 
   // per-question UI state
   const [choiceIdx, setChoiceIdx] = useState<number | null>(null)
@@ -191,14 +237,22 @@ export function LessonScreen({ lessonId, onExit }: { lessonId: string; onExit: (
   const [tapped, setTapped] = useState<Set<number>>(new Set())
   const [pendingLeft, setPendingLeft] = useState<string | null>(null)
   const [matched, setMatched] = useState<Set<string>>(new Set())
-  const [matchErrors, setMatchErrors] = useState(0)
   const [orderPick, setOrderPick] = useState<number[]>([])
   // letter tiles
   const [tilePicks, setTilePicks] = useState<number[]>([])
   // speak
   const [speakPhase, setSpeakPhase] = useState<'idle' | 'listening' | 'heard'>('idle')
   // track first-attempt state per queue index
-  const [firstAttemptDone, setFirstAttemptDone] = useState<Set<number>>(new Set())
+  // track answered question INSTANCES (requeued retries are the same object,
+  // so retries never count as new first attempts — no flawless-bonus leak)
+  const [seenQuestions, setSeenQuestions] = useState<Set<Question>>(new Set())
+  // idempotency guards: rapid double-taps must not double-finish or double-pay
+  const finishedRef = useRef(false)
+  const chestClaimedRef = useRef(false)
+  // per-question tap guards: Check fires once per question, Continue advances
+  // once per feedback (double-taps otherwise skip questions / double-count)
+  const checkedRef = useRef(false)
+  const continuedRef = useRef(false)
 
   const q: Question | undefined = queue[qIdx]
 
@@ -213,16 +267,52 @@ export function LessonScreen({ lessonId, onExit }: { lessonId: string; onExit: (
     adaptive.reset()
   }, [qIdx, adaptive])
 
-  const startLesson = useCallback(() => {
-    setQueue(entry.lesson.generate(QUESTIONS_PER_LESSON, attempt))
+  /** Start a session: retry items when given, else a fresh generated lesson. */
+  const beginSession = useCallback((items: RetryItem[] | null) => {
+    const active = items?.length ? items : null
+    const qs = active
+      ? active.map((r) => r.question)
+      : entry!.lesson.generate(QUESTIONS_PER_LESSON, attempt)
+    const meta = active
+      ? active.map((r) => ({ lessonId: r.lessonId, objectiveCode: r.objectiveCode }))
+      : qs.map(() => ({ lessonId, objectiveCode: lessonCode }))
+    setQueue(qs)
+    setQueueMeta(meta)
+    missedRef.current.clear()
+    setMissedCount(0)
     setQIdx(0); setPhase('playing'); setFeedback(null)
-    setFirstAttemptCorrect(0); setTotalFirstAttempts(0); setFirstAttemptDone(new Set())
+    setFirstAttemptCorrect(0); setTotalFirstAttempts(0); setSeenQuestions(new Set())
+    setRitual(null); setChestResult(null); setKickMsg(''); setPrize(0)
+    finishedRef.current = false; chestClaimedRef.current = false
+    checkedRef.current = false; continuedRef.current = false
     resetQState()
-  }, [entry, attempt])
+  }, [entry, attempt, lessonCode, lessonId])
+
+  const startLesson = useCallback(() => {
+    beginSession(retry)
+  }, [beginSession, retry])
+
+  /** Done-screen / profile action: replay exactly the questions missed in
+   *  this session (or the retry session) — XP only, no double chest. */
+  function startRetryFromMissed() {
+    const items: RetryItem[] = [...missedRef.current.entries()].map(
+      ([question, m]) => ({
+        question,
+        lessonId: m.lessonId,
+        objectiveCode: m.objectiveCode,
+        difficulty:
+          player.adaptive.snapshot.skills[m.objectiveCode]?.difficulty ?? 1,
+      }),
+    )
+    if (items.length === 0) return
+    sfx.tap()
+    setRetry(items)
+    beginSession(items)
+  }
 
   function resetQState() {
     setChoiceIdx(null); setTyped(''); setTapped(new Set())
-    setPendingLeft(null); setMatched(new Set()); setMatchErrors(0); setOrderPick([])
+    setPendingLeft(null); setMatched(new Set()); setOrderPick([])
     setTilePicks([]); setSpeakPhase('idle')
   }
 
@@ -256,7 +346,7 @@ export function LessonScreen({ lessonId, onExit }: { lessonId: string; onExit: (
         if (tapped.size !== q.target) return false
         return [...tapped].every((i) => q.cells[i] === q.targetEmoji)
       }
-      case 'match': return matchErrors === 0
+      case 'match': return matched.size === q.pairs.length // complete = correct: retries are free
       case 'order':
         return orderPick.every((cellIdx, pos) => cellIdx === pos)
       case 'letter-tiles':
@@ -268,7 +358,7 @@ export function LessonScreen({ lessonId, onExit }: { lessonId: string; onExit: (
       case 'speak':
         return speakPhase !== 'idle' // self-affirmed or recognised - forgiving by design
     }
-  }, [q, choiceIdx, typed, tapped, matched.size, matchErrors, orderPick, tilePicks, speakPhase])
+  }, [q, choiceIdx, typed, tapped, matched.size, orderPick, tilePicks, speakPhase])
 
   function studentAnswerString(): string {
     if (!q) return ''
@@ -298,23 +388,30 @@ export function LessonScreen({ lessonId, onExit }: { lessonId: string; onExit: (
   }
 
   function handleCheck() {
-    if (!canCheck || !q || feedback) return
-    const isFirstAttempt = !firstAttemptDone.has(qIdx)
+    if (!canCheck || !q || feedback || checkedRef.current) return
+    checkedRef.current = true
+    continuedRef.current = false
+    const isFirstAttempt = q ? !seenQuestions.has(q) : false
     const ok = isCorrectNow()
     if (ok) sfx.correct()
     else sfx.wrong()
     if (isFirstAttempt) {
-      setFirstAttemptDone((s) => new Set(s).add(qIdx))
+      setSeenQuestions((s) => new Set(s).add(q))
       setTotalFirstAttempts((n) => n + 1)
       if (ok) setFirstAttemptCorrect((n) => n + 1)
-      // Adaptive: record the first attempt (BKT update + optional LLM explain)
+      // Adaptive: record the first attempt (BKT update + optional LLM explain).
+      // Origin + live skill difficulty travel with the log so the tracker can
+      // report hardest-question accuracy per lesson.
+      const origin = retry ? (queueMeta[qIdx] ?? { lessonId, objectiveCode: lessonCode }) : { lessonId, objectiveCode: lessonCode }
+      if (!ok) missedRef.current.set(q, origin)
       adaptive.recordFirstAttempt({
-        lessonId,
-        objectiveCode: lessonCode,
-        difficulty: 1,
+        lessonId: origin.lessonId,
+        objectiveCode: origin.objectiveCode,
+        difficulty: player.adaptive.snapshot.skills[origin.objectiveCode]?.difficulty ?? 1,
         question: q,
         studentAnswer: studentAnswerString(),
         correctAnswer: correctAnswerString(),
+        prompt: questionPrompt(q),
         correct: ok,
         isFirstAttempt: true,
         enabled: true,
@@ -324,13 +421,20 @@ export function LessonScreen({ lessonId, onExit }: { lessonId: string; onExit: (
   }
 
   function handleContinue() {
-    if (!q) return
+    if (!q || finishedRef.current || continuedRef.current) return
+    continuedRef.current = true
+    checkedRef.current = false
     const requeued = feedback === 'wrong'
-    if (requeued) setQueue((qq) => [...qq, q]) // retry at the end, Duolingo-style
+    if (requeued) {
+      setQueue((qq) => [...qq, q]) // retry at the end, Duolingo-style
+      // Keep the origin map aligned with the queue (same index space).
+      setQueueMeta((mm) => [...mm, mm[qIdx] ?? { lessonId, objectiveCode: lessonCode }])
+    }
     const finished = !requeued && qIdx + 1 >= queue.length
     setFeedback(null)
     resetQState()
     if (finished) {
+      finishedRef.current = true
       finishLesson()
     } else {
       setQIdx((i) => i + 1)
@@ -338,7 +442,38 @@ export function LessonScreen({ lessonId, onExit }: { lessonId: string; onExit: (
   }
 
   function finishLesson() {
-    const isBoss = entry.lesson.id.endsWith('boss')
+    const accuracy = totalFirstAttempts > 0
+      ? Math.round((firstAttemptCorrect / totalFirstAttempts) * 100)
+      : 100
+
+    // Calculate first-attempt mistakes (drives crowns + flawless bonus text).
+    const firstAttemptMistakes = totalFirstAttempts - firstAttemptCorrect
+    setFirstAttemptMistakes(firstAttemptMistakes)
+    setMissedCount(missedRef.current.size)
+
+    // Retry practice: XP only (1 XP per fixed mistake), streak + dailies move,
+    // but lessonProgress crowns/completions and chests are untouched — loot
+    // stays reserved for fresh clears, so retrying can't farm rewards.
+    if (retry) {
+      let gained = firstAttemptCorrect
+      if (player.doubleXpLessons > 0) {
+        gained *= 2
+        player.useDoubleXp()
+      }
+      player.recordPractice({
+        xp: gained,
+        correct: firstAttemptCorrect,
+        totalQuestions: totalFirstAttempts,
+      })
+      setXpEarned(gained)
+      sfx.complete()
+      confetti({ particleCount: firstAttemptMistakes === 0 ? 120 : 60, spread: 75, origin: { y: 0.7 }, disableForReducedMotion: true })
+      setChestOpen(false)
+      setPhase('done')
+      return
+    }
+
+    const isBoss = entry!.lesson.id.endsWith('boss')
     const base = isBoss ? 20 : 10
     const bonus = firstAttemptCorrect === QUESTIONS_PER_LESSON ? 5 : 0
     let gained = base + bonus
@@ -349,26 +484,31 @@ export function LessonScreen({ lessonId, onExit }: { lessonId: string; onExit: (
       player.useDoubleXp()
     }
 
-    const accuracy = totalFirstAttempts > 0
-      ? Math.round((firstAttemptCorrect / totalFirstAttempts) * 100)
-      : 100
+    // Roll the chest's STARTING rarity tier. Boss lessons draw from the
+    // upgraded no-common table; a shop Lucky Ticket swaps to the lucky table
+    // for this chest (consumed even if no card drops).
+    const ctx: ChestContext = isBoss ? 'boss' : (player.consumeLuckyTicket() ? 'lucky' : 'normal')
 
-    // Calculate chest prize based on first-attempt mistakes
-    const firstAttemptMistakes = totalFirstAttempts - firstAttemptCorrect
-    setFirstAttemptMistakes(firstAttemptMistakes)
-    let chest = lessonChestPrize(isBoss, firstAttemptMistakes)
-
-    // Apply chest boost
+    // Shop gem boosts multiply the FINAL tier's gem band (consumed now).
+    let gemMult = 1
     if (player.chestBoost) {
-      chest *= 2
+      gemMult *= 2
       player.useChestBoost()
     }
     if (player.megaChest) {
-      chest *= 2
+      gemMult *= 2
       player.useMegaChest()
     }
 
-    setPrize(chest)
+    const startTier = rollStartTier(Math.random, ctx)
+    setRitual({
+      ctx,
+      startTier,
+      tier: startTier,
+      kicksLeft: KICKS,
+      upgradesAt: [],
+      gemMult,
+    })
     setXpEarned(gained)
     player.completeLesson({
       lessonId,
@@ -390,17 +530,86 @@ export function LessonScreen({ lessonId, onExit }: { lessonId: string; onExit: (
     setPhase('done')
   }
 
+  /** First tap: reveal the chest's starting rarity tier (no rewards yet). */
   function openChest() {
-    if (chestOpen) return
-    sfx.leagueUp()
-    player.addGems(prize)
+    if (chestOpen || !ritual) return
+    sfx.tap('chest')
     setChestOpen(true)
-    confetti({ particleCount: 80, spread: 100, origin: { y: 0.6 }, disableForReducedMotion: true })
+  }
+
+  const KICK_MISS_LINES = ['So close!', 'The chest rattles...', 'Almost! Kick again!', 'Nothing... one more!']
+
+  /** One of the 4 kick taps: chance to upgrade Common->Rare->Epic->Legendary.
+   *  Exclusive/Mythic/Ultimate/Hyper are start-roll only and never upgrade.
+   *  The 4th kick resolves gems + card and grants them exactly once. */
+  function kickChest() {
+    if (!ritual || !chestOpen || chestResult || ritual.kicksLeft <= 0) return
+    const kickIdx = KICKS - ritual.kicksLeft
+    const next = upgradeStep(ritual.tier)
+    let tier = ritual.tier
+    let upgradesAt = ritual.upgradesAt
+    if (next !== tier && Math.random() < KICK_UPGRADE[tier]) {
+      tier = next
+      upgradesAt = [...upgradesAt, kickIdx]
+      sfx.correct()
+      confetti({ particleCount: 40, spread: 70, origin: { y: 0.6 }, disableForReducedMotion: true })
+      setKickMsg(`${TIER_META[tier].icon} UPGRADED to ${TIER_META[tier].label}!`)
+    } else {
+      sfx.tap('kick')
+      setKickMsg(KICK_MISS_LINES[Math.floor(Math.random() * KICK_MISS_LINES.length)])
+    }
+    const kicksLeft = ritual.kicksLeft - 1
+    if (kicksLeft <= 0) {
+      const result = resolveChest(
+        Math.random,
+        player.cardStars,
+        player.cardPity,
+        ritual.startTier,
+        tier,
+        upgradesAt,
+        ritual.gemMult,
+      )
+      // Grant exactly once no matter how fast little fingers tap.
+      if (!chestClaimedRef.current) {
+        chestClaimedRef.current = true
+        player.grantChest(result)
+      }
+      setPrize(result.gems)
+      setChestResult(result)
+      setKickMsg('')
+      sfx.leagueUp()
+      confetti({ particleCount: 100, spread: 100, origin: { y: 0.6 }, disableForReducedMotion: true })
+    }
+    setRitual({ ...ritual, tier, kicksLeft, upgradesAt })
   }
 
   /* ------------------------------ INTRO ------------------------------ */
   if (phase === 'intro') {
-    const { intro } = entry.lesson
+    if (retry?.length) {
+      return (
+        <div className="mx-auto flex h-[100dvh] max-w-xl flex-col items-center justify-center px-6 pb-28 pt-16">
+          <motion.div initial={{ scale: 0.6, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+            transition={{ type: 'spring', stiffness: 260, damping: 18 }}
+            className="h-44 w-44 gpu animate-float-y">
+            <Mascot id={player.mascot} expression="thinking" />
+          </motion.div>
+          <h1 className="mt-4 text-center font-display text-3xl font-extrabold">Fix your tricky ones! 🔁</h1>
+          <p className="mt-2 max-w-sm text-center font-body text-lg font-semibold leading-relaxed text-slate-500">
+            {retry.length} question{retry.length === 1 ? '' : 's'} you missed before. Get {retry.length === 1 ? 'it' : 'them'} right this time!
+          </p>
+          <div className="card-white mt-4 text-center text-sm font-bold text-slate-400">
+            Practice round · 1 XP per fix · no chest
+          </div>
+          <button onClick={() => { sfx.tap(); startLesson() }} className="btn3d btn-green mt-8 gpu">
+            Let's fix them! 🚀
+          </button>
+          <button onClick={onExit} className="mt-3 font-display text-sm font-bold text-slate-400 hover:text-slate-600">
+            ← Back
+          </button>
+        </div>
+      )
+    }
+    const { intro } = entry!.lesson
     return (
       <div className="mx-auto flex h-[100dvh] max-w-xl flex-col items-center justify-center px-6 pb-28 pt-16">
         <motion.div initial={{ scale: 0.6, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
@@ -413,7 +622,7 @@ export function LessonScreen({ lessonId, onExit }: { lessonId: string; onExit: (
           {intro.body}
         </p>
         <div className="card-white mt-4 text-center text-sm font-bold text-slate-400">
-          Cambridge objectives · {entry.lesson.objectiveCodes.join(' · ') || 'Review boss level'}
+          Cambridge objectives · {entry!.lesson.objectiveCodes.join(' · ') || 'Review boss level'}
         </div>
         <button onClick={() => { sfx.tap(); startLesson() }} className="btn3d btn-green mt-8 gpu">
           Let's go! 🚀
@@ -427,8 +636,59 @@ export function LessonScreen({ lessonId, onExit }: { lessonId: string; onExit: (
 
   /* ------------------------------- DONE ------------------------------ */
   if (phase === 'done') {
+    // Retry practice has no chest ritual — just XP, stats, and the option to
+    // chain another round on the still-missed ones.
+    if (retry) {
+      return (
+        <div className="mx-auto flex h-[100dvh] max-w-xl flex-col items-center justify-center px-6 pb-24">
+          <motion.div initial={{ scale: 0.5, rotate: -8, opacity: 0 }} animate={{ scale: 1, rotate: 0, opacity: 1 }}
+            transition={{ type: 'spring', stiffness: 220, damping: 14 }}
+            className="h-40 w-40 gpu">
+            <Mascot id={player.mascot} expression="cheer" />
+          </motion.div>
+          <motion.h1 initial={{ y: 12, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.15 }}
+            className="mt-3 text-center font-display text-4xl font-extrabold text-yellow-500 drop-shadow">
+            {missedCount === 0 ? 'ALL FIXED! 🎯' : 'Practice complete!'}
+          </motion.h1>
+          <p className="mt-1 text-center font-body text-sm font-bold text-slate-400">
+            {firstAttemptCorrect}/{totalFirstAttempts} fixed · +{xpEarned} ⚡ XP
+            {missedCount > 0 ? ` · ${missedCount} still tricky` : ' · nothing left tricky!'}
+          </p>
+          <div className="mt-8 w-full max-w-xs space-y-3">
+            {missedCount > 0 && (
+              <button onClick={startRetryFromMissed} className="btn3d btn-blue w-full gpu">
+                🔁 Retry the tricky ones ({missedCount})
+              </button>
+            )}
+            <button onClick={onExit} className="btn3d btn-green w-full gpu">
+              Done ✓
+            </button>
+          </div>
+        </div>
+      )
+    }
+    // Brawl-Stars stage color follows the live rarity: start tier while
+    // kicking, final tier once the chest bursts open.
+    const tierStageColor = chestResult
+      ? TIER_META[chestResult.finalTier].color
+      : ritual
+        ? TIER_META[ritual.tier].color
+        : '#94a3b8'
     return (
-      <div className="mx-auto flex h-[100dvh] max-w-xl flex-col items-center justify-center px-6 pb-24">
+      <div className="relative mx-auto flex h-[100dvh] max-w-xl flex-col items-center justify-center overflow-hidden px-6 pb-24">
+        {/* animated rarity rays + twinkles behind the whole chest show */}
+        {(ritual || chestResult) && (
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center" aria-hidden="true">
+            <div
+              className="rays animate-spin-slower h-[560px] w-[560px] shrink-0"
+              style={{ '--ray': `${tierStageColor}99`, backgroundColor: `${tierStageColor}1f` } as React.CSSProperties}
+            />
+            <span className="twinkle absolute left-[16%] top-[28%] text-2xl" style={{ animationDelay: '0s' }}>✨</span>
+            <span className="twinkle absolute right-[14%] top-[40%] text-xl" style={{ animationDelay: '0.5s' }}>⭐</span>
+            <span className="twinkle absolute bottom-[28%] left-[22%] text-xl" style={{ animationDelay: '1s' }}>💫</span>
+            <span className="twinkle absolute bottom-[22%] right-[20%] text-2xl" style={{ animationDelay: '1.4s' }}>✨</span>
+          </div>
+        )}
         <motion.div initial={{ scale: 0.5, rotate: -8, opacity: 0 }} animate={{ scale: 1, rotate: 0, opacity: 1 }}
           transition={{ type: 'spring', stiffness: 220, damping: 14 }}
           className="h-40 w-40 gpu">
@@ -444,13 +704,20 @@ export function LessonScreen({ lessonId, onExit }: { lessonId: string; onExit: (
 
         <motion.button
           onClick={openChest}
+          disabled={chestOpen}
           whileTap={{ scale: chestOpen ? 1 : 0.9 }}
           animate={chestOpen ? { rotate: [0, -6, 6, 0], scale: [1, 1.15, 1] } : { y: [0, -8, 0] }}
           transition={chestOpen ? { duration: 0.5 } : { repeat: Infinity, duration: 1.6 }}
-          className={`relative mt-6 text-[110px] leading-none ${chestOpen ? '' : 'cursor-pointer drop-shadow-lg'}`}
+          className={`relative z-10 mt-6 text-[110px] leading-none ${chestOpen ? '' : 'cursor-pointer drop-shadow-lg'}`}
           aria-label={chestOpen ? 'Chest opened' : 'Tap to open your chest'}
         >
-          {chestOpen ? '🎉' : '🎁'}
+          {/* every kick shakes the chest (key remount retriggers the shake) */}
+          <span
+            key={ritual && chestOpen ? KICKS - ritual.kicksLeft : 'closed'}
+            className={`inline-block ${chestOpen && ritual && ritual.kicksLeft < KICKS ? 'animate-shake-x' : ''}`}
+          >
+            {chestOpen ? '🎉' : '🎁'}
+          </span>
           {!chestOpen && (
             <span className="absolute -bottom-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-speed-blue px-3 py-1 font-display text-xs font-extrabold text-white">
               Tap to open!
@@ -458,21 +725,110 @@ export function LessonScreen({ lessonId, onExit }: { lessonId: string; onExit: (
           )}
         </motion.button>
 
-        {chestOpen && (
-          <motion.div initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: 'spring', stiffness: 260, damping: 16 }} className="mt-6 text-center">
-            <p className="font-display text-3xl font-extrabold text-orange-500">+{prize} 💎</p>
-            <p className="mt-1 font-display font-extrabold text-emerald-500">+{xpEarned} ⚡ XP</p>
+        {/* starting rarity reveal + 4-kick ritual */}
+        {chestOpen && ritual && !chestResult && (
+          <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="relative z-10 mt-6 flex flex-col items-center">
+            <span
+              className="rounded-full px-4 py-1.5 font-display text-lg font-extrabold text-white"
+              style={{ background: `linear-gradient(135deg, ${TIER_META[ritual.tier].color}, ${TIER_META[ritual.tier].color}99)`, boxShadow: `0 0 24px ${TIER_META[ritual.tier].glow}` }}
+            >
+              {TIER_META[ritual.tier].icon} {TIER_META[ritual.tier].label} chest!
+            </span>
+            <p className="mt-2 text-center font-body text-sm font-bold text-slate-400">
+              {ritual.ctx === 'boss' ? '👑 Boss chest — rare loot inside!' : ritual.ctx === 'lucky' ? '🍀 Lucky ticket magic!' : 'Kick it 4 times to upgrade its rarity!'}
+            </p>
+            <button onClick={kickChest} className="btn3d btn-green mt-3 gpu">
+              🦵 Kick! ({ritual.kicksLeft} left)
+            </button>
+            {/* kick progress pips */}
+            <div className="mt-2 flex gap-1.5" aria-hidden="true">
+              {Array.from({ length: KICKS }, (_, i) => (
+                <span
+                  key={i}
+                  className={`h-2.5 w-2.5 rounded-full ${i < KICKS - ritual.kicksLeft ? 'bg-amber-400 shadow-pop' : 'bg-slate-200'}`}
+                />
+              ))}
+            </div>
+            {kickMsg && <p className="mt-2 font-display text-base font-extrabold text-slate-500">{kickMsg}</p>}
+            {ritual.upgradesAt.length > 0 && (
+              <p className="mt-1 text-xs font-bold text-slate-300">
+                Upgrades: {ritual.upgradesAt.length} ⚡
+              </p>
+            )}
           </motion.div>
         )}
 
-        <div className="mt-8 w-full max-w-xs">
-          {chestOpen ? (
-            <button onClick={onExit} className="btn3d btn-green w-full gpu">
-              Continue to roadmap ▶
-            </button>
+        {chestResult && (
+          <>
+            {/* full-screen rarity flash the moment the chest bursts */}
+            <div className="animate-flash-out pointer-events-none fixed inset-0 z-40" style={{ backgroundColor: TIER_META[chestResult.finalTier].color }} />
+            <motion.div initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: 'spring', stiffness: 260, damping: 16 }} className="relative z-10 mt-6 flex flex-col items-center text-center">
+              <span
+                className="rounded-full px-4 py-1.5 font-display text-lg font-extrabold text-white"
+                style={{ background: `linear-gradient(135deg, ${TIER_META[chestResult.finalTier].color}, ${TIER_META[chestResult.finalTier].color}99)`, boxShadow: `0 0 24px ${TIER_META[chestResult.finalTier].glow}` }}
+              >
+                {TIER_META[chestResult.finalTier].icon} {TIER_META[chestResult.finalTier].label}!
+              </span>
+              <p className="mt-2 font-display text-3xl font-extrabold text-orange-500">+{prize} 💎</p>
+              {chestResult.starBonus > 0 && (
+                <p className="mt-1 font-display text-lg font-extrabold text-amber-500">+{chestResult.starBonus} ⭐ star power!</p>
+              )}
+              {chestResult.cards.length > 0 ? (
+                <div className="mt-3 flex flex-wrap items-start justify-center gap-4">
+                  {chestResult.cards.map((c, i) => (
+                    <motion.div
+                      key={`${c.id}-${i}`}
+                      initial={{ rotateY: 90, scale: 0.6, opacity: 0 }}
+                      animate={{ rotateY: 0, scale: 1, opacity: 1 }}
+                      transition={{ delay: 0.15 * i + 0.1, type: 'spring', stiffness: 260, damping: 16 }}
+                      className="relative flex w-32 flex-col items-center"
+                    >
+                      <div className="relative flex h-32 w-32 items-center justify-center">
+                        <div
+                          className="rays animate-spin-slower absolute -inset-5"
+                          style={{ '--ray': `${TIER_META[chestResult.finalTier].color}aa` } as React.CSSProperties}
+                        />
+                        <div className="relative h-28 w-28 drop-shadow-xl">
+                          <CardArt cardId={c.id} character={CARD_BY_ID[c.id]?.character ?? 'sonic'} expression="excited" />
+                        </div>
+                      </div>
+                      {c.isNew ? (
+                        <p className="mt-1 rounded-full bg-violet-500 px-2 py-0.5 font-display text-xs font-extrabold text-white shadow-pop">
+                          🃏 NEW: {CARD_BY_ID[c.id]?.name ?? c.id}!
+                        </p>
+                      ) : (
+                        <p className="mt-1 rounded-full bg-amber-400 px-2 py-0.5 font-display text-xs font-extrabold text-amber-900 shadow-pop">
+                          ⭐ STAR UP! {CARD_BY_ID[c.id]?.name ?? c.id} {'★'.repeat(Math.max(1, c.starAfter))}
+                        </p>
+                      )}
+                    </motion.div>
+                  ))}
+                </div>
+              ) : chestResult.jackpot ? (
+                <p className="mt-2 font-display text-base font-extrabold text-yellow-500">🎰 JACKPOT! Collection maxed!</p>
+              ) : (
+                <p className="mt-2 text-xs font-bold text-slate-400">No cards this time — every chest brings you closer!</p>
+              )}
+              <p className="mt-1 font-display font-extrabold text-emerald-500">+{xpEarned} ⚡ XP</p>
+            </motion.div>
+          </>
+        )}
+
+        <div className="relative z-10 mt-8 w-full max-w-xs space-y-3">
+          {chestResult ? (
+            <>
+              <button onClick={onExit} className="btn3d btn-green w-full gpu">
+                Continue to roadmap ▶
+              </button>
+              {missedCount > 0 && (
+                <button onClick={startRetryFromMissed} className="btn3d btn-blue w-full gpu">
+                  🔁 Fix my mistakes ({missedCount})
+                </button>
+              )}
+            </>
           ) : (
             <p className="text-center font-body text-xs font-bold text-slate-300">
-              Open your chest to claim the gems inside!
+              {chestOpen ? 'Kick the chest 4 times to claim your loot!' : 'Open your chest to claim the gems inside!'}
             </p>
           )}
         </div>
@@ -510,7 +866,7 @@ export function LessonScreen({ lessonId, onExit }: { lessonId: string; onExit: (
               if (side === 'left') { setPendingLeft(key); sfx.tap(key) } else if (pendingLeft) {
                 const ok = q.pairs.find((p) => p.left === pendingLeft)?.right === key
                 if (ok) { sfx.correct(); setMatched((m) => new Set(m).add(pendingLeft + '|' + key)) }
-                else { sfx.wrong(); setMatchErrors((e) => e + 1) }
+                else sfx.wrong() // forgiving: wrong taps cost nothing, keep trying until every pair lands
                 setPendingLeft(null)
               }
             }} /> :
@@ -876,8 +1232,8 @@ function MatchView({ q, pendingLeft, matched, onPick }: {
     <div>
       <Prompt>{q.prompt}</Prompt>
       {q.audioText && <AudioBar audioText={q.audioText} />}
-      <div className="grid grid-cols-2 gap-3 px-1">
-        <div className="flex flex-col gap-2">
+      <div className="grid grid-cols-2 gap-3 px-1 pt-1">
+        <div className="flex flex-col gap-3">
           {lefts.map((l) => (
             <button key={l} onClick={() => onPick('left', l)} disabled={[...matched].some((m) => m.split('|')[0] === l)}
               className={`choice-btn text-center ${pendingLeft === l ? 'selected' : ''} ${[...matched].some((m) => m.split('|')[0] === l) ? 'correct' : ''}`}>
@@ -885,7 +1241,7 @@ function MatchView({ q, pendingLeft, matched, onPick }: {
             </button>
           ))}
         </div>
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-3">
           {rights.map((r) => (
             <button key={r} onClick={() => onPick('right', r)}
               className={`choice-btn text-center ${[...matched].some((m) => m.split('|')[1] === r) ? 'correct' : ''}`}>

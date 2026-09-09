@@ -1,7 +1,12 @@
 import type { Question, UnitDef } from '../types'
 import {
+  buildDe,
+  buildEn,
   makeLesson,
+  matchDeEn,
   matchQ,
+  mcqDeToEn,
+  mcqEnToDe,
   mcqE,
   mcqFixed,
   orderQ,
@@ -14,21 +19,21 @@ import {
 } from './helpers'
 
 const DAYS = [
-  { de: 'Montag', emoji: '😴' }, { de: 'Dienstag', emoji: '📚' },
-  { de: 'Mittwoch', emoji: '⚽' }, { de: 'Donnerstag', emoji: '🎵' },
-  { de: 'Freitag', emoji: '🎉' }, { de: 'Samstag', emoji: '🛝' },
-  { de: 'Sonntag', emoji: '⛪' },
+  { de: 'Montag', en: 'Monday', emoji: '😴' }, { de: 'Dienstag', en: 'Tuesday', emoji: '📚' },
+  { de: 'Mittwoch', en: 'Wednesday', emoji: '⚽' }, { de: 'Donnerstag', en: 'Thursday', emoji: '🎵' },
+  { de: 'Freitag', en: 'Friday', emoji: '🎉' }, { de: 'Samstag', en: 'Saturday', emoji: '🛝' },
+  { de: 'Sonntag', en: 'Sunday', emoji: '⛪' },
 ]
 
 const SEASONS = [
-  { de: 'der Frühling', emoji: '🌸' }, { de: 'der Sommer', emoji: '☀️' },
-  { de: 'der Herbst', emoji: '🍂' }, { de: 'der Winter', emoji: '❄️' },
+  { de: 'der Frühling', en: 'spring', emoji: '🌸' }, { de: 'der Sommer', en: 'summer', emoji: '☀️' },
+  { de: 'der Herbst', en: 'autumn', emoji: '🍂' }, { de: 'der Winter', en: 'winter', emoji: '❄️' },
 ]
 
 const SUBJECTS = [
-  { de: 'Mathe', emoji: '🔢' }, { de: 'Sport', emoji: '⚽' },
-  { de: 'Musik', emoji: '🎵' }, { de: 'Kunst', emoji: '🎨' },
-  { de: 'Deutsch', emoji: '🇩🇪' }, { de: 'Englisch', emoji: '🇬🇧' },
+  { de: 'Mathe', en: 'maths', emoji: '🔢' }, { de: 'Sport', en: 'PE', emoji: '⚽' },
+  { de: 'Musik', en: 'music', emoji: '🎵' }, { de: 'Kunst', en: 'art', emoji: '🎨' },
+  { de: 'Deutsch', en: 'German', emoji: '🇩🇪' }, { de: 'Englisch', en: 'English', emoji: '🇬🇧' },
 ]
 
 function gDayMatch(rand: Rand): Question {
@@ -79,6 +84,55 @@ function gDreamWeird(rand: Rand): Question {
   })
 }
 
+/* ----- Duolingo-style EN ⇄ DE: both directions + sentence builds ----- */
+const DAY_GLOSS = DAYS.map((d) => ({ de: d.de, en: d.en }))
+const SEASON_GLOSS = SEASONS.map((s) => ({ de: s.de, en: s.en }))
+const SUBJECT_GLOSS = SUBJECTS.map((s) => ({ de: s.de, en: s.en }))
+
+function gDayDeToEn(rand: Rand): Question {
+  return mcqDeToEn(rand, DAY_GLOSS)
+}
+
+function gDayEnToDe(rand: Rand): Question {
+  return mcqEnToDe(rand, DAY_GLOSS)
+}
+
+function gDayMatchDeEn(rand: Rand): Question {
+  return matchDeEn(rand, DAY_GLOSS, 'Match the weekday: German to English')
+}
+
+function gSeasonDeToEn(rand: Rand): Question {
+  return mcqDeToEn(rand, SEASON_GLOSS)
+}
+
+function gSeasonEnToDe(rand: Rand): Question {
+  return mcqEnToDe(rand, SEASON_GLOSS)
+}
+
+function gSubjectDeToEn(rand: Rand): Question {
+  return mcqDeToEn(rand, SUBJECT_GLOSS)
+}
+
+function gSubjectEnToDe(rand: Rand): Question {
+  return mcqEnToDe(rand, SUBJECT_GLOSS)
+}
+
+function gSubjectMatchDeEn(rand: Rand): Question {
+  return matchDeEn(rand, SUBJECT_GLOSS, 'Match the subject: German to English')
+}
+
+function gBuildPlanDe(rand: Rand): Question {
+  const subject = pick(rand, SUBJECTS.slice(0, 4))
+  const day = pick(rand, DAYS.slice(0, 5))
+  return buildDe(`I have ${subject.en} on ${day.en}.`, ['Ich', 'habe', subject.de, 'am', `${day.de}.`])
+}
+
+function gBuildPlanEn(rand: Rand): Question {
+  const subject = pick(rand, SUBJECTS.slice(0, 4))
+  const day = pick(rand, DAYS.slice(0, 5))
+  return buildEn(`Ich habe ${subject.de} am ${day.de}.`, ['I', 'have', subject.en, 'on', `${day.en}.`])
+}
+
 const g9l1 = makeLesson(
   'g9l1',
   'Die Wochentage',
@@ -86,7 +140,7 @@ const g9l1 = makeLesson(
   'tails',
   'Wochen-Plan!',
   'Fill Felix’s empty week before his parents visit! Montag first, Sonntag last!',
-  [gDayMatch, gOrderDays],
+  [gDayMatch, gOrderDays, gDayDeToEn, gDayEnToDe],
 )
 
 const g9l2 = makeLesson(
@@ -96,7 +150,7 @@ const g9l2 = makeLesson(
   'knuckles',
   'Vier Zeiten!',
   'Frühling, Sommer, Herbst, Winter — hear the season, tap the picture!',
-  [gSeasonPicture, gHearDay],
+  [gSeasonPicture, gHearDay, gSeasonDeToEn, gSeasonEnToDe],
 )
 
 const g9l3 = makeLesson(
@@ -106,7 +160,7 @@ const g9l3 = makeLesson(
   'blaze',
   'Schule!',
   'German school subjects! Mathe, Sport, Musik — spell them and crack the dream!',
-  [gSubjectMatch, gSubjectTiles],
+  [gSubjectMatch, gSubjectTiles, gSubjectDeToEn, gBuildPlanDe, gBuildPlanEn],
 )
 
 const g9boss = makeLesson(
@@ -116,8 +170,8 @@ const g9boss = makeLesson(
   'eggman',
   'BOSS TIME!',
   'Week, seasons and subjects — out-plan the boss’s timetable!',
-  [gOrderDays, gSeasonPicture, gSubjectMatch, gDreamWeird],
-  gOrderDays,
+  [gDayMatchDeEn, gSubjectMatchDeEn, gDreamWeird, gBuildPlanDe, gBuildPlanEn],
+  gSubjectEnToDe,
 )
 
 export const UNIT_G9: UnitDef = unitDef(

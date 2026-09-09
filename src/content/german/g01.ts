@@ -1,8 +1,13 @@
 import type { Question, UnitDef } from '../types'
 import {
   PICTURE_BANK,
+  buildDe,
+  buildEn,
   makeLesson,
+  matchDeEn,
   matchQ,
+  mcqDeToEn,
+  mcqEnToDe,
   mcqE,
   mcqFixed,
   pick,
@@ -11,6 +16,44 @@ import {
   unitDef,
   type Rand,
 } from './helpers'
+
+/** Duolingo-style EN ⇄ DE gloss for every greeting in this unit. */
+const GREET_MEANINGS = [
+  { de: 'Hallo', en: 'hello' },
+  { de: 'Guten Morgen', en: 'good morning' },
+  { de: 'Guten Tag', en: 'good afternoon' },
+  { de: 'Tschüss', en: 'bye' },
+  { de: 'Bis bald', en: 'see you soon' },
+  { de: 'Auf Wiedersehen', en: 'goodbye' },
+] as const
+
+function gGreetDeToEn(rand: Rand): Question {
+  return mcqDeToEn(rand, GREET_MEANINGS)
+}
+
+function gGreetEnToDe(rand: Rand): Question {
+  return mcqEnToDe(rand, GREET_MEANINGS)
+}
+
+function gGreetMatchDeEn(rand: Rand): Question {
+  return matchDeEn(rand, GREET_MEANINGS, 'Match the greeting to its meaning')
+}
+
+const INTRO_BUILDS: { en: string; de: string[]; back: string[] }[] = [
+  { en: 'Hello! I am Felix.', de: ['Hallo!', 'Ich', 'heiße', 'Felix.'], back: ['Hello!', 'I', 'am', 'Felix.'] },
+  { en: 'Goodbye! See you soon.', de: ['Tschüss!', 'Bis', 'bald.'], back: ['Goodbye!', 'See', 'you', 'soon.'] },
+]
+
+function gBuildGreetingDe(rand: Rand): Question {
+  const s = pick(rand, INTRO_BUILDS)
+  return buildDe(s.en, s.de)
+}
+
+function gBuildGreetingEn(rand: Rand): Question {
+  const s = pick(rand, INTRO_BUILDS)
+  const deSentence = s.de.join(' ')
+  return buildEn(deSentence, s.back)
+}
 
 const GREET_MATCH = [
   { left: 'Hallo', right: '👋 ankommen' },
@@ -75,7 +118,7 @@ const g1l1 = makeLesson(
   'sonic',
   'Hallo zusammen!',
   'Felix Frosch and Franzi Ente just moved from Zoo Berlin. Say Hallo and shake hands like in Germany!',
-  [gGreetMatch, gHearGreeting],
+  [gGreetMatch, gHearGreeting, gGreetDeToEn, gGreetEnToDe],
 )
 
 const g1l2 = makeLesson(
@@ -85,7 +128,7 @@ const g1l2 = makeLesson(
   'amy',
   'So höflich!',
   'Grown-ups are Frau (Mrs/Ms) and Herr (Mr). Friends use first names. Meet Felix, Franzi and the Briefkasten!',
-  [gPolitely, gGreetMatch],
+  [gPolitely, gGreetMatchDeEn, gBuildGreetingDe, gBuildGreetingEn],
 )
 
 const g1l3 = makeLesson(
@@ -95,7 +138,7 @@ const g1l3 = makeLesson(
   'tails',
   'Komm oder geh?',
   'Listen close: is it a hello or a goodbye? Tap what you hear, then sort it!',
-  [gHelloOrGoodbye, gHearGreeting],
+  [gHelloOrGoodbye, gHearGreeting, gGreetDeToEn, gGreetEnToDe],
 )
 
 const g1boss = makeLesson(
@@ -105,8 +148,8 @@ const g1boss = makeLesson(
   'eggman',
   'BOSS TIME!',
   'Greet Eggman politely, sort hellos from goodbyes, and prove you know Felix & Franzi!',
-  [gGreetMatch, gHearGreeting, gPolitely, gHelloOrGoodbye],
-  gHearGreeting,
+  [gGreetMatchDeEn, gHearGreeting, gBuildGreetingDe, gBuildGreetingEn],
+  gGreetEnToDe,
 )
 
 export const UNIT_G1: UnitDef = unitDef(

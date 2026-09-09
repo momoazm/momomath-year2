@@ -1,9 +1,9 @@
 export type Expression = 'happy' | 'excited' | 'sad' | 'thinking' | 'cheer'
 
 /** Which curriculum the app is currently showing.
- *  Maths / English / Science are the core loop; `german` is an OPTIONAL
- *  opt-in extra (Felix & Franzi beginner DaF) enabled in Profile. */
-export type Subject = 'math' | 'english' | 'science' | 'german'
+ *  Maths / English / Science are the core loop; `german`, `arabic`, `religion`
+ *  and `social` are OPTIONAL opt-in extras enabled in Profile. */
+export type Subject = 'math' | 'english' | 'science' | 'german' | 'arabic' | 'religion' | 'social'
 
 export interface MascotProps {
   expression?: Expression

@@ -1,4 +1,5 @@
 import { ADAPTIVE_CONFIG } from './config'
+import { byokHeaders } from './byok'
 
 /** Explanation request — what we ship to /api/year2/explain. The shape is
  *  deliberately small so we never accidentally leak PII. */
@@ -94,7 +95,7 @@ export async function fetchExplanation(
   try {
     const res = await fetcher(route, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', ...byokHeaders() },
       body: JSON.stringify(req),
       signal: ctrl.signal,
     })

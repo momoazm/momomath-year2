@@ -10,7 +10,12 @@ export interface AuthUser {
 
 interface AuthState {
   user: AuthUser | null
-  signIn: (u: AuthUser) => void
+  /** Raw Google ID token (GIS credential). Sent to the cloud-save API, which
+   *  verifies it server-side — the `sub` inside is what keys your save, so the
+   *  same Google account loads the same progress on every device. Short-lived
+   *  (~1h); when it expires the app asks you to tap sign-in again. */
+  credential: string | null
+  signIn: (u: AuthUser, credential?: string | null) => void
   signOut: () => void
 }
 
@@ -18,8 +23,9 @@ export const useAuth = create<AuthState>()(
   persist(
     (set) => ({
       user: null,
-      signIn: (user) => set({ user }),
-      signOut: () => set({ user: null }),
+      credential: null,
+      signIn: (user, credential = null) => set({ user, credential }),
+      signOut: () => set({ user: null, credential: null }),
     }),
     { name: 'momomath-year2-auth' },
   ),
@@ -77,7 +83,7 @@ function decodeJwtPayload(jwt: string): Record<string, unknown> {
 /** Renders the official Google button into `el`; resolves after it is drawn. */
 export async function renderGoogleButton(
   el: HTMLElement,
-  onSignedIn: (user: AuthUser) => void,
+  onSignedIn: (user: AuthUser, credential: string) => void,
 ): Promise<void> {
   await loadGsi()
   const g = window.google
@@ -86,12 +92,15 @@ export async function renderGoogleButton(
     client_id: GOOGLE_CLIENT_ID,
     callback: (resp) => {
       const p = decodeJwtPayload(resp.credential)
-      onSignedIn({
-        sub: String(p.sub),
-        name: String(p.name ?? p.email ?? 'Player'),
-        email: String(p.email ?? ''),
-        picture: typeof p.picture === 'string' ? p.picture : undefined,
-      })
+      onSignedIn(
+        {
+          sub: String(p.sub),
+          name: String(p.name ?? p.email ?? 'Player'),
+          email: String(p.email ?? ''),
+          picture: typeof p.picture === 'string' ? p.picture : undefined,
+        },
+        resp.credential,
+      )
     },
   })
   el.innerHTML = ''

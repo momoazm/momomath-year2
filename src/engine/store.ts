@@ -5,7 +5,7 @@ import {
   ACHIEVEMENTS,
   DAILY_QUESTS,
   advanceLeague,
-  leagueOutcomeByXp,
+  leagueOutcomeByRank,
   LEAGUES,
   nextWeekKey,
   todayISO,
@@ -57,10 +57,13 @@ interface PlayerState {
   name: string
   mascot: MascotId
   subject: Subject
-  /** Optional DLC-style extra. German never appears unless the player opts
-   *  in (Profile → Extra adventures) or opens ?subject=german. Core
-   *  Math ⇄ English loop is unaffected when false. */
+  /** Optional DLC-style extras. German / Arabic / Religion / Social never appear
+   *  unless the player opts in (Profile → Extra adventures) or opens
+   *  ?subject=. Core Math ⇄ English ⇄ Science loop is unaffected when false. */
   germanEnabled: boolean
+  arabicEnabled: boolean
+  religionEnabled: boolean
+  socialEnabled: boolean
   xpTotal: number
   gems: number
   streakCurrent: number
@@ -87,9 +90,9 @@ interface PlayerState {
   doubleXpLessons: number
   chestBoost: boolean
   megaChest: boolean
-  /** collected card ids (unique) */
-  cardCollection: string[]
-  /** consecutive chests without a card - drives hidden card pity (see cards.ts) */
+  /** card stars by id (missing = unowned; 0 = new, up to MAX_STARS via duplicates) */
+  cardStars: Record<string, number>
+  /** consecutive chests without any card - drives hidden card pity (see cards.ts) */
   cardPity: number
   /** shop Lucky Ticket stack; consumed on the next chest */
   luckyTickets: number
@@ -105,11 +108,17 @@ interface PlayerState {
     crownsGained: number
     accuracy: number
   }) => void
+  /** XP-only practice (wrong-question retry): moves XP/gems/dailies/streak but
+   *  never touches lessonProgress crowns or chests — loot stays on fresh clears. */
+  recordPractice: (args: { xp: number; correct: number; totalQuestions: number }) => void
   setDailyGoal: (g: number) => void
   setName: (n: string) => void
   setMascot: (m: MascotId) => void
   setSubject: (s: Subject) => void
   setGermanEnabled: (v: boolean) => void
+  setArabicEnabled: (v: boolean) => void
+  setReligionEnabled: (v: boolean) => void
+  setSocialEnabled: (v: boolean) => void
   setOnboarded: () => void
   addGems: (n: number) => void
   toggleSound: () => void
@@ -155,14 +164,15 @@ function rollDay(s: PlayerState) {
   }
 }
 
-/** Weekly league rollover (auto every Monday): settle last week by XP earned,
- *  promote/demote, then reset the weekly XP counter for the fresh league. */
+/** Weekly league rollover (auto every Monday): settle last week by RANK on the
+ *  10-racer practice board (ranks 1-3 promote, 4-7 stay, 8-10 demote),
+ *  then reset the weekly XP counter for the fresh league. */
 function rollWeek(s: PlayerState) {
   const wk = weekKey()
   if (s.weeklyXpWeek === wk) return
   const prevWeek = s.weeklyXpWeek || wk
   const prevLeague = s.currentLeague
-  const outcome = leagueOutcomeByXp(prevLeague, s.weeklyXp)
+  const outcome = leagueOutcomeByRank(prevLeague, s.weeklyXp, prevWeek)
   s.currentLeague = advanceLeague(prevLeague, outcome)
   s.leagueHistory = [
     ...s.leagueHistory.slice(-9),
@@ -215,22 +225,38 @@ const firstDay = todayISO()
 function initialSubjectFromUrl(): Subject {
   if (typeof window === 'undefined') return 'math'
   const q = new URLSearchParams(window.location.search).get('subject')
-  if (q === 'english' || q === 'science' || q === 'german') return q
+  if (q === 'english' || q === 'science' || q === 'german' || q === 'arabic' || q === 'religion' || q === 'social') return q
   return 'math'
 }
 
-function initialGermanEnabled(): boolean {
+function initialExtraEnabled(key: 'germanEnabled' | 'arabicEnabled' | 'religionEnabled' | 'socialEnabled', subject: 'german' | 'arabic' | 'religion' | 'social'): boolean {
   if (typeof window === 'undefined') return false
   try {
     const raw = window.localStorage.getItem('momomath-year2-player-v2')
     if (raw) {
-      const parsed = JSON.parse(raw) as { state?: { germanEnabled?: unknown } }
-      if (typeof parsed?.state?.germanEnabled === 'boolean') return parsed.state.germanEnabled
+      const parsed = JSON.parse(raw) as { state?: Record<string, unknown> }
+      if (typeof parsed?.state?.[key] === 'boolean') return parsed.state[key] as boolean
     }
   } catch {
     /* fall through to URL check */
   }
-  return new URLSearchParams(window.location.search).get('subject') === 'german'
+  return new URLSearchParams(window.location.search).get('subject') === subject
+}
+
+function initialGermanEnabled(): boolean {
+  return initialExtraEnabled('germanEnabled', 'german')
+}
+
+function initialArabicEnabled(): boolean {
+  return initialExtraEnabled('arabicEnabled', 'arabic')
+}
+
+function initialReligionEnabled(): boolean {
+  return initialExtraEnabled('religionEnabled', 'religion')
+}
+
+function initialSocialEnabled(): boolean {
+  return initialExtraEnabled('socialEnabled', 'social')
 }
 
 export const usePlayer = create<PlayerState>()(
@@ -240,6 +266,9 @@ export const usePlayer = create<PlayerState>()(
       mascot: 'sonic' as MascotId,
       subject: initialSubjectFromUrl(),
       germanEnabled: initialGermanEnabled(),
+      arabicEnabled: initialArabicEnabled(),
+      religionEnabled: initialReligionEnabled(),
+      socialEnabled: initialSocialEnabled(),
       xpTotal: 0,
       gems: 50,
       streakCurrent: 0,
@@ -266,7 +295,7 @@ export const usePlayer = create<PlayerState>()(
       doubleXpLessons: 0,
       chestBoost: false,
       megaChest: false,
-      cardCollection: [],
+      cardStars: {},
       cardPity: 0,
       luckyTickets: 0,
       lastSyncedAt: null,
@@ -299,6 +328,41 @@ export const usePlayer = create<PlayerState>()(
           s.weeklyXp += xp
 
           const wasStreakActive = state.lastActiveDay === todayISO()
+          // Streak Saver: bridge a missed day instead of resetting to 1.
+          // updateStreak looks at lastActiveDay, so move it to yesterday and
+          // spend one saver — the streak then continues (+1) as promised.
+          if (
+            s.streakSavers > 0 &&
+            s.lastActiveDay != null &&
+            s.lastActiveDay !== todayISO() &&
+            s.lastActiveDay !== yesterdayISO()
+          ) {
+            s.streakSavers -= 1
+            s.lastActiveDay = yesterdayISO()
+          }
+          updateStreak(s)
+
+          checkAchievements(s)
+
+          if (!wasStreakActive && s.streakCurrent > 1) sfx.streak()
+
+          return s
+        }),
+
+      recordPractice: ({ xp, correct, totalQuestions }) =>
+        set((state) => {
+          void totalQuestions
+          const s: PlayerState = { ...state }
+          rollDay(s)
+          rollWeek(s)
+
+          s.xpTotal += xp
+          s.gems += Math.round(xp / 10)
+          s.todayXp += xp
+          s.correctToday += correct
+          s.weeklyXp += xp
+
+          const wasStreakActive = state.lastActiveDay === todayISO()
           updateStreak(s)
 
           checkAchievements(s)
@@ -314,14 +378,20 @@ export const usePlayer = create<PlayerState>()(
       setSubject: (s) => {
         if (typeof window !== 'undefined') {
           const url = new URL(window.location.href)
-          if (s === 'english' || s === 'science' || s === 'german') url.searchParams.set('subject', s)
+          if (s === 'english' || s === 'science' || s === 'german' || s === 'arabic' || s === 'religion' || s === 'social') url.searchParams.set('subject', s)
           else url.searchParams.delete('subject')
           window.history.replaceState(null, '', url)
         }
-        // Deep-linking / picking German auto-enables the optional extra so a
-        // refresh keeps it visible. Disabling happens only via setGermanEnabled.
+        // Deep-linking / picking an extra auto-enables it so a
+        // refresh keeps it visible. Disabling happens only via setXEnabled.
         if (s === 'german') {
           set({ subject: s, germanEnabled: true })
+        } else if (s === 'arabic') {
+          set({ subject: s, arabicEnabled: true })
+        } else if (s === 'religion') {
+          set({ subject: s, religionEnabled: true })
+        } else if (s === 'social') {
+          set({ subject: s, socialEnabled: true })
         } else {
           set({ subject: s })
         }
@@ -339,6 +409,42 @@ export const usePlayer = create<PlayerState>()(
             return { germanEnabled: false, subject: 'math' as Subject }
           }
           return { germanEnabled: v }
+        }),
+      setArabicEnabled: (v) =>
+        set((state) => {
+          if (!v && state.subject === 'arabic') {
+            if (typeof window !== 'undefined') {
+              const url = new URL(window.location.href)
+              url.searchParams.delete('subject')
+              window.history.replaceState(null, '', url)
+            }
+            return { arabicEnabled: false, subject: 'math' as Subject }
+          }
+          return { arabicEnabled: v }
+        }),
+      setReligionEnabled: (v) =>
+        set((state) => {
+          if (!v && state.subject === 'religion') {
+            if (typeof window !== 'undefined') {
+              const url = new URL(window.location.href)
+              url.searchParams.delete('subject')
+              window.history.replaceState(null, '', url)
+            }
+            return { religionEnabled: false, subject: 'math' as Subject }
+          }
+          return { religionEnabled: v }
+        }),
+      setSocialEnabled: (v) =>
+        set((state) => {
+          if (!v && state.subject === 'social') {
+            if (typeof window !== 'undefined') {
+              const url = new URL(window.location.href)
+              url.searchParams.delete('subject')
+              window.history.replaceState(null, '', url)
+            }
+            return { socialEnabled: false, subject: 'math' as Subject }
+          }
+          return { socialEnabled: v }
         }),
       setOnboarded: () => set({ onboarded: true }),
       addGems: (n) => set((state) => ({ gems: state.gems + n })),
@@ -385,12 +491,42 @@ export const usePlayer = create<PlayerState>()(
             result = { success: false, message: `Max ${item.maxStack} per item!` }
             return state
           }
+          // Boolean boosts have a single active flag — rebuying while active
+          // would burn gems for zero effect.
+          if (itemId === 'chest-boost' && state.chestBoost) {
+            result = { success: false, message: 'Chest Boost already active — finish a lesson first!' }
+            return state
+          }
+          if (itemId === 'mega-chest' && state.megaChest) {
+            result = { success: false, message: 'Mega Chest already active — finish a lesson first!' }
+            return state
+          }
           result = { success: true, message: 'Purchase successful!' }
           return {
             gems: state.gems - item.price,
             shopInventory: { ...state.shopInventory, [itemId]: current + 1 },
           }
         })
+        // A purchase must actually switch the boost on — inventory counts
+        // alone never reached the lesson loop, so gems burned for nothing.
+        if (result.success) {
+          set((state) => {
+            switch (itemId) {
+              case 'double-xp':
+                return { doubleXpLessons: state.doubleXpLessons + 1 }
+              case 'chest-boost':
+                return state.chestBoost ? state : { chestBoost: true }
+              case 'mega-chest':
+                return state.megaChest ? state : { megaChest: true }
+              case 'lucky-ticket':
+                return { luckyTickets: state.luckyTickets + 1 }
+              case 'streak-saver':
+                return { streakSavers: state.streakSavers + 1 }
+              default:
+                return state
+            }
+          })
+        }
         return result
       },
       useStreakSaver: () => {
@@ -418,17 +554,19 @@ export const usePlayer = create<PlayerState>()(
       useMegaChest: () => set({ megaChest: false }),
       grantChest: (chest) =>
         set((state) => {
-          let cardCollection = state.cardCollection
-          let cardPity = state.cardPity
-          if (chest.card) {
-            if (!cardCollection.includes(chest.card.id)) {
-              cardCollection = [...cardCollection, chest.card.id]
+          const cardStars = { ...state.cardStars }
+          for (const c of chest.cards) {
+            if (c.isNew) {
+              if (!(c.id in cardStars)) cardStars[c.id] = 0
+            } else {
+              cardStars[c.id] = Math.max(cardStars[c.id] ?? 0, c.starAfter)
             }
-            cardPity = 0
-          } else {
-            cardPity = state.cardPity + 1
           }
-          return { gems: state.gems + chest.gems, cardCollection, cardPity }
+          return {
+            gems: state.gems + chest.gems + chest.starBonus,
+            cardStars,
+            cardPity: chest.cards.length > 0 ? 0 : state.cardPity + 1,
+          }
         }),
       addLuckyTickets: (n) => set((state) => ({ luckyTickets: state.luckyTickets + n })),
       consumeLuckyTicket: () => {
@@ -485,8 +623,13 @@ export const usePlayer = create<PlayerState>()(
           }
           if (snap.achievements?.length)
             next.achievements = [...new Set([...state.achievements, ...snap.achievements])]
-          if (snap.cardCollection?.length)
-            next.cardCollection = [...new Set([...state.cardCollection, ...snap.cardCollection])]
+          if (snap.cardStars) {
+            const merged: Record<string, number> = { ...state.cardStars }
+            for (const [k, v] of Object.entries(snap.cardStars)) {
+              merged[k] = Math.max(merged[k] ?? -1, v)
+            }
+            next.cardStars = merged
+          }
           if (snap.lessonProgress) {
             const merged: Record<string, LessonProgress> = { ...state.lessonProgress }
             for (const [k, v] of Object.entries(snap.lessonProgress)) {
@@ -507,7 +650,7 @@ export const usePlayer = create<PlayerState>()(
               mergedInv[k] = Math.max(mergedInv[k] ?? 0, v)
             next.shopInventory = mergedInv
           }
-          return next
+        return next
         }),
       setLastSyncedAt: (t) => set({ lastSyncedAt: t }),
 
@@ -562,15 +705,18 @@ export const usePlayer = create<PlayerState>()(
     }),
     {
       name: 'momomath-year2-player-v2',
-      version: 5,
+      version: 8,
       migrate: (persisted, version) => {
         const p = persisted as PlayerState
         let next: PlayerState = p
         if (version < 3) {
           // Backfill any fields added after v2.
+          const legacy = (p as unknown as { cardCollection?: unknown }).cardCollection
           next = {
             ...p,
-            cardCollection: Array.isArray(p.cardCollection) ? p.cardCollection : [],
+            cardStars: Array.isArray(legacy)
+              ? Object.fromEntries(legacy.map((id) => [id, 0]))
+              : {},
             cardPity: typeof p.cardPity === 'number' ? p.cardPity : 0,
             luckyTickets: typeof p.luckyTickets === 'number' ? p.luckyTickets : 0,
             lastSyncedAt: typeof p.lastSyncedAt === 'number' ? p.lastSyncedAt : null,
@@ -612,7 +758,8 @@ export const usePlayer = create<PlayerState>()(
             storedSubject === 'math' ||
             storedSubject === 'english' ||
             storedSubject === 'science' ||
-            storedSubject === 'german'
+            storedSubject === 'german' ||
+            storedSubject === 'arabic'
               ? storedSubject
               : 'math'
           const enabled =
@@ -622,6 +769,86 @@ export const usePlayer = create<PlayerState>()(
             germanEnabled: enabled,
             subject:
               validSubject === 'german' && !enabled && !wantsGerman ? 'math' : validSubject,
+          }
+        }
+        if (version < 6) {
+          // v6: optional Arabic extra (Egyptian Tawassol Grade 2). Default OFF
+          // so existing players keep their exact experience. Deep-linkers keep
+          // Arabic visible. Progress keys are `a*` so no collisions.
+          const wantsArabic =
+            typeof window !== 'undefined' &&
+            new URLSearchParams(window.location.search).get('subject') === 'arabic'
+          const stored = next as Partial<PlayerState>
+          const storedSubject = stored.subject
+          const validSubject: Subject =
+            storedSubject === 'math' ||
+            storedSubject === 'english' ||
+            storedSubject === 'science' ||
+            storedSubject === 'german' ||
+            storedSubject === 'arabic'
+              ? storedSubject
+              : 'math'
+          const enabled =
+            typeof stored.arabicEnabled === 'boolean' ? stored.arabicEnabled : wantsArabic
+          next = {
+            ...next,
+            arabicEnabled: enabled,
+            subject:
+              validSubject === 'arabic' && !enabled && !wantsArabic ? 'math' : validSubject,
+          }
+        }
+        if (version < 7) {
+          // v7: optional Religion + Social extras (Egyptian govt Grade 2).
+          // Default OFF. Progress keys are `r*` / `d*` so no collisions.
+          const params = typeof window !== 'undefined'
+            ? new URLSearchParams(window.location.search).get('subject')
+            : null
+          const stored = next as Partial<PlayerState>
+          const storedSubject = stored.subject
+          const validSubject: Subject =
+            storedSubject === 'math' ||
+            storedSubject === 'english' ||
+            storedSubject === 'science' ||
+            storedSubject === 'german' ||
+            storedSubject === 'arabic' ||
+            storedSubject === 'religion' ||
+            storedSubject === 'social'
+              ? storedSubject
+              : 'math'
+          const relEnabled =
+            typeof stored.religionEnabled === 'boolean' ? stored.religionEnabled : params === 'religion'
+          const socEnabled =
+            typeof stored.socialEnabled === 'boolean' ? stored.socialEnabled : params === 'social'
+          next = {
+            ...next,
+            religionEnabled: relEnabled,
+            socialEnabled: socEnabled,
+            subject:
+              validSubject === 'religion' && !relEnabled && params !== 'religion'
+                ? 'math'
+                : validSubject === 'social' && !socEnabled && params !== 'social'
+                  ? 'math'
+                  : validSubject,
+          }
+        }
+        if (version < 8) {
+          // v8: card collection becomes star levels (id -> 0..MAX_STARS).
+          // Old saves kept a plain id array; every previously owned card
+          // converts to 0 stars (owned, no star-ups yet).
+          const stored = next as unknown as {
+            cardCollection?: unknown
+            cardStars?: unknown
+          }
+          if (!stored.cardStars || typeof stored.cardStars !== 'object') {
+            const legacy = stored.cardCollection
+            next = {
+              ...next,
+              cardStars: Array.isArray(legacy)
+                ? Object.fromEntries(
+                    (legacy as unknown[]).filter((id) => typeof id === 'string').map((id) => [id, 0]),
+                  )
+                : {},
+            }
           }
         }
         return next

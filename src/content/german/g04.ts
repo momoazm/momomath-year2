@@ -1,7 +1,12 @@
 import type { Question, UnitDef } from '../types'
 import {
+  buildDe,
+  buildEn,
   makeLesson,
+  matchDeEn,
   matchQ,
+  mcqDeToEn,
+  mcqEnToDe,
   mcqE,
   mcqFixed,
   orderQ,
@@ -14,10 +19,10 @@ import {
 } from './helpers'
 
 const NUMBERS = [
-  { de: 'eins', n: 1 }, { de: 'zwei', n: 2 }, { de: 'drei', n: 3 },
-  { de: 'vier', n: 4 }, { de: 'fünf', n: 5 }, { de: 'sechs', n: 6 },
-  { de: 'sieben', n: 7 }, { de: 'acht', n: 8 }, { de: 'neun', n: 9 },
-  { de: 'zehn', n: 10 }, { de: 'elf', n: 11 }, { de: 'zwölf', n: 12 },
+  { de: 'eins', en: 'one', n: 1 }, { de: 'zwei', en: 'two', n: 2 }, { de: 'drei', en: 'three', n: 3 },
+  { de: 'vier', en: 'four', n: 4 }, { de: 'fünf', en: 'five', n: 5 }, { de: 'sechs', en: 'six', n: 6 },
+  { de: 'sieben', en: 'seven', n: 7 }, { de: 'acht', en: 'eight', n: 8 }, { de: 'neun', en: 'nine', n: 9 },
+  { de: 'zehn', en: 'ten', n: 10 }, { de: 'elf', en: 'eleven', n: 11 }, { de: 'zwölf', en: 'twelve', n: 12 },
 ]
 
 function gNumberMatch(rand: Rand): Question {
@@ -67,6 +72,31 @@ function gAgeSentence(rand: Rand): Question {
   })
 }
 
+/* ----- Duolingo-style EN ⇄ DE: both directions + sentence builds ----- */
+const NUMBER_GLOSS = NUMBERS.map((x) => ({ de: x.de, en: x.en }))
+
+function gNumberDeToEn(rand: Rand): Question {
+  return mcqDeToEn(rand, NUMBER_GLOSS)
+}
+
+function gNumberEnToDe(rand: Rand): Question {
+  return mcqEnToDe(rand, NUMBER_GLOSS)
+}
+
+function gNumberMatchDeEn(rand: Rand): Question {
+  return matchDeEn(rand, NUMBER_GLOSS, 'Match the number: German to English')
+}
+
+function gBuildAgeDe(rand: Rand): Question {
+  const item = pick(rand, NUMBERS.slice(4, 10))
+  return buildDe(`I am ${item.en} years old.`, ['Ich', 'bin', item.de, 'Jahre', 'alt.'])
+}
+
+function gBuildAgeEn(rand: Rand): Question {
+  const item = pick(rand, NUMBERS.slice(4, 10))
+  return buildEn(`Ich bin ${item.de} Jahre alt.`, ['I', 'am', item.en, 'years', 'old.'])
+}
+
 const g4l1 = makeLesson(
   'g4l1',
   'Eins bis sechs',
@@ -74,7 +104,7 @@ const g4l1 = makeLesson(
   'sonic',
   'Zählen!',
   'Count with Felix: eins, zwei, drei! Match words to digits and count the stars!',
-  [gNumberMatch, gCountEmojis],
+  [gNumberMatch, gCountEmojis, gNumberDeToEn, gNumberEnToDe],
 )
 
 const g4l2 = makeLesson(
@@ -84,7 +114,7 @@ const g4l2 = makeLesson(
   'tails',
   'Weiter zählen!',
   'Bigger numbers! Listen, order them small → big, and spell fünf and zwölf!',
-  [gHearNumber, gOrderNumbers],
+  [gHearNumber, gOrderNumbers, gNumberMatchDeEn, gNumberDeToEn],
 )
 
 const g4l3 = makeLesson(
@@ -94,7 +124,7 @@ const g4l3 = makeLesson(
   'amy',
   'Geburtstag!',
   'Birthday time! Ich bin … Jahre alt. Spell it and pick the candle sentence!',
-  [gAgeTiles, gAgeSentence],
+  [gAgeTiles, gAgeSentence, gBuildAgeDe, gBuildAgeEn],
 )
 
 const g4boss = makeLesson(
@@ -104,8 +134,8 @@ const g4boss = makeLesson(
   'eggman',
   'BOSS TIME!',
   'Numbers 1–12, counting, ordering and birthdays — count Eggman out!',
-  [gNumberMatch, gHearNumber, gOrderNumbers, gAgeSentence],
-  gCountEmojis,
+  [gNumberMatchDeEn, gHearNumber, gBuildAgeDe, gBuildAgeEn],
+  gNumberEnToDe,
 )
 
 export const UNIT_G4: UnitDef = unitDef(

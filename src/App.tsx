@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { TopBar } from './components/ui/TopBar'
 import { BottomNav, type Tab } from './components/ui/BottomNav'
@@ -12,11 +12,21 @@ import { LibraryScreen } from './screens/LibraryScreen'
 import { WelcomeGate } from './components/ui/WelcomeGate'
 import { Scenery } from './components/ui/Scenery'
 import { MascotGallery } from './components/mascots/Gallery'
+import { startCloudSync } from './engine/cloudsave'
+import type { RetryItem } from './engine/adaptive'
 
 export default function App() {
   const [tab, setTab] = useState<Tab>('path')
   const [activeLesson, setActiveLesson] = useState<string | null>(null)
+  /** Wrong-question practice round (snapshots from the tracker). */
+  const [retryItems, setRetryItems] = useState<RetryItem[] | null>(null)
   const [showLibrary, setShowLibrary] = useState(false)
+
+  // Same Google account → same progress on every device. Pulls the cloud save
+  // on sign-in and pushes (debounced) on every change; local play always works.
+  useEffect(() => {
+    startCloudSync()
+  }, [])
 
   if (new URLSearchParams(window.location.search).has('gallery')) {
     return <MascotGallery />
@@ -26,8 +36,14 @@ export default function App() {
     return <LibraryScreen onClose={() => setShowLibrary(false)} />
   }
 
-  if (activeLesson) {
-    return <LessonScreen lessonId={activeLesson} onExit={() => setActiveLesson(null)} />
+  if (activeLesson || retryItems) {
+    return (
+      <LessonScreen
+        lessonId={retryItems?.[0]?.lessonId ?? activeLesson!}
+        retryItems={retryItems ?? undefined}
+        onExit={() => { setActiveLesson(null); setRetryItems(null) }}
+      />
+    )
   }
 
   return (
@@ -48,7 +64,12 @@ export default function App() {
       {tab === 'shop' && <ShopScreen />}
       {tab === 'leagues' && <LeaguesScreen />}
       {tab === 'quests' && <QuestsScreen />}
-      {tab === 'profile' && <ProfileScreen />}
+      {tab === 'profile' && (
+        <ProfileScreen
+          onPracticeLesson={(id) => setActiveLesson(id)}
+          onPracticeRetry={(items) => setRetryItems(items)}
+        />
+      )}
         </motion.main>
         </AnimatePresence>
         <BottomNav tab={tab} onTab={setTab} />

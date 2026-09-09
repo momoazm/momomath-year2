@@ -3,11 +3,12 @@ import { motion } from 'framer-motion'
 import {
   LEAGUES,
   LEAGUE_META,
-  STAY_FACTOR,
   msUntilWeekEnd,
   rivalXp,
   weekKey,
   weeklyGoal,
+  zoneOfRank,
+  type BoardZone,
 } from '../engine/gamification'
 import {
   botsForPlayerCount,
@@ -20,7 +21,7 @@ import { usePlayer } from '../engine/store'
 import { useAuth } from '../engine/auth'
 import { Mascot } from '../components/mascots/Mascots'
 
-type Zone = 'promo' | 'stay' | 'danger'
+type Zone = BoardZone
 
 type Row = {
   id: string
@@ -32,16 +33,15 @@ type Row = {
   icon?: string
 }
 
-function zoneOf(xp: number, goal: number, stayGoal: number): Zone {
-  if (xp >= goal) return 'promo'
-  if (xp >= stayGoal) return 'stay'
-  return 'danger'
+/** Rank-based zones on the 10-racer board: ranks 1-3 promote, 4-7 safe, 8+ demote. */
+function zoneOfRankOnBoard(rank: number, boardSize: number): Zone {
+  return zoneOfRank(rank, boardSize)
 }
 
 const ZONE_DIVIDER: Record<Zone, { label: string; cls: string }> = {
-  promo: { label: '⬆️ Promotion zone', cls: 'text-emerald-500' },
-  stay: { label: '➖ Safe zone', cls: 'text-slate-400' },
-  danger: { label: '⬇️ Demotion zone', cls: 'text-red-400' },
+  promo: { label: '⬆️ Top 3 · Promotion zone', cls: 'text-emerald-500' },
+  stay: { label: '➖ Ranks 4–7 · Safe zone', cls: 'text-slate-400' },
+  danger: { label: '⬇️ Bottom 3 · Demotion zone', cls: 'text-red-400' },
 }
 
 function formatCountdown(msLeft: number): string {
@@ -106,7 +106,6 @@ export function LeaguesScreen() {
 
   const meta = LEAGUE_META[s.currentLeague]
   const goal = weeklyGoal(s.currentLeague)
-  const stayGoal = Math.round(goal * STAY_FACTOR)
   const countdown = formatCountdown(msUntilWeekEnd(new Date(nowMs)))
 
   const others = shared.filter((p) => p.id !== myId)
@@ -151,7 +150,7 @@ export function LeaguesScreen() {
           {s.currentLeague} League
         </h1>
         <p className="text-center font-body text-sm font-bold text-slate-400">
-          Reach {goal} XP to be promoted &middot; you&rsquo;re #{myRank}
+          Top 3 go up ⬆️ &middot; 4&ndash;7 safe ➖ &middot; bottom 3 drop ⬇️ &middot; you&rsquo;re #{myRank}
         </p>
         {/* live countdown to Monday reset */}
         <p
@@ -170,7 +169,7 @@ export function LeaguesScreen() {
             This week&rsquo;s XP
           </p>
           <p className="font-display font-extrabold text-orange-400">
-            {s.weeklyXp} / {goal} XP
+            {s.weeklyXp} XP this week
           </p>
         </div>
         <div className="mt-2 h-5 overflow-hidden rounded-full bg-slate-100 ring-2 ring-slate-200">
@@ -190,11 +189,11 @@ export function LeaguesScreen() {
         </h2>
         <ol>
           {standings.map((p, i) => {
-            const zone = zoneOf(p.xp, goal, stayGoal)
-            const prevZone =
-              i > 0 ? zoneOf(standings[i - 1].xp, goal, stayGoal) : null
-            const showDivider = zone !== prevZone
             const rank = i + 1
+            const zone = zoneOfRankOnBoard(rank, standings.length)
+            const prevZone =
+              i > 0 ? zoneOfRankOnBoard(rank - 1, standings.length) : null
+            const showDivider = zone !== prevZone
             return (
               <li key={p.id}>
                 {showDivider && (
@@ -222,7 +221,7 @@ export function LeaguesScreen() {
                     ) : (
                       <Mascot
                         id={p.mascotId ?? 'sonic'}
-                        expression={zoneOf(p.xp, goal, stayGoal) === 'promo' ? 'cheer' : 'happy'}
+                        expression={zone === 'promo' ? 'cheer' : 'happy'}
                       />
                     )}
                   </span>

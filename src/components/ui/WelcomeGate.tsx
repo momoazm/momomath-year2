@@ -45,9 +45,9 @@ export function WelcomeGate() {
   useEffect(() => {
     if (!GOOGLE_CLIENT_ID || !btnRef.current || failed || user) return
     let cancelled = false
-    renderGoogleButton(btnRef.current, (u: AuthUser) => {
+    renderGoogleButton(btnRef.current, (u: AuthUser, credential: string) => {
       if (cancelled) return
-      signIn(u)
+      signIn(u, credential)
       sfx.complete()
     }).catch(() => {
       if (!cancelled) setFailed(true)

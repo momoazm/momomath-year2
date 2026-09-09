@@ -1,8 +1,13 @@
 import type { Question, UnitDef } from '../types'
 import {
   PICTURE_BANK,
+  buildDe,
+  buildEn,
   makeLesson,
+  matchDeEn,
   matchQ,
+  mcqDeToEn,
+  mcqEnToDe,
   mcqE,
   mcqFixed,
   orderQ,
@@ -17,10 +22,10 @@ import {
 } from './helpers'
 
 const ROOMS = [
-  { de: 'das Zimmer', emoji: '🛋️' }, { de: 'die Küche', emoji: '🍳' },
-  { de: 'das Bad', emoji: '🛁' }, { de: 'das Bett', emoji: PICTURE_BANK.bett },
-  { de: 'der Stuhl', emoji: PICTURE_BANK.stuhl }, { de: 'die Lampe', emoji: PICTURE_BANK.lampe },
-  { de: 'die Tür', emoji: PICTURE_BANK.tür }, { de: 'das Buch', emoji: PICTURE_BANK.buch },
+  { de: 'das Zimmer', en: 'room', emoji: '🛋️' }, { de: 'die Küche', en: 'kitchen', emoji: '🍳' },
+  { de: 'das Bad', en: 'bathroom', emoji: '🛁' }, { de: 'das Bett', en: 'bed', emoji: PICTURE_BANK.bett },
+  { de: 'der Stuhl', en: 'chair', emoji: PICTURE_BANK.stuhl }, { de: 'die Lampe', en: 'lamp', emoji: PICTURE_BANK.lampe },
+  { de: 'die Tür', en: 'door', emoji: PICTURE_BANK.tür }, { de: 'das Buch', en: 'book', emoji: PICTURE_BANK.buch },
 ]
 
 function gRoomPicture(rand: Rand): Question {
@@ -128,6 +133,50 @@ function gPartyPick(rand: Rand): Question {
   return mcqFixed('What do you sing at the party?', choices, choices.indexOf(answer), say(answer))
 }
 
+/* ----- Duolingo-style EN ⇄ DE: both directions + sentence builds ----- */
+const ROOM_GLOSS = ROOMS.map((r) => ({ de: r.de, en: r.en }))
+
+function gRoomDeToEn(rand: Rand): Question {
+  return mcqDeToEn(rand, ROOM_GLOSS)
+}
+
+function gRoomEnToDe(rand: Rand): Question {
+  return mcqEnToDe(rand, ROOM_GLOSS)
+}
+
+function gRoomMatchDeEn(rand: Rand): Question {
+  return matchDeEn(rand, ROOM_GLOSS, 'Match at home: German to English')
+}
+
+/** Preposition sentences use phrase chunks so the two English “the”s never
+ *  collide as duplicate word-bank tiles (harness requires unique items). */
+const WHERE_BUILDS: { en: string; de: string[]; back: string[] }[] = [
+  { en: 'The book is on the chair.', de: ['Das Buch', 'ist', 'auf dem Stuhl'], back: ['The book', 'is', 'on the chair'] },
+  { en: 'The cat is on the bed.', de: ['Die Katze', 'ist', 'auf dem Bett'], back: ['The cat', 'is', 'on the bed'] },
+  { en: 'The lamp is in the room.', de: ['Die Lampe', 'ist', 'in dem Zimmer'], back: ['The lamp', 'is', 'in the room'] },
+  { en: 'The ball is under the bed.', de: ['Der Ball', 'ist', 'unter dem Bett'], back: ['The ball', 'is', 'under the bed'] },
+]
+
+function gBuildWhereDe(rand: Rand): Question {
+  const s = pick(rand, WHERE_BUILDS)
+  return buildDe(s.en, s.de)
+}
+
+function gBuildWhereEn(rand: Rand): Question {
+  const s = pick(rand, WHERE_BUILDS)
+  return buildEn(s.de.join(' ') + '.', s.back)
+}
+
+function gBuildWishDe(rand: Rand): Question {
+  void rand
+  return buildDe('Happy birthday!', ['Alles', 'Gute', 'zum', 'Geburtstag!'])
+}
+
+function gBuildWishEn(rand: Rand): Question {
+  void rand
+  return buildEn('Alles Gute zum Geburtstag!', ['Happy', 'birthday!'])
+}
+
 const g10l1 = makeLesson(
   'g10l1',
   'Im Briefkasten',
@@ -135,7 +184,7 @@ const g10l1 = makeLesson(
   'sonic',
   'Zuhause!',
   'Felix and Franzi hang their painting at home. Learn every room-thing with its article!',
-  [gRoomPicture, gRoomMatch],
+  [gRoomPicture, gRoomMatch, gRoomDeToEn, gRoomEnToDe],
 )
 
 const g10l2 = makeLesson(
@@ -145,7 +194,7 @@ const g10l2 = makeLesson(
   'tails',
   'Verstecken!',
   'Something nibbled the painting! Hunt it with in, auf and unter!',
-  [gWhereMatch, gRoomPicture],
+  [gWhereMatch, gRoomPicture, gBuildWhereDe, gBuildWhereEn],
 )
 
 const g10l3 = makeLesson(
@@ -155,7 +204,7 @@ const g10l3 = makeLesson(
   'amy',
   'Party!',
   'Ordinal candles: erste, zweite, dritte! Plus Nikolaus and Sunday family-day facts!',
-  [gOrdinalPicture, gFestTrueFalse],
+  [gOrdinalPicture, gFestTrueFalse, gBuildWishDe, gBuildWishEn],
 )
 
 const g10l4 = makeLesson(
@@ -165,7 +214,7 @@ const g10l4 = makeLesson(
   'cream',
   'Post!',
   'Read Felix’s mini letter, order it, then read the birthday wish aloud!',
-  [gLetterOrder, gSpeakWish],
+  [gLetterOrder, gSpeakWish, gRoomMatchDeEn, gBuildWhereDe],
 )
 
 const g10boss = makeLesson(
@@ -175,7 +224,7 @@ const g10boss = makeLesson(
   'eggman',
   'BOSS TIME!',
   'Home, prepositions, party and the big letter — the final Deutsch boss!',
-  [gWhereMatch, gOrdinalPicture, gFestTrueFalse, gPartyPick],
+  [gRoomMatchDeEn, gBuildWhereDe, gBuildWhereEn, gBuildWishDe, gPartyPick],
   gLetterOrder,
 )
 

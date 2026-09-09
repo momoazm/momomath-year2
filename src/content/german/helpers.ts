@@ -117,6 +117,82 @@ export function say(text: string): { audioText: string } {
   return { audioText: text }
 }
 
+/* ------- Duolingo-style EN ⇄ DE two-way drills -------------------- */
+/** German ⇄ English gloss entry for bidirectional drills. */
+export interface DeEnEntry {
+  de: string
+  en: string
+}
+
+/** DE → EN: “What does “müde” mean?” German audio, English choices. */
+export function mcqDeToEn(
+  rand: Rand,
+  entries: readonly DeEnEntry[],
+  extra?: Partial<McqQuestion>,
+): McqQuestion {
+  const item = pick(rand, entries)
+  const others = entries.filter((e) => e.en !== item.en).map((e) => e.en)
+  return mcqE(rand, `What does “${item.de}” mean?`, item.en, others, {
+    ...say(item.de),
+    ...extra,
+  })
+}
+
+/** EN → DE: “How do you say “tired” in German?” No audio — the prompt is
+ *  English and the German-track voice (de-DE) would mispronounce it. */
+export function mcqEnToDe(
+  rand: Rand,
+  entries: readonly DeEnEntry[],
+  extra?: Partial<McqQuestion>,
+): McqQuestion {
+  const item = pick(rand, entries)
+  const others = entries.filter((e) => e.de !== item.de).map((e) => e.de)
+  return mcqE(rand, `How do you say “${item.en}” in German?`, item.de, others, {
+    hint: 'Say it aloud, then tap!',
+    ...extra,
+  })
+}
+
+/** Tap-the-pairs German ↔ English text — both directions in one card. */
+export function matchDeEn(
+  rand: Rand,
+  entries: readonly DeEnEntry[],
+  prompt = 'Match German to English',
+): MatchQuestion {
+  const pairs = shuffle(
+    rand,
+    entries.map((e) => ({ left: e.de, right: e.en })),
+  ).slice(0, 4)
+  return matchQ(rand, prompt, pairs, {
+    hint: 'DE ⇄ EN — both directions count!',
+  })
+}
+
+/** Word-bank builder EN → DE (“translate this sentence”). No audio: the
+ *  source is English but German-track TTS speaks de-DE. */
+export function buildDe(
+  enSentence: string,
+  deTokens: string[],
+  extra?: Partial<OrderQuestion>,
+): OrderQuestion {
+  return orderQ(`Build in German: “${enSentence}”`, deTokens, {
+    hint: 'Tap the words in order — capital letters matter!',
+    ...extra,
+  })
+}
+
+/** Word-bank builder DE → EN with German listening attached. */
+export function buildEn(
+  deSentence: string,
+  enTokens: string[],
+  extra?: Partial<OrderQuestion>,
+): OrderQuestion {
+  return orderQ(`Build in English: “${deSentence}”`, enTokens, {
+    ...say(deSentence),
+    ...extra,
+  })
+}
+
 /** Story panel shown above Story Time questions. */
 export function story(title: string, scene: string[], lines: string[]): StoryPanel {
   return { title, scene, lines }

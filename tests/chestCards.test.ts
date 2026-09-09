@@ -3,9 +3,14 @@ import { mulberry32 } from '../src/content/rng'
 import {
   CARDS,
   CARD_CHANCE,
+  CARD_SLOTS,
   COLLECTION_JACKPOT,
+  MAX_STARS,
   PITY_LIMIT,
   START_TABLES,
+  STAR_GEMS,
+  TIER_ORDER,
+  resolveChest,
   rollChest,
   rollStartTier,
   tierIndex,
@@ -14,6 +19,12 @@ import {
 
 function rng(seed: number) {
   return mulberry32(seed)
+}
+
+/** Deterministic rand from a fixed sequence (repeats the last value). */
+function seqRand(values: number[]) {
+  let i = 0
+  return () => values[Math.min(i++, values.length - 1)]
 }
 
 describe('start tier tables', () => {
@@ -64,115 +75,294 @@ describe('start tier tables', () => {
 })
 
 describe('rollChest gems', () => {
-  it('gems scale by rarity and stay far below shop prices (75-200)', () => {
+  const BOUNDS: Record<string, [number, number]> = {
+    common: [3, 6],
+    rare: [8, 14],
+    epic: [15, 25],
+    legendary: [30, 45],
+    exclusive: [51, 80],
+    mythic: [60, 100],
+    ultimate: [90, 150],
+    hyper: [120, 200],
+  }
+
+  it('gems scale by rarity and respect each tier band', () => {
     const seen: Record<string, number> = {}
     for (let i = 0; i < 20000; i++) {
-      const r = rollChest(rng(i), 'normal', new Set(), 0)
+      const r = rollChest(rng(i), 'normal', {}, 0)
       if (r.jackpot) continue
       const maxSoFar = seen[r.finalTier] ?? -Infinity
       seen[r.finalTier] = Math.max(maxSoFar, r.gems)
     }
-    // Legendary top is 45, Exclusive top is 80 - both < cheapest shop item (75? lucky=120).
+    // No tier pays above its own band top (common..exclusive stay well below
+    // shop prices; mythic/ultimate/hyper are the jackpot-tier reward).
     for (const [tier, max] of Object.entries(seen)) {
-      expect(max, `tier ${tier}`).toBeLessThan(120)
+      expect(max, `tier ${tier}`).toBeLessThanOrEqual(BOUNDS[tier][1])
     }
   })
 
   it('never-gem ranges match the table bounds', () => {
     for (let i = 0; i < 5000; i++) {
-      const r = rollChest(rng(i), 'normal', new Set(), 0)
-      const bounds: Record<string, [number, number]> = {
-        common: [3, 6],
-        rare: [8, 14],
-        epic: [15, 25],
-        legendary: [30, 45],
-        exclusive: [50, 80],
-      }
-      const [lo, hi] = bounds[r.finalTier]
+      const r = rollChest(rng(i), 'normal', {}, 0)
+      const [lo, hi] = BOUNDS[r.finalTier]
       expect(r.gems).toBeGreaterThanOrEqual(lo)
       expect(r.gems).toBeLessThanOrEqual(hi + (r.jackpot ? COLLECTION_JACKPOT : 0))
     }
   })
 })
 
-describe('rollChest cards', () => {
-  it('drops cards around 10% of the time (excluding Legendary/Exclusive)', () => {
-    let cardDrops = 0
-    let eligible = 0
-    for (let i = 0; i < 50000; i++) {
-      const r = rollChest(rng(i), 'normal', new Set(), 0)
-      if (r.finalTier === 'legendary' || r.finalTier === 'exclusive') continue
-      eligible++
-      if (r.card) cardDrops++
+describe('rollChest cards (slots x per-tier chance)', () => {
+  it('per-tier card chance is honored: common slots drop ~35%', () => {
+    let drops = 0
+    const N = 20000
+    for (let i = 0; i < N; i++) {
+      const r = resolveChest(rng(i), {}, 0, 'common', 'common', [], 1)
+      drops += r.cards.length
     }
-    const rate = cardDrops / eligible
-    expect(rate).toBeGreaterThan(CARD_CHANCE * 0.5) // generous band around 10%
-    expect(rate).toBeLessThan(CARD_CHANCE * 1.8)
+    // common = exactly 1 slot x 0.35
+    const rate = drops / N
+    expect(rate).toBeGreaterThan(0.28)
+    expect(rate).toBeLessThan(0.42)
   })
 
-  it('Legendary and Exclusive chests ALWAYS drop a card', () => {
-    let leg = 0
-    let exc = 0
-    for (let i = 0; i < 200000; i++) {
-      const r = rollChest(rng(i), 'boss', new Set(), 0)
-      if (r.finalTier === 'legendary') {
-        leg++
-        expect(r.card).not.toBeNull()
-      }
-      if (r.finalTier === 'exclusive') {
-        exc++
-        expect(r.card).not.toBeNull()
-      }
-    }
-    expect(leg).toBeGreaterThan(0)
-    expect(exc).toBeGreaterThan(0)
-  })
-
-  it('no duplicate is EVER granted, and jackpot pays out when complete', () => {
-    const owned = new Set<string>()
-    for (let i = 0; i < 5000; i++) {
-      const r = rollChest(rng(i), 'normal', owned, 0)
-      if (r.card) {
-        expect(owned.has(r.card.id), `dup ${r.card.id}`).toBe(false)
-        owned.add(r.card.id)
-      } else if (r.jackpot) {
-        // whole set owned -> jackpot gems
-        expect(r.gems).toBeGreaterThanOrEqual(51 + COLLECTION_JACKPOT) // >= exclusive min + jackpot
-      }
-    }
-    // Simulate a fully-completing forced run -> every drop jackpots after.
-    const full = new Set(CARDS.map((c) => c.id))
-    for (let i = 0; i < 2000; i++) {
-      const r = rollChest(rng(i + 7000), 'normal', full, PITY_LIMIT)
-      expect(r.card).toBeNull()
-      expect(r.jackpot).toBe(true)
+  it('card chance strictly decreases as rarity rises', () => {
+    const chances = TIER_ORDER.map((t) => CARD_CHANCE[t])
+    for (let i = 1; i < chances.length; i++) {
+      expect(chances[i]).toBeLessThan(chances[i - 1])
     }
   })
 
-  it('hidden card pity guarantees a card once PITY_LIMIT cardless tries pass', () => {
+  it('joint odds (chest rarity x card drop) strictly decrease in every context', () => {
+    // The product owner rule: rarer chest + rarer card = strictly rarer event.
+    for (const ctx of ['normal', 'boss', 'lucky'] as const) {
+      const weights = new Map(START_TABLES[ctx])
+      const joints = TIER_ORDER.filter((t) => (weights.get(t) ?? 0) > 0).map((t) => {
+        const [sMin, sMax] = CARD_SLOTS[t]
+        const avgSlots = (sMin + sMax) / 2
+        return (weights.get(t) ?? 0) * avgSlots * CARD_CHANCE[t]
+      })
+      for (let i = 1; i < joints.length; i++) {
+        expect(joints[i], `${ctx} tier ${i}`).toBeLessThan(joints[i - 1])
+      }
+    }
+  })
+
+  it('card count never exceeds the tier slot max (1-3)', () => {
+    for (const tier of TIER_ORDER) {
+      const [, sMax] = CARD_SLOTS[tier]
+      for (let i = 0; i < 2000; i++) {
+        const r = resolveChest(rng(i * 31 + tier.length), {}, 0, tier, tier, [], 1)
+        expect(r.cards.length, `tier ${tier}`).toBeLessThanOrEqual(sMax)
+      }
+    }
+  })
+
+  it('higher tiers can drop 2-3 cards in one chest', () => {
+    let multi = 0
+    for (let i = 0; i < 20000; i++) {
+      const r = resolveChest(rng(i + 424242), {}, 0, 'hyper', 'hyper', [], 1)
+      if (r.cards.length >= 2) multi++
+    }
+    expect(multi).toBeGreaterThan(0) // 3 slots x 7% -> multi-card chests happen
+  })
+
+  it('legendary+ chests NO LONGER guarantee a card (odds are decoupled)', () => {
+    // Rigged rand: every chance roll misses.
+    const r = resolveChest(seqRand([0.5, 0.99, 0.99, 0.99]), {}, 0, 'legendary', 'legendary', [], 1)
+    expect(r.cards).toHaveLength(0)
+    expect(r.jackpot).toBe(false)
+  })
+
+  it('duplicates STAR UP the card and pay a gem bonus', () => {
+    // Common = 1 slot: force a drop of the first common card, three times.
+    const force = () => seqRand([0.5, 0.0, 0.0, 0.0])
+    const first = resolveChest(force(), {}, 0, 'common', 'common', [], 1)
+    expect(first.cards).toHaveLength(1)
+    expect(first.cards[0].isNew).toBe(true)
+    expect(first.cards[0].starAfter).toBe(0)
+    expect(first.cards[0].starBonus).toBe(0)
+
+    const stars = { [first.cards[0].id]: 0 }
+    const second = resolveChest(force(), stars, 0, 'common', 'common', [], 1)
+    expect(second.cards[0].isNew).toBe(false)
+    expect(second.cards[0].starAfter).toBe(1)
+    expect(second.cards[0].starBonus).toBe(STAR_GEMS.common * 1)
+
+    const third = resolveChest(force(), { [first.cards[0].id]: 1 }, 0, 'common', 'common', [], 1)
+    expect(third.cards[0].starAfter).toBe(2)
+    expect(third.cards[0].starBonus).toBe(STAR_GEMS.common * 2)
+  })
+
+  it('stars cap at MAX_STARS and the same chest can repeat a card', () => {
+    // Hyper = 3 slots, pool of 2: force all drops onto the first pool card.
+    const r = resolveChest(seqRand([0.5, 0.0, 0, 0, 0, 0, 0, 0]), {}, 0, 'hyper', 'hyper', [], 1)
+    expect(r.cards).toHaveLength(3)
+    expect(r.cards[0].isNew).toBe(true)
+    expect(r.cards[1].isNew).toBe(false)
+    expect(r.cards[1].id).toBe(r.cards[0].id)
+
+    const capped = resolveChest(seqRand([0.5, 0.0, 0.0]), { tails: MAX_STARS }, 0, 'common', 'common', [], 1)
+    expect(capped.cards[0].starAfter).toBe(MAX_STARS)
+  })
+
+  it('hidden card pity guarantees at least one card once PITY_LIMIT passes', () => {
     for (let i = 0; i < 500; i++) {
-      const r = rollChest(rng(i + 100000), 'normal', new Set(), PITY_LIMIT)
-      expect(r.card, `i=${i}`).not.toBeNull()
+      const r = rollChest(rng(i + 100000), 'normal', {}, PITY_LIMIT)
+      expect(r.cards.length, `i=${i}`).toBeGreaterThan(0)
+    }
+  })
+
+  it('jackpot pays out when every card is fully maxed', () => {
+    const maxed: Record<string, number> = Object.fromEntries(CARDS.map((c) => [c.id, MAX_STARS]))
+    for (let i = 0; i < 200; i++) {
+      const r = resolveChest(rng(i + 4242), maxed, PITY_LIMIT, 'common', 'rare', [], 1)
+      expect(r.cards).toHaveLength(0)
+      expect(r.jackpot).toBe(true)
+      expect(r.gems).toBeGreaterThanOrEqual(51 + COLLECTION_JACKPOT)
+    }
+  })
+
+  it('Mythic/Ultimate/Hyper can only ever be a start roll, never a kick upgrade', () => {
+    for (let i = 0; i < 100000; i++) {
+      const r = rollChest(rng(i + 31337), 'normal', {}, 0)
+      if (r.finalTier === 'mythic' || r.finalTier === 'ultimate' || r.finalTier === 'hyper') {
+        expect(r.startTier).toBe(r.finalTier)
+        expect(r.upgradesAt).toHaveLength(0)
+      }
+    }
+  })
+
+  it('Hyper is the rarest start roll in every context', () => {
+    for (const ctx of ['normal', 'boss', 'lucky'] as const) {
+      const table = new Map(START_TABLES[ctx])
+      expect(table.get('hyper')).toBeGreaterThan(0)
+      expect(table.get('hyper')!).toBeLessThan(table.get('ultimate')!)
+      expect(table.get('hyper')!).toBeLessThan(table.get('mythic')!)
     }
   })
 
   it('Dr. Eggman only ever arrives from an EXCLUSIVE chest', () => {
     for (let i = 0; i < 300000; i++) {
-      const r = rollChest(rng(i), 'normal', new Set(), 0)
-      if (r.card?.id === 'eggman') {
-        expect(r.finalTier).toBe('exclusive')
+      const r = rollChest(rng(i), 'normal', {}, 0)
+      for (const c of r.cards) {
+        if (c.id === 'eggman') expect(r.finalTier).toBe('exclusive')
       }
     }
   })
 
-  it('card rarity matches the final tier when that rarity is still incomplete', () => {
+  it('variant cards only arrive from their own tier chest', () => {
+    const origin: Record<string, ChestTier> = {
+      'classic-sonic': 'rare',
+      'movie-tails': 'epic',
+      'movie-knuckles': 'epic',
+      'werehog-sonic': 'epic',
+      'neo-metal': 'legendary',
+      'movie-sonic': 'mythic',
+      'movie-shadow': 'mythic',
+      'super-sonic': 'ultimate',
+      'super-shadow': 'ultimate',
+      'hyper-sonic': 'hyper',
+      'hyper-shadow': 'hyper',
+    }
+    const hits = new Set<string>()
+    for (let i = 0; i < 300000; i++) {
+      const r = rollChest(rng(i + 777000), 'boss', {}, 0)
+      for (const c of r.cards) {
+        if (c.id in origin) {
+          hits.add(c.id)
+          expect(r.finalTier).toBe(origin[c.id])
+        }
+      }
+    }
+    for (const id of Object.keys(origin)) {
+      expect(hits.has(id), `${id} never dropped`).toBe(true)
+    }
+  })
+
+  it('every dropped card matches the chest final tier', () => {
     const tierOf = new Map<string, ChestTier>(CARDS.map((c) => [c.id, c.tier]))
     for (let i = 0; i < 20000; i++) {
-      const r = rollChest(rng(i), 'normal', new Set(), 0)
-      if (!r.card) continue
-      const cardTier = tierOf.get(r.card.id)
-      // exact match unless the whole exact set was already owned (impossible here with empty owned)
-      expect(cardTier).toBe(r.finalTier)
+      const r = rollChest(rng(i), 'normal', {}, 0)
+      for (const c of r.cards) {
+        expect(tierOf.get(c.id)).toBe(r.finalTier)
+      }
     }
+  })
+})
+
+describe('resolveChest (interactive 4-kick ritual)', () => {
+  const BOUNDS: Record<string, [number, number]> = {
+    common: [3, 6],
+    rare: [8, 14],
+    epic: [15, 25],
+    legendary: [30, 45],
+    exclusive: [51, 80],
+    mythic: [60, 100],
+    ultimate: [90, 150],
+    hyper: [120, 200],
+  }
+
+  it('pays the final-tier gem band times gemMult', () => {
+    for (let i = 0; i < 2000; i++) {
+      const r = resolveChest(rng(i), {}, 0, 'common', 'epic', [1], 1)
+      expect(r.startTier).toBe('common')
+      expect(r.finalTier).toBe('epic')
+      expect(r.upgradesAt).toEqual([1])
+      const [lo, hi] = BOUNDS.epic
+      expect(r.gems).toBeGreaterThanOrEqual(lo)
+      expect(r.gems).toBeLessThanOrEqual(hi)
+      const doubled = resolveChest(rng(i), {}, 0, 'common', 'epic', [1], 2)
+      expect(doubled.gems).toBe(r.gems * 2)
+    }
+  })
+
+  it('card events carry tier-correct ids and star economics', () => {
+    for (const tier of ['legendary', 'exclusive', 'mythic', 'ultimate', 'hyper'] as const) {
+      let sawCard = false
+      for (let i = 0; i < 2000; i++) {
+        const r = resolveChest(rng(i + tier.length * 7919), {}, 0, tier, tier, [], 1)
+        if (r.cards.length === 0) continue
+        sawCard = true
+        // First card of a fresh chest is always NEW; later slots may star up.
+        expect(r.cards[0].isNew).toBe(true)
+        for (const c of r.cards) {
+          const def = CARDS.find((d) => d.id === c.id)
+          expect(def?.tier).toBe(tier)
+          if (c.isNew) {
+            expect(c.starAfter).toBe(0)
+            expect(c.starBonus).toBe(0)
+          } else {
+            expect(c.starAfter).toBeGreaterThanOrEqual(1)
+            expect(c.starBonus).toBe(STAR_GEMS[tier] * c.starAfter)
+          }
+        }
+      }
+      expect(sawCard, `tier ${tier} never dropped`).toBe(true)
+    }
+  })
+
+  it('jackpots when the collection is fully maxed', () => {
+    const maxed: Record<string, number> = Object.fromEntries(CARDS.map((c) => [c.id, MAX_STARS]))
+    for (let i = 0; i < 200; i++) {
+      const r = resolveChest(rng(i + 4242), maxed, PITY_LIMIT, 'common', 'rare', [], 1)
+      expect(r.cards).toHaveLength(0)
+      expect(r.jackpot).toBe(true)
+      expect(r.gems).toBeGreaterThanOrEqual(51 + COLLECTION_JACKPOT)
+    }
+  })
+
+  it('matches rollChest drop rates on the same kick path', () => {
+    let resolved = 0
+    let auto = 0
+    const N = 20000
+    for (let i = 0; i < N; i++) {
+      resolved += resolveChest(rng(i), {}, 0, 'common', 'common', [], 1).cards.length
+      const r = rollChest(rng(i + 999999), 'normal', {}, 0)
+      if (r.finalTier === 'common') auto += r.cards.length
+    }
+    // Common = 1 slot x 0.35 on an empty album; allow wide bands.
+    expect(resolved / N).toBeGreaterThan(0.28)
+    expect(resolved / N).toBeLessThan(0.42)
+    expect(auto / N).toBeGreaterThan(0.15)
   })
 })

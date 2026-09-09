@@ -1,8 +1,13 @@
 import type { Question, UnitDef } from '../types'
 import {
   PICTURE_BANK,
+  buildDe,
+  buildEn,
   makeLesson,
+  matchDeEn,
   matchQ,
+  mcqDeToEn,
+  mcqEnToDe,
   mcqE,
   mcqFixed,
   pick,
@@ -69,6 +74,36 @@ function gFlags(rand: Rand): Question {
   )
 }
 
+/* ----- Duolingo-style EN ⇄ DE: both directions + sentence builds ----- */
+const COLOUR_GLOSS = COLOURS.map((c) => ({ de: c.de, en: c.en }))
+
+function gColourDeToEn(rand: Rand): Question {
+  return mcqDeToEn(rand, COLOUR_GLOSS)
+}
+
+function gColourEnToDe(rand: Rand): Question {
+  return mcqEnToDe(rand, COLOUR_GLOSS)
+}
+
+function gColourMatchDeEn(rand: Rand): Question {
+  return matchDeEn(rand, COLOUR_GLOSS, 'Match the colour: German to English')
+}
+
+const COLOUR_EN: Record<string, string> = {
+  rot: 'red', blau: 'blue', grün: 'green', gelb: 'yellow', rosa: 'pink',
+  lila: 'purple', orange: 'orange', schwarz: 'black', weiß: 'white', braun: 'brown',
+}
+
+function gBuildColourDe(rand: Rand): Question {
+  const item = pick(rand, COLOURS)
+  return buildDe(`My favourite colour is ${COLOUR_EN[item.de]}.`, ['Meine', 'Lieblingsfarbe', 'ist', `${item.de}.`])
+}
+
+function gBuildColourEn(rand: Rand): Question {
+  const item = pick(rand, COLOURS)
+  return buildEn(`Meine Lieblingsfarbe ist ${item.de}.`, ['My', 'favourite', 'colour', 'is', `${COLOUR_EN[item.de]}.`])
+}
+
 const g3l1 = makeLesson(
   'g3l1',
   'Das Gemälde',
@@ -76,7 +111,7 @@ const g3l1 = makeLesson(
   'amy',
   'Bunte Farben!',
   'Felix and Franzi painted in black and white — help them colour it! Welche Farbe ist das?',
-  [gColourPicture, gColourMatch],
+  [gColourPicture, gColourMatch, gColourDeToEn, gColourEnToDe],
 )
 
 const g3l2 = makeLesson(
@@ -86,7 +121,7 @@ const g3l2 = makeLesson(
   'blaze',
   'Lieblingsfarbe!',
   'Say your favourite: Meine Lieblingsfarbe ist… Pick the sentence that matches!',
-  [gFavourite, gHearColour],
+  [gFavourite, gHearColour, gBuildColourDe, gBuildColourEn],
 )
 
 const g3l3 = makeLesson(
@@ -96,7 +131,7 @@ const g3l3 = makeLesson(
   'knuckles',
   'Deutschland!',
   'German is spoken in Germany, Austria, Switzerland and more. Spot the flags!',
-  [gFlags, gColourMatch],
+  [gFlags, gColourMatchDeEn, gColourDeToEn, gColourEnToDe],
 )
 
 const g3boss = makeLesson(
@@ -106,8 +141,8 @@ const g3boss = makeLesson(
   'eggman',
   'BOSS TIME!',
   'Colours, favourites and flags — paint the boss defeat rainbow-bright!',
-  [gColourPicture, gHearColour, gFavourite, gFlags],
-  gColourPicture,
+  [gColourMatchDeEn, gHearColour, gBuildColourDe, gBuildColourEn],
+  gColourDeToEn,
 )
 
 export const UNIT_G3: UnitDef = unitDef(
