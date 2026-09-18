@@ -1,28 +1,25 @@
 import { useEffect, useRef, useState } from 'react'
-import { GOOGLE_CLIENT_ID, renderGoogleButton, signOutGoogle, useAuth, type AuthUser } from '../../engine/auth'
-import { usePlayer } from '../../engine/store'
+import { GOOGLE_CLIENT_ID, renderGoogleButton, signInWithGoogle, signOutGoogle, useAuth } from '../../engine/auth'
 
 export function GoogleSignInInline() {
-  const signIn = useAuth((s) => s.signIn)
   const btnRef = useRef<HTMLDivElement>(null)
   const [failed, setFailed] = useState(false)
 
   useEffect(() => {
     if (!GOOGLE_CLIENT_ID || !btnRef.current || failed) return
     let cancelled = false
-    renderGoogleButton(btnRef.current, (u: AuthUser, credential: string) => {
+    renderGoogleButton(btnRef.current, (idToken: string) => {
       if (cancelled) return
-      signIn(u, credential)
-      const p = usePlayer.getState()
-      if (p.name === 'Champion' && u.name) p.setName(u.name.split(' ')[0])
-      p.setOnboarded()
+      void signInWithGoogle(idToken).then((ok) => {
+        if (!ok && !cancelled) setFailed(true)
+      })
     }).catch(() => {
       if (!cancelled) setFailed(true)
     })
     return () => {
       cancelled = true
     }
-  }, [signIn, failed])
+  }, [failed])
 
   if (!GOOGLE_CLIENT_ID) {
     return (
@@ -43,7 +40,6 @@ export function GoogleSignInInline() {
 
 export function AuthBadge() {
   const user = useAuth((s) => s.user)
-  const signIn = useAuth((s) => s.signIn)
   const signOut = useAuth((s) => s.signOut)
   const btnRef = useRef<HTMLDivElement>(null)
   const [failed, setFailed] = useState(false)
@@ -51,19 +47,18 @@ export function AuthBadge() {
   useEffect(() => {
     if (!GOOGLE_CLIENT_ID || !btnRef.current || failed) return
     let cancelled = false
-    renderGoogleButton(btnRef.current, (u: AuthUser, credential: string) => {
+    renderGoogleButton(btnRef.current, (idToken: string) => {
       if (cancelled) return
-      signIn(u, credential)
-      const p = usePlayer.getState()
-      if (p.name === 'Champion' && u.name) p.setName(u.name.split(' ')[0])
-      p.setOnboarded()
+      void signInWithGoogle(idToken).then((ok) => {
+        if (!ok && !cancelled) setFailed(true)
+      })
     }).catch(() => {
       if (!cancelled) setFailed(true)
     })
     return () => {
       cancelled = true
     }
-  }, [signIn, failed])
+  }, [failed])
 
   if (!GOOGLE_CLIENT_ID) return null
 

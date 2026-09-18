@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { useAuth } from './auth'
+import { getSession, useAuth } from './auth'
 import { usePlayer } from './store'
 import { LEAGUES, type LeagueName } from './gamification'
 import type { MascotId, Subject } from '../content/types'
@@ -13,11 +13,12 @@ import type {
 
 // Cross-device sync for the same Google account — the momolearn.space model.
 //
-// The browser proves who it is with its Google ID token; the server verifies
-// that token and keys the save by the Google account id (`sub`). Sign in with
-// the same Google account on any device and the pull below loads the same
-// progress. Local state stays the source of truth while offline — sync only
-// ever merges (max/union/newest-wins), never deletes.
+// The browser signs in once (see auth.ts signInWithGoogle) and keeps a
+// first-party session (~90 days). Sync calls prove who it is with that
+// session; the server verifies it and keys the save by the Google account
+// id (`sub`). Sign in with the same Google account on any device and the
+// pull below loads the same progress. Local state stays the source of truth
+// while offline — sync only ever merges (max/union/newest-wins), never deletes.
 
 export const CLOUDSAVE_API = 'https://momolearn-ai.vercel.app/api/year2/cloudsave'
 
@@ -48,6 +49,8 @@ export interface CloudSave {
   streakSavers: number
   doubleXpLessons: number
   luckyTickets: number
+  chestBoost: boolean
+  megaChest: boolean
   /** Learning-tracker slice (BKT skills + attempt log). Null on old saves. */
   adaptive: AdaptiveStore | null
   updatedAt: number
@@ -73,13 +76,13 @@ export class CloudAuthError extends Error {
   }
 }
 
-async function authed(method: 'GET' | 'PUT', credential: string, save?: CloudSave): Promise<CloudSave | null> {
+async function authed(method: 'GET' | 'PUT', session: string, save?: CloudSave): Promise<CloudSave | null> {
   const res = await fetch(CLOUDSAVE_API, {
     method,
     cache: 'no-store',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${credential}`,
+      Authorization: `Bearer ${session}`,
     },
     body: method === 'PUT' ? JSON.stringify({ save }) : undefined,
   })
@@ -89,10 +92,10 @@ async function authed(method: 'GET' | 'PUT', credential: string, save?: CloudSav
   return data?.save ?? null
 }
 
-export const pullCloudsave = (credential: string) => authed('GET', credential)
+export const pullCloudsave = (session: string) => authed('GET', session)
 
-export const pushCloudsave = (credential: string, save: CloudSave) =>
-  authed('PUT', credential, save)
+export const pushCloudsave = (session: string, save: CloudSave) =>
+  authed('PUT', session, save)
 
 /** Whitelisted snapshot of local state — day counters stay per-device. */
 export function snapshotFromPlayer(p: {
@@ -116,6 +119,8 @@ export function snapshotFromPlayer(p: {
   streakSavers: number
   doubleXpLessons: number
   luckyTickets: number
+  chestBoost: boolean
+  megaChest: boolean
   adaptive: AdaptiveStore
 }): CloudSave {
   // Trim the per-skill curves for the wire (local keeps 200 points).
@@ -147,6 +152,8 @@ export function snapshotFromPlayer(p: {
     streakSavers: p.streakSavers,
     doubleXpLessons: p.doubleXpLessons,
     luckyTickets: p.luckyTickets,
+    chestBoost: p.chestBoost,
+    megaChest: p.megaChest,
     adaptive: p.adaptive ? { ...p.adaptive, masteryHistory } : null,
     updatedAt: Date.now(),
   }
@@ -271,6 +278,8 @@ export function mergeCloudSave(a: CloudSave | null, b: CloudSave | null): CloudS
     streakSavers: Math.max(a.streakSavers, b.streakSavers),
     doubleXpLessons: Math.max(a.doubleXpLessons, b.doubleXpLessons),
     luckyTickets: Math.max(a.luckyTickets, b.luckyTickets),
+    chestBoost: newest.chestBoost === true,
+    megaChest: newest.megaChest === true,
     adaptive: mergeAdaptive(a.adaptive, b.adaptive),
     updatedAt: Math.max(a.updatedAt || 0, b.updatedAt || 0, Date.now()),
   }
@@ -291,12 +300,12 @@ export function startCloudSync() {
   let lastPushedJson = ''
   let applyingRemote = false
 
-  async function initialPull(userSub: string, credential: string) {
-    if (initialPullDoneFor === `${userSub}:${credential.slice(-12)}`) return
-    initialPullDoneFor = `${userSub}:${credential.slice(-12)}`
+  async function initialPull(userSub: string, session: string) {
+    if (initialPullDoneFor === `${userSub}:${session.slice(-12)}`) return
+    initialPullDoneFor = `${userSub}:${session.slice(-12)}`
     setStatus('syncing', 'Loading your progress…')
     try {
-      const remote = await pullCloudsave(credential)
+      const remote = await pullCloudsave(session)
       const local = snapshotFromPlayer(usePlayer.getState())
       const merged = mergeCloudSave(local, remote)
       if (merged && remote) {
@@ -311,7 +320,7 @@ export function startCloudSync() {
       // (or an older device that only wrote) heals to the same union.
       const converged = snapshotFromPlayer(usePlayer.getState())
       lastPushedJson = JSON.stringify(converged)
-      await pushCloudsave(credential, converged)
+      await pushCloudsave(session, converged)
       usePlayer.getState().setLastSyncedAt(Date.now())
       setStatus('synced', 'Progress syncs across your devices')
     } catch (e) {
@@ -323,10 +332,11 @@ export function startCloudSync() {
   function schedulePush() {
     if (pushTimer) clearTimeout(pushTimer)
     pushTimer = setTimeout(async () => {
-      const { user, credential } = useAuth.getState()
-      if (!user || !credential || applyingRemote) return
-      if (initialPullDoneFor !== `${user.sub}:${credential.slice(-12)}`) {
-        await initialPull(user.sub, credential)
+      const { user } = useAuth.getState()
+      const session = getSession()
+      if (!user || !session || applyingRemote) return
+      if (initialPullDoneFor !== `${user.sub}:${session.slice(-12)}`) {
+        await initialPull(user.sub, session)
         return
       }
       const snap = snapshotFromPlayer(usePlayer.getState())
@@ -334,7 +344,7 @@ export function startCloudSync() {
       if (json === lastPushedJson) return
       setStatus('syncing', 'Syncing…')
       try {
-        await pushCloudsave(credential, snap)
+        await pushCloudsave(session, snap)
         lastPushedJson = json
         usePlayer.getState().setLastSyncedAt(Date.now())
         setStatus('synced', 'Progress syncs across your devices')
@@ -346,8 +356,15 @@ export function startCloudSync() {
   }
 
   useAuth.subscribe((s) => {
-    if (s.user && s.credential) {
-      void initialPull(s.user.sub, s.credential)
+    const session = getSession()
+    if (s.user && session) {
+      void initialPull(s.user.sub, session)
+    } else if (s.user && !session) {
+      // Signed in but the session is gone or past expiry — one re-tap heals.
+      initialPullDoneFor = null
+      lastPushedJson = ''
+      if (pushTimer) clearTimeout(pushTimer)
+      setStatus('expired', 'Tap sign-in again to keep syncing')
     } else {
       initialPullDoneFor = null
       lastPushedJson = ''
@@ -357,32 +374,37 @@ export function startCloudSync() {
   })
 
   usePlayer.subscribe(() => {
-    const { user, credential } = useAuth.getState()
-    if (!user || !credential || applyingRemote) return
+    const { user } = useAuth.getState()
+    if (!user || !getSession() || applyingRemote) return
     schedulePush()
   })
 
   // Signed-in persisted session (returning device): pull immediately.
-  const { user, credential } = useAuth.getState()
-  if (user && credential) void initialPull(user.sub, credential)
+  {
+    const { user } = useAuth.getState()
+    const session = getSession()
+    if (user && session) void initialPull(user.sub, session)
+    else if (user && !session) setStatus('expired', 'Tap sign-in again to keep syncing')
+  }
 }
 
 /** Manual "Sync now" for the Profile screen. */
 export async function syncNow(): Promise<void> {
-  const { user, credential } = useAuth.getState()
+  const { user } = useAuth.getState()
+  const session = getSession()
   const setStatus = useSyncStatus.getState().setStatus
-  if (!user || !credential) {
-    setStatus('signed-out', '')
+  if (!user || !session) {
+    setStatus(user ? 'expired' : 'signed-out', user ? 'Tap sign-in again to keep syncing' : '')
     return
   }
   setStatus('syncing', 'Syncing…')
   try {
-    const remote = await pullCloudsave(credential)
+    const remote = await pullCloudsave(session)
     const local = snapshotFromPlayer(usePlayer.getState())
     const merged = mergeCloudSave(local, remote)
     if (merged && remote) usePlayer.getState().applySyncedSnapshot(merged)
     const converged = snapshotFromPlayer(usePlayer.getState())
-    await pushCloudsave(credential, converged)
+    await pushCloudsave(session, converged)
     usePlayer.getState().setLastSyncedAt(Date.now())
     setStatus('synced', 'Progress syncs across your devices')
   } catch (e) {

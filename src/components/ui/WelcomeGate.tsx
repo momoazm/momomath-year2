@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
-import { GOOGLE_CLIENT_ID, renderGoogleButton, useAuth, type AuthUser } from '../../engine/auth'
+import { GOOGLE_CLIENT_ID, renderGoogleButton, signInWithGoogle, useAuth } from '../../engine/auth'
 import { usePlayer } from '../../engine/store'
 import { MASCOTS, Mascot } from '../mascots/Mascots'
 import { sfx } from '../../engine/sfx'
@@ -23,7 +23,6 @@ const CHARACTERS: { id: MascotId; label: string }[] = [
 
 export function WelcomeGate() {
   const user = useAuth((s) => s.user)
-  const signIn = useAuth((s) => s.signIn)
   const onboarded = usePlayer((s) => s.onboarded)
   const setName = usePlayer((s) => s.setName)
   const setMascot = usePlayer((s) => s.setMascot)
@@ -45,17 +44,20 @@ export function WelcomeGate() {
   useEffect(() => {
     if (!GOOGLE_CLIENT_ID || !btnRef.current || failed || user) return
     let cancelled = false
-    renderGoogleButton(btnRef.current, (u: AuthUser, credential: string) => {
+    renderGoogleButton(btnRef.current, (idToken: string) => {
       if (cancelled) return
-      signIn(u, credential)
-      sfx.complete()
+      void signInWithGoogle(idToken).then((ok) => {
+        if (cancelled) return
+        if (ok) sfx.complete()
+        else setFailed(true)
+      })
     }).catch(() => {
       if (!cancelled) setFailed(true)
     })
     return () => {
       cancelled = true
     }
-  }, [signIn, failed, user])
+  }, [failed, user])
 
   if (onboarded && !qaStep) return null
   if (user && step === 1 && !qaStep) return null

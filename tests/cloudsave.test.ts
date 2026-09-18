@@ -26,6 +26,8 @@ function save(overrides: Partial<CloudSave> = {}): CloudSave {
     streakSavers: 0,
     doubleXpLessons: 0,
     luckyTickets: 0,
+    chestBoost: false,
+    megaChest: false,
     adaptive: null,
     updatedAt: 1000,
     ...overrides,
@@ -111,6 +113,21 @@ describe('cloud merge (same Google account, two devices)', () => {
     const only = save()
     expect(mergeCloudSave(null, only)).toBe(only)
     expect(mergeCloudSave(only, null)).toBe(only)
+  })
+
+  it('carries chest flags in snapshots; newest writer wins them in merges', () => {
+    const snap = snapshotFromPlayer({
+      ...(save({ chestBoost: true, megaChest: true }) as unknown as Parameters<typeof snapshotFromPlayer>[0]),
+      leagueHistory: [],
+    })
+    expect(snap.chestBoost).toBe(true)
+    expect(snap.megaChest).toBe(true)
+    const merged = mergeCloudSave(
+      save({ chestBoost: true, megaChest: false, updatedAt: 1000 }),
+      save({ chestBoost: false, megaChest: true, updatedAt: 2000 }),
+    )!
+    expect(merged.chestBoost).toBe(false)
+    expect(merged.megaChest).toBe(true)
   })
 })
 

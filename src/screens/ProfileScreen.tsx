@@ -636,8 +636,8 @@ function SyncRow() {
     <div className="mt-1 flex items-center gap-3">
       <p className="min-w-0 flex-1 text-sm font-bold text-slate-500">
         {status === 'syncing' && '🔄 Syncing…'}
-        {status === 'synced' && `✅ Synced across your devices${when ? ` · ${when}` : ''}`}
-        {status === 'expired' && '⚠️ Google session expired — sign in again to keep syncing.'}
+        {status === 'synced' && `✅ Signed in — progress syncs across devices${when ? ` · ${when}` : ''}`}
+        {status === 'expired' && '⚠️ Sign-in expired — tap below to sign in again and keep syncing.'}
         {status === 'error' && `📴 ${detail || 'Offline — progress is safe on this device.'}`}
         {status === 'signed-out' && 'Sign in to sync across devices.'}
       </p>

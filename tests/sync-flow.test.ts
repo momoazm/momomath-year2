@@ -25,6 +25,8 @@ function remoteSave(overrides: Partial<CloudSave> = {}): CloudSave {
     streakSavers: 1,
     doubleXpLessons: 0,
     luckyTickets: 0,
+    chestBoost: false,
+    megaChest: false,
     adaptive: null,
     updatedAt: 5000,
     ...overrides,
@@ -38,7 +40,8 @@ function jsonResponse(body: unknown, status = 200) {
 beforeEach(() => {
   useAuth.setState({
     user: { sub: 'google-sub-1', name: 'Test Kid', email: 'kid@test.dev', picture: undefined },
-    credential: 'test-credential',
+    session: 'test-session-token',
+    sessionExp: Date.now() + 86_400_000,
   })
   usePlayer.setState({
     name: 'LocalKid',
@@ -94,7 +97,7 @@ describe('syncNow: same Google account across devices', () => {
     expect(useSyncStatus.getState().status).toBe('synced')
   })
 
-  it('sends the Google credential as a Bearer token', async () => {
+  it('sends the first-party session as a Bearer token (not the Google credential)', async () => {
     const seen: string[] = []
     vi.stubGlobal(
       'fetch',
@@ -105,7 +108,7 @@ describe('syncNow: same Google account across devices', () => {
     )
     await syncNow()
     expect(seen.length).toBeGreaterThan(0)
-    expect(seen.every((h) => h === 'Bearer test-credential')).toBe(true)
+    expect(seen.every((h) => h === 'Bearer test-session-token')).toBe(true)
   })
 
   it('first run with no cloud save just uploads local progress', async () => {
@@ -117,11 +120,21 @@ describe('syncNow: same Google account across devices', () => {
     expect(useSyncStatus.getState().status).toBe('synced')
   })
 
-  it('expired Google session surfaces the expired status (user signs in again)', async () => {
+  it('expired session surfaces the expired status (user signs in again)', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({ ok: false }, 401)))
     await expect(syncNow()).rejects.toBeInstanceOf(CloudAuthError)
     expect(useSyncStatus.getState().status).toBe('expired')
     // Local progress is untouched by the failed sync.
+    expect(usePlayer.getState().xpTotal).toBe(900)
+  })
+
+  it('locally-expired session never hits the network and asks for re-sign-in', async () => {
+    const spy = vi.fn(async () => jsonResponse({ ok: true, save: null }))
+    vi.stubGlobal('fetch', spy)
+    useAuth.setState({ sessionExp: Date.now() - 1000 })
+    await syncNow()
+    expect(spy).not.toHaveBeenCalled()
+    expect(useSyncStatus.getState().status).toBe('expired')
     expect(usePlayer.getState().xpTotal).toBe(900)
   })
 
