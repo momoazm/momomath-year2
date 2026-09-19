@@ -593,24 +593,21 @@ export const usePlayer = create<PlayerState>()(
         set((state) => {
           let cardStars = { ...state.cardStars }
           let pity = state.cardPity
-          let anyNew = false
 
-          // Award +1 copy for each card in the chest (uncapped — cardStars
+          // Award the pack copies (1-3 of ONE character, uncapped — cardStars
           // tracks total copies received; star LEVEL is derived via toStar())
-          for (const card of chest.cards) {
-            const prev = cardStars[card.cardId] ?? 0
-            cardStars[card.cardId] = prev + 1
-            if (card.isNew) anyNew = true
-          }
+          const prev = cardStars[chest.cardId] ?? 0
+          const anyNew = prev === 0
+          cardStars[chest.cardId] = prev + chest.copies
 
           // Pity resets when a new character is unlocked
           if (anyNew) pity = 0
           else pity = pity + 1
 
-          // Double gems if ALL cards in this chest were already at 5★
+          // Double gems if the packed character is already at 5★
           // (5★ means cardStars[id] >= STAR_THRESHOLDS[4] = 21 copies)
-          const allMaxed = chest.cards.every((c) => (cardStars[c.cardId] ?? 0) >= STAR_THRESHOLDS[STAR_THRESHOLDS.length - 1])
-          const gemMultiplier = allMaxed ? 2 : 1
+          const maxed = (cardStars[chest.cardId] ?? 0) >= STAR_THRESHOLDS[STAR_THRESHOLDS.length - 1]
+          const gemMultiplier = maxed ? 2 : 1
           const bonusGems = ((chest.gems ?? 0) + (chest.dust ?? 0)) * gemMultiplier
 
           return { gems: state.gems + bonusGems, cardStars, cardPity: pity }

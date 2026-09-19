@@ -237,30 +237,18 @@ function CardGrid({ cards, isOwned, onCardClick, getHiddenCardStyle, cardStars }
                   const need = copiesToNextStar(count)
                   return (
                     <div className="mt-1">
-                      <div className="flex justify-center gap-0.5">
+                      <div className="flex justify-center gap-0.5" aria-label={`${star} out of 5 stars`}>
                         {[1,2,3,4,5].map(s => (
                           <span key={s} className={"text-xs " + (s <= star ? "text-amber-400" : "text-slate-300")}>★</span>
                         ))}
                       </div>
                       <p className="mt-0.5 text-center font-display text-[10px] font-extrabold text-slate-400">
-                        ×{count} {need > 0 ? `· ${need} more for ${star + 1}★` : '· MAX ★'}
+                        ★{star}/5 · ×{count} {need > 0 ? `· ${need} more for ${star + 1}★` : '· MAX ★'}
                       </p>
                     </div>
                   )
                 })()}
               </div>
-
-              {owned_ && (
-                <motion.div
-                  initial={{ scale: 0, rotate: -180 }}
-                  animate={{ scale: 1, rotate: 0 }}
-                  className="absolute top-2 right-2"
-                >
-                  <span className="bg-emerald-500 text-white text-xs font-extrabold px-1.5 py-0.5 rounded-full">
-                    NEW
-                  </span>
-                </motion.div>
-              )}
             </div>
           </motion.button>
         )

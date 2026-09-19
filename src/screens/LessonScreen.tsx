@@ -671,24 +671,27 @@ export function LessonScreen({ lessonId, onExit }: { lessonId: string; onExit: (
             <p className="font-display text-3xl font-extrabold text-orange-500">+{chestResult.gems} 💎</p>
             <p className="mt-1 font-display font-extrabold text-emerald-500">+{xpEarned} ⚡ XP</p>
             <p className="mt-2 font-display text-sm font-extrabold text-blue-600">
-              {chestResult.cards.some(c => c.isNew) ? '✨ NEW CARD(S)!' : '3 cards unlocked'}
+              {chestResult.isNew
+                ? `✨ NEW CARD! +${chestResult.copies} ${chestResult.copies === 1 ? 'copy' : 'copies'}!`
+                : `+${chestResult.copies} ${chestResult.copies === 1 ? 'copy' : 'copies'} unlocked`}
             </p>
-            <div className="mt-4 grid grid-cols-3 gap-2">
-              {chestResult.cards.map((card, idx) => {
+            <div className="mt-4 flex justify-center">
+              {(() => {
+                const card = chestResult.cards[0]
                 const def = CARD_BY_ID[card.cardId]
                 if (!def) return null
                 const count = player.cardStars[card.cardId] ?? 0
                 const stars = toStar(count)
                 return (
                   <motion.div
-                    key={card.cardId + idx}
+                    key={card.cardId}
                     initial={{ rotateY: 180, opacity: 0 }}
                     animate={{ rotateY: 0, opacity: 1 }}
-                    transition={{ type: 'spring', stiffness: 200, damping: 18, delay: idx * 0.15 }}
-                    className="card-white overflow-hidden"
+                    transition={{ type: 'spring', stiffness: 200, damping: 18 }}
+                    className="card-white w-44 overflow-hidden"
                     style={{ borderColor: TIER_META[def.tier].color }}
                   >
-                    <div className="h-20 bg-gradient-to-b from-white/40 to-transparent flex items-center justify-center px-1 pt-1">
+                    <div className="h-28 bg-gradient-to-b from-white/40 to-transparent flex items-center justify-center px-1 pt-1">
                       <img
                         src={cardImageUrl(def)}
                         alt={def.name}
@@ -697,22 +700,22 @@ export function LessonScreen({ lessonId, onExit }: { lessonId: string; onExit: (
                       />
                     </div>
                     <div className="px-1.5 pb-1.5">
-                      <p className="font-display text-[9px] font-extrabold text-blue-600 leading-tight">
-                        {card.isNew ? '✨ NEW!' : '×1'}
+                      <p className="font-display text-[10px] font-extrabold text-blue-600 leading-tight">
+                        {card.isNew ? '✨ NEW!' : `×${card.copies}`}
                       </p>
-                      <p className="font-display text-xs font-extrabold text-slate-800 leading-tight">{def.name}</p>
-                      <div className="flex gap-0.5 mt-0.5 justify-center">
+                      <p className="font-display text-sm font-extrabold text-slate-800 leading-tight">{def.name}</p>
+                      <div className="flex gap-0.5 mt-0.5 justify-center" aria-label={`${stars} out of 5 stars`}>
                         {[1,2,3,4,5].map(s => (
-                          <span key={s} className="text-[8px]" style={{ color: s <= stars ? '#f59e0b' : '#e2e8f0' }}>★</span>
+                          <span key={s} className="text-[10px]" style={{ color: s <= stars ? '#f59e0b' : '#e2e8f0' }}>★</span>
                         ))}
                       </div>
-                      <p className="font-display text-[8px] font-extrabold text-slate-400 leading-tight">
-                        ×{count} {copiesToNextStar(count) > 0 ? `· +${copiesToNextStar(count)} → ${stars + 1}★` : '· MAX ★'}
+                      <p className="font-display text-[9px] font-extrabold text-slate-400 leading-tight">
+                        ★{stars}/5 · ×{count} {copiesToNextStar(count) > 0 ? `· +${copiesToNextStar(count)} → ${stars + 1}★` : '· MAX ★'}
                       </p>
                     </div>
                   </motion.div>
                 )
-              })}
+              })()}
             </div>
           </motion.div>
         )}

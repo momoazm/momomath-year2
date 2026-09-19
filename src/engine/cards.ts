@@ -2,7 +2,9 @@ import type { MascotId } from '../content/types'
 
 /* ============================================================================
  * Collectible Sonic card + chest PACK economy (Asphalt 9-style duplication).
- * EVERY chest = a card pack of 3 DIFFERENT characters + scaled gem band.
+ * EVERY chest = a card pack of 1-3 copies of ONE character + scaled gem band
+ * (pack size from PACK_SIZE by final chest tier; card picked uniform-random
+ * from all 19, locked-pity forces a still-locked character on drought).
  * cardStars[id] tracks TOTAL copies received (uncapped); star LEVEL (0-5) is
  * derived via starLevel()/toStar() using STAR_THRESHOLDS [3,6,10,15,21].
  * See PITFALLS.md / s167 for design history.
@@ -270,18 +272,18 @@ function pickCardForTier(
 
 /**
  * Individual card inside a chest result.
- * Every chest gives 3 DIFFERENT cards (one copy each).
+ * Every chest gives ONE character (1-3 copies of the same id).
  */
 export interface ChestCard {
   cardId: string
   tier: ChestTier
   /** first copy of this character ever received (prev count was 0) */
   isNew: boolean
-  /** this character already had >= STAR_THRESHOLDS[0] copies (unlocked) */
-  isOwned: boolean
+  /** how many copies of this character the pack contained (1-3) */
+  copies: number
 }
 
-/* -------------------- public ChestResult + rollChest -------------------- */
+/* -------------------- public ChestResult + rollChest (single-card pack) -------------------- */
 
 export interface ChestResult {
   startTier: ChestTier
@@ -289,7 +291,15 @@ export interface ChestResult {
   upgradesAt: number[]
   gems: number
   dust: number
-  /** the 3 DIFFERENT cards in this chest pack (at most one is new) */
+  /** the single character contained in this chest pack (all copies same id) */
+  cardId: string
+  /** how many copies of cardId this pack contained (1-3) */
+  copies: number
+  /** isNew = the player has not unlocked cardId yet (first-ever drop) */
+  isNew: boolean
+  /** true if the pack was forced to a still-LOCKED character (pity) */
+  pity: boolean
+  /** the single card in this chest pack (kept as an array for UI compat) */
   cards: ChestCard[]
 }
 
@@ -320,55 +330,28 @@ export function rollChest(
   const [gMin, gMax] = GEM_RANGE[tier]
   const gems = randInt(rand, gMin, gMax)
 
-  // 3) roll 3 DISTINCT cards with AT MOST ONE new (unseen) character.
-  //    - The novelty slot is won with noveltyChance() (100% on the first
-  //      chest, decaying as the collection fills) or forced by locked-pity.
-  //    - The other slots are duplicates from the already-seen pool, so the
-  //      max-1-new invariant holds whenever the seen pool can fill the pack
-  //      (only the first chest or two top up from unseen — unavoidable while
-  //      fewer than 3 distinct characters exist at all).
-  const unseen = CARDS.filter((c) => (counts[c.id] ?? 0) === 0)
-  const seen = CARDS.filter((c) => (counts[c.id] ?? 0) > 0)
-  const ownedDistinct = CARDS.length - unseen.length
-  const forcePity = pity >= LOCKED_PITY
-  const winNovelty =
-    unseen.length > 0 && (forcePity || rand() < noveltyChance(ownedDistinct))
-  const cards: ChestCard[] = []
-  const usedIds = new Set<string>()
+  // 3) pack size (copies) for this final tier — the OLD mechanism: 1-3
+  //    copies of ONE character (PACK_SIZE table; rarity tables untouched).
+  const [cMin, cMax] = PACK_SIZE[tier]
+  const copies = cMin === cMax ? cMin : randInt(rand, cMin, cMax)
 
-  const takeRandom = (pool: CardDef[]): CardDef | null => {
-    const avail = pool.filter((c) => !usedIds.has(c.id))
-    if (avail.length === 0) return null
-    return avail[Math.floor(rand() * avail.length)]
+  // 4) pick ONE character: uniform-random from all 19, except locked-pity
+  //    forces a still-locked (0-copy) character on drought.
+  const forceLocked = pity >= LOCKED_PITY
+  let cardId: string | null = null
+  let didPity = false
+  if (forceLocked) {
+    const locked = CARDS.filter((c) => (counts[c.id] ?? 0) === 0)
+    if (locked.length > 0) {
+      cardId = locked[Math.floor(rand() * locked.length)].id
+      didPity = true
+    }
   }
-  const pushCard = (chosen: CardDef) => {
-    usedIds.add(chosen.id)
-    const prevCount = counts[chosen.id] ?? 0
-    cards.push({
-      cardId: chosen.id,
-      tier: chosen.tier,
-      isNew: prevCount === 0,
-      isOwned: prevCount >= STAR_THRESHOLDS[0],
-    })
+  if (cardId === null) {
+    cardId = CARDS[Math.floor(rand() * CARDS.length)].id
   }
-
-  // slot 1: the single novelty slot (when won or pity-forced)
-  if (winNovelty) {
-    const novel = takeRandom(unseen)
-    if (novel) pushCard(novel)
-  }
-  // remaining slots: duplicates from the seen pool
-  while (cards.length < 3) {
-    const dup = takeRandom(seen)
-    if (!dup) break
-    pushCard(dup)
-  }
-  // top-up from unseen only while the collection is too small to fill the pack
-  while (cards.length < 3) {
-    const extra = takeRandom(unseen)
-    if (!extra) break
-    pushCard(extra)
-  }
+  const def = CARD_BY_ID[cardId]
+  const isNew = (counts[cardId] ?? 0) === 0
 
   return {
     startTier,
@@ -376,7 +359,11 @@ export function rollChest(
     upgradesAt,
     gems,
     dust: 0,
-    cards,
+    cardId,
+    copies,
+    isNew,
+    pity: didPity,
+    cards: [{ cardId, tier: def.tier, isNew, copies }],
   }
 }
 
