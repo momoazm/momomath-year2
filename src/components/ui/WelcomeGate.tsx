@@ -42,6 +42,23 @@ export function WelcomeGate() {
     }
   }, [user, step])
 
+  /* If the Google button never paints (GIS blocked/slow/hung iframe),
+     renderButton may never reject — so fall back to the guest path on a
+     timeout instead of stranding the user on a dead sign-in card. */
+  useEffect(() => {
+    if (!GOOGLE_CLIENT_ID || failed || user) return
+    const t = setTimeout(() => {
+      if (!btnRef.current?.querySelector('iframe')) setFailed(true)
+    }, 6000)
+    return () => clearTimeout(t)
+  }, [failed, user])
+
+  const continueAsGuest = () => {
+    sfx.tap()
+    setDraft((d) => d || 'Player')
+    setStep(2)
+  }
+
   useEffect(() => {
     if (!GOOGLE_CLIENT_ID || !btnRef.current || failed || user) return
     let cancelled = false
@@ -100,14 +117,22 @@ export function WelcomeGate() {
               Step 1 - Sign in with your Google account to join the leaderboard.
             </p>
             {GOOGLE_CLIENT_ID && !failed ? (
-              <div className="mt-6 flex justify-center" ref={btnRef} />
+              <>
+                <div className="mt-6 flex justify-center" ref={btnRef} />
+                <button
+                  onClick={continueAsGuest}
+                  className="mt-4 w-full font-body text-xs font-bold text-slate-400 underline"
+                >
+                  Continue without signing in
+                </button>
+              </>
             ) : (
               <>
                 <p className="mt-6 font-body text-xs font-bold text-slate-300">
                   Google sign-in unavailable right now.
                 </p>
                 <button
-                  onClick={() => { sfx.tap(); setDraft('Player'); setStep(2) }}
+                  onClick={continueAsGuest}
                   className="btn3d btn-grey mt-4 w-full"
                 >
                   Continue without signing in
