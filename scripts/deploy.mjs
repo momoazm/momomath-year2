@@ -4,7 +4,7 @@
 // Exits 0 only when the live site is verified in sync. Retries transient failures.
 
 import { execSync, spawnSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
+import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 
 const ROOT = new URL('..', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1')
@@ -63,6 +63,32 @@ if (!asset) {
 }
 log('built', asset)
 
+// 1.5 Restore every previously published hashed asset into dist BEFORE
+// publishing. gh-pages replaces the branch content, which deletes old
+// hashed assets — a browser holding a cached index.html then 404s its JS
+// and shows only the CSS sky gradient ("just the background"). Hashed
+// filenames are unique per build, so merging is lossless.
+const restored = []
+try {
+  execSync('git fetch origin gh-pages', { cwd: ROOT, stdio: 'ignore', shell: true })
+  const list = execSync('git ls-tree -r --name-only origin/gh-pages', { cwd: ROOT, encoding: 'utf8', shell: true })
+  const files = list.split(/\r?\n/).filter((f) => f.startsWith('assets/'))
+  for (const f of files) {
+    try {
+      const buf = execSync(`git show "origin/gh-pages:${f}"`, { cwd: ROOT, encoding: 'buffer', maxBuffer: 20 * 1024 * 1024, shell: true })
+      const dest = join(ROOT, 'dist', f)
+      mkdirSync(dest.slice(0, dest.lastIndexOf('/')), { recursive: true })
+      writeFileSync(dest, buf)
+      restored.push(f)
+    } catch (e) {
+      log(`restore failed for ${f}: ${String(e).slice(0, 80)}`)
+    }
+  }
+  log(`restored ${restored.length} previous asset file(s) into dist`)
+} catch (e) {
+  log('asset restore skipped:', String(e).slice(0, 80))
+}
+
 // 2. Publish gh-pages
 log('publishing to gh-pages...')
 run('npx --yes gh-pages -d dist -m "Deploy ' + asset + '"', { retries: 5, waitMs: 20000 })
@@ -99,3 +125,16 @@ if (!inSync) {
 }
 
 log(`VERIFIED: ${LIVE_URL} is live, in sync, and contains all required markers.`)
+
+// 4. Stale-cache safety check: a previously published asset must still
+// resolve on live (old cached HTML keeps working instead of blanking).
+if (restored.length) {
+  try {
+    const res = await fetch(`${LIVE_URL}${restored[0]}?cb=${Date.now()}`)
+    log(`stale-cache check: ${restored[0]} -> ${res.status} (must be 200)`)
+    if (res.status !== 200) process.exit(1)
+  } catch (e) {
+    console.error('FATAL: stale-cache check failed', String(e).slice(0, 120))
+    process.exit(1)
+  }
+}

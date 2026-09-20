@@ -4,6 +4,10 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   base: '/momomath-year2/',
+  // es2017: transpiles ES2020 syntax (?. ?? etc.) so older browsers
+  // (pre-2020 Safari/WebView) can parse the bundle instead of showing the
+  // CSS background with no app ("just the background" bug).
+  build: { target: 'es2017' },
   server: { port: 3200 },
   preview: { port: 3200 },
   test: {
