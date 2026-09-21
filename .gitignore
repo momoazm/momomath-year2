@@ -18,6 +18,13 @@ deploy-err.txt
 deploy.done
 build-log.txt
 vitest-log.txt
+vl*.log
+vt*.log
+pw-*.log
+deploy_*.log
+deploy*.err
+pl.log
+commit_*.log
 
 # scratch logs/tools
 _*.log
