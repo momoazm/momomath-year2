@@ -57,7 +57,7 @@ describe('library card art contract (real images, no blanks)', () => {
       amy: 'cards/amy.webp',
       cream: 'cards/cream.webp',
       charmy: 'cards/charmy.svg',
-      big: 'cards/big.svg',
+      big: 'cards/big.webp',
       knuckles: 'cards/knuckles.webp',
       blaze: 'cards/blaze.webp',
       rouge: 'cards/rouge.webp',
@@ -78,8 +78,8 @@ describe('library card art contract (real images, no blanks)', () => {
     }
   })
 
-  it('the 8 characters without official renders use .svg art, the rest .webp', () => {
-    const svgIds = new Set(['charmy', 'big', 'ray', 'vector', 'espio', 'omega', 'jet', 'super'])
+  it('the 7 characters without official renders use .svg art, the rest .webp', () => {
+    const svgIds = new Set(['charmy', 'ray', 'vector', 'espio', 'omega', 'jet', 'super'])
     for (const card of CARDS) {
       if (svgIds.has(card.id)) expect(card.image.endsWith('.svg')).toBe(true)
       else expect(card.image.endsWith('.webp')).toBe(true)
