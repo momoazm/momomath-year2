@@ -212,6 +212,27 @@ function CardGrid({ cards, isOwned, onCardClick, getHiddenCardStyle, cardStars }
                 </span>
               </div>
 
+              {/* Star-up track pinned to the TOP of the card face */}
+              {(() => {
+                const count = (cardStars[card.id] ?? 0)
+                const star = toStar(count)
+                const need = copiesToNextStar(count)
+                return (
+                  <div className="absolute inset-x-0 top-8 z-20 flex justify-center">
+                    <div className="rounded-full bg-white/90 px-2 py-1 shadow-sm backdrop-blur-sm">
+                      <div className="flex justify-center gap-0.5" aria-label={`${star} out of 5 stars`}>
+                        {[1,2,3,4,5].map(s => (
+                          <span key={s} className={"text-xs " + (s <= star ? "text-amber-400" : "text-slate-300")}>★</span>
+                        ))}
+                      </div>
+                      <p className="mt-0.5 text-center font-display text-[10px] font-extrabold text-slate-500">
+                        ★{star}/5 · ×{count} {need > 0 ? `· ${need} more for ${star + 1}★` : '· MAX ★'}
+                      </p>
+                    </div>
+                  </div>
+                )
+              })()}
+
               <div className="relative z-10 flex-1 flex items-center justify-center p-4">
                 <div className="w-full h-full max-w-48 max-h-48 flex items-center justify-center">
                   <img
@@ -231,23 +252,6 @@ function CardGrid({ cards, isOwned, onCardClick, getHiddenCardStyle, cardStars }
                 <p className="text-xs text-slate-500 mt-1">
                   {card.flavor}
                 </p>
-                {(() => {
-                  const count = (cardStars[card.id] ?? 0)
-                  const star = toStar(count)
-                  const need = copiesToNextStar(count)
-                  return (
-                    <div className="mt-1">
-                      <div className="flex justify-center gap-0.5" aria-label={`${star} out of 5 stars`}>
-                        {[1,2,3,4,5].map(s => (
-                          <span key={s} className={"text-xs " + (s <= star ? "text-amber-400" : "text-slate-300")}>★</span>
-                        ))}
-                      </div>
-                      <p className="mt-0.5 text-center font-display text-[10px] font-extrabold text-slate-400">
-                        ★{star}/5 · ×{count} {need > 0 ? `· ${need} more for ${star + 1}★` : '· MAX ★'}
-                      </p>
-                    </div>
-                  )
-                })()}
               </div>
             </div>
           </motion.button>

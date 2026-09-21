@@ -116,4 +116,50 @@ describe('new card drops uniform plus locked pity', () => {
     }
     expect(forced).toBe(200)
   })
+  it('NEVER more than ONE new card per chest', () => {
+    for (let i = 0; i < 20000; i++) {
+      const counts: Record<string, number> = {}
+      CARDS.slice(0, 1 + (i % 18)).forEach((c) => { counts[c.id] = 1 + (i % 5) })
+      const r = rollChest(rng(800000 + i), 'normal', counts, 0)
+      expect(r.cards.length).toBe(1)
+      expect(r.cards.filter((c) => c.isNew).length).toBeLessThanOrEqual(1)
+    }
+  })
+  it('new card is a probability, NOT a guarantee (no pity)', () => {
+    // 9 of 19 owned, pity reset -> ~10/19 chance of new per chest.
+    const counts: Record<string, number> = {}
+    CARDS.slice(0, 9).forEach((c) => { counts[c.id] = 3 })
+    let news = 0
+    const total = 5000
+    for (let i = 0; i < total; i++) {
+      if (rollChest(rng(700000 + i), 'normal', counts, 0).isNew) news++
+    }
+    expect(news).toBeGreaterThan(0)               // possible
+    expect(news).toBeLessThan(total * 0.8)        // NOT guaranteed
+    expect(news / total).toBeGreaterThan(0.3)     // ~10/19 sane
+  })
+  it('kick upgrades move rarity upward with the KICK_UPGRADE odds', () => {
+    // streak context starts at legendary (75%) or exclusive (25%); both have
+    // KICK_UPGRADE = 0, so no upgrades can ever fire there.
+    let upgraded = 0
+    let legendaryFinal = 0
+    const total = 20000
+    for (let i = 0; i < total; i++) {
+      const r = rollChest(rng(950000 + i), 'streak', {}, 0)
+      if (r.upgradesAt.length > 0) upgraded++
+      if (r.finalTier === 'legendary') legendaryFinal++
+    }
+    expect(upgraded).toBe(0)
+    // ~75% of streak rolls start (and stay) legendary; allow band 0.70-0.80.
+    expect(legendaryFinal / total).toBeGreaterThan(0.70)
+    expect(legendaryFinal / total).toBeLessThan(0.80)
+    // normal context starts 75% common -> the 4-kick chain (22%/30%/40%)
+    // must produce SOME upgraded finals but NEVER all (chance, not forced).
+    let sawUpgrade = 0
+    for (let i = 0; i < 5000; i++) {
+      if (rollChest(rng(990000 + i), 'normal', {}, 0).upgradesAt.length > 0) sawUpgrade++
+    }
+    expect(sawUpgrade).toBeGreaterThan(0)
+    expect(sawUpgrade).toBeLessThan(5000)
+  })
 })
