@@ -61,7 +61,7 @@ export function TopBar({ onLeagueClick, onLibraryClick }: { onLeagueClick?: () =
     ? 'Daily streak'
     : 'Streak lights up when you complete a lesson today'
   return (
-    <header className="sticky top-0 z-30 mx-auto flex w-full max-w-xl items-center justify-between gap-2 border-b-2 border-white/60 bg-white/70 px-3 py-2 backdrop-blur-md">
+    <header className="sticky top-0 z-30 mx-auto flex w-full max-w-xl flex-wrap items-center justify-between gap-2 border-b-2 border-white/60 bg-white/70 px-3 py-2 backdrop-blur-md sm:px-4">
       <div className="flex items-center gap-2">
         <SubjectSwitch />
         <Pill

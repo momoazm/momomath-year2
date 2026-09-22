@@ -26,6 +26,8 @@ async function seedPlayer() {
       version: 0,
     }
     localStorage.setItem('momomath-year2-player-v2', JSON.stringify(state))
+    // guest session: the sign-in gate requires a session before the roadmap
+    localStorage.setItem('momomath-year2-auth', JSON.stringify({ state: { user: null, guestName: 'Momo' }, version: 0 }))
   })
 }
 
@@ -49,7 +51,10 @@ if (all || shots.includes('path')) {
 }
 
 if (all || shots.includes('gate3')) {
-  await page.evaluate(() => localStorage.removeItem('momomath-year2-player-v2'))
+  await page.evaluate(() => {
+    localStorage.removeItem('momomath-year2-player-v2')
+    localStorage.removeItem('momomath-year2-auth')
+  })
   await page.goto(BASE + '/?gate=3', { waitUntil: 'networkidle' })
   await page.waitForTimeout(1000)
   await page.screenshot({ path: OUT + '/gate3.png' })

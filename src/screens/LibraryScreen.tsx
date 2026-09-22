@@ -53,7 +53,7 @@ export function LibraryScreen({ onClose }: { onClose?: () => void }) {
   }
 
   return (
-    <div className="mx-auto max-w-5xl p-4 pb-24">
+    <div className="mx-auto max-w-xl px-4 pb-24 pt-4 sm:px-6">
       <LibraryHeader ownedCount={owned.size} totalCount={allCards.length} onClose={onClose} />
       <TierFilterTabs filterTier={filterTier} setFilterTier={setFilterTier} />
       <CardGrid
@@ -135,7 +135,7 @@ interface CardGridProps {
 
 function CardGrid({ cards, isOwned, onCardClick, getHiddenCardStyle, cardStars }: CardGridProps & { cardStars: Record<string, number> }) {
   return (
-    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
       {cards.map((card) => {
         const owned_ = isOwned(card.id)
         const rarity = TIER_TO_RARITY[card.tier]

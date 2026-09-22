@@ -12,6 +12,8 @@ export function ProfileScreen() {
   const s = usePlayer()
   const user = useAuth((a) => a.user)
   const signOut = useAuth((a) => a.signOut)
+  const guestName = useAuth((a) => a.guestName)
+  const signGuestOut = useAuth((a) => a.signGuestOut)
   const [editing, setEditing] = useState(false)
   const [draftName, setDraftName] = useState(s.name)
 
@@ -101,7 +103,16 @@ export function ProfileScreen() {
           </div>
         ) : (
           <div className="mt-2">
-            <GoogleSignInInline />
+            <p className="font-body text-sm font-bold text-slate-500">
+              Playing as guest{guestName ? <> — <span className="text-speed-blue">{guestName}</span></> : ''}.
+              {guestName ? ' Sign out to switch players.' : ''}
+            </p>
+            {guestName && (
+              <button onClick={() => { sfx.tap(); signGuestOut() }} className="btn3d btn-grey mt-2 !px-3 !py-2 !text-xs">
+                Sign out
+              </button>
+            )}
+            {!guestName && <GoogleSignInInline />}
           </div>
         )}
       </section>

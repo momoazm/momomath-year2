@@ -24,6 +24,8 @@ const CHARACTERS: { id: MascotId; label: string }[] = [
 export function WelcomeGate() {
   const user = useAuth((s) => s.user)
   const signIn = useAuth((s) => s.signIn)
+  const guestName = useAuth((s) => s.guestName)
+  const setGuestName = useAuth((s) => s.setGuestName)
   const onboarded = usePlayer((s) => s.onboarded)
   const setName = usePlayer((s) => s.setName)
   const setMascot = usePlayer((s) => s.setMascot)
@@ -55,7 +57,7 @@ export function WelcomeGate() {
 
   const continueAsGuest = () => {
     sfx.tap()
-    setDraft((d) => d || 'Player')
+    setDraft((d) => d || guestName || 'Player')
     setStep(2)
   }
 
@@ -74,12 +76,17 @@ export function WelcomeGate() {
     }
   }, [signIn, failed, user])
 
-  if (onboarded && !qaStep) return null
-  if (user && step === 1 && !qaStep) return null
+  /* The gate stays up until a real session exists: a Google user OR a named
+     guest. No bypass: without a session the roadmap never opens. A returning
+     guest's remembered name is offered back so they can tap straight through. */
+  const hasSession = !!user || !!guestName
+  if (hasSession && !qaStep) return null
 
   const finish = () => {
     sfx.complete()
-    setName(draft)
+    const finalName = draft.trim() || 'Player'
+    setName(finalName)
+    setGuestName(finalName)
     setMascot(picked)
     setOnboarded()
   }

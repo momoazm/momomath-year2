@@ -22,7 +22,10 @@ const page = await ctx.newPage()
 const errors = []
 page.on('pageerror', (e) => errors.push(String(e)))
 await page.goto(URL_BASE, { waitUntil: 'domcontentloaded' })
-await page.evaluate((s) => localStorage.setItem('momomath-year2-player-v2', JSON.stringify(s)), seed)
+await page.evaluate((s) => {
+  localStorage.setItem('momomath-year2-player-v2', JSON.stringify(s))
+  localStorage.setItem('momomath-year2-auth', JSON.stringify({ state: { user: null, guestName: 'Momo' }, version: 0 }))
+}, seed)
 await page.goto(URL_BASE + '?library&cb=' + Date.now(), { waitUntil: 'networkidle' })
 await page.waitForTimeout(1500)
 

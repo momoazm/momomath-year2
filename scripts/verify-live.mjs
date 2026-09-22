@@ -160,15 +160,54 @@ async function main() {
 
   const url = `${URL_BASE}?cb=${Date.now()}`
   await page.goto(url, { waitUntil: 'domcontentloaded' })
+  // Seed the player AND a guest session: the new sign-in gate requires a
+  // session (Google user or named guest) before the roadmap opens.
   await page.evaluate((seed) => {
     localStorage.setItem('momomath-year2-player-v2', JSON.stringify(seed))
+    localStorage.setItem('momomath-year2-auth', JSON.stringify({ state: { user: null, guestName: 'Momo' }, version: 0 }))
   }, SEED)
   await page.goto(url, { waitUntil: 'networkidle' })
   await page.waitForTimeout(1500)
   await shot(page, '01-home')
 
   const gateGone = !(await page.getByText('Welcome to Momo Year 2 Cambridge!').isVisible().catch(() => false))
-  ok('home renders (no welcome gate with seeded player)', gateGone, 'seeded onboarded player loads straight to the path')
+  ok('home renders (no welcome gate with seeded session)', gateGone, 'seeded guest session + onboarded player load straight to the path')
+
+  // --- sign-out returns the gate: clearing the guest session must block the
+  // roadmap again until the visitor re-signs in ---
+  await page.evaluate(() => {
+    localStorage.setItem('momomath-year2-auth', JSON.stringify({ state: { user: null, guestName: null }, version: 0 }))
+    location.reload()
+  })
+  await page.goto(url, { waitUntil: 'networkidle' })
+  await page.waitForTimeout(1500)
+  await shot(page, '01b-gate-after-signout')
+  const gateBack = await page.getByText('Welcome to Momo Year 2 Cambridge!').isVisible().catch(() => false)
+  ok('signing out returns the sign-in gate', gateBack, 'no session = welcome gate blocks the roadmap')
+  // Restore the seeded session so the lesson/chest checks can proceed.
+  await page.evaluate(() => {
+    localStorage.setItem('momomath-year2-auth', JSON.stringify({ state: { user: null, guestName: 'Momo' }, version: 0 }))
+  })
+  await page.goto(url, { waitUntil: 'networkidle' })
+  await page.waitForTimeout(1500)
+  // TopBar + page share one width: check the bar actually paints and its
+  // edges line up with the path content column (no drift/zoom trap).
+  const widths = await page.evaluate(() => {
+    const header = document.querySelector('header')
+    const main = document.querySelector('main')
+    const hr = header?.getBoundingClientRect()
+    const mr = main?.firstElementChild?.getBoundingClientRect() ?? main?.getBoundingClientRect()
+    return {
+      headerRendered: !!header && !!hr && hr.width > 300,
+      headerLeft: Math.round(hr?.left ?? -1),
+      headerRight: Math.round(hr?.right ?? -1),
+      mainLeft: Math.round(mr?.left ?? -2),
+      mainRight: Math.round(mr?.right ?? -2),
+    }
+  })
+  ok('top bar aligned with page width', widths.headerRendered &&
+    Math.abs(widths.headerLeft - widths.mainLeft) <= 32 && Math.abs(widths.headerRight - widths.mainRight) <= 32,
+    `header=[${widths.headerLeft},${widths.headerRight}] main=[${widths.mainLeft},${widths.mainRight}]`)
 
   // --- open the lesson ---
   await page.locator('button[title]').filter({ hasText: /Count Everything/ }).first().click()

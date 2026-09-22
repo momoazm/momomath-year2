@@ -13,6 +13,8 @@ const OUT = 'C:/Users/momo/screenshot_loop_output'
 mkdirSync(OUT, { recursive: true })
 
 // Common current-shape core; each legacy case drops/reshapes fields per era.
+// Legacy (pre-guestName) seeds must still open the roadmap: the gate treats a
+// missing auth record as a MIGRATED guest, not a stranger (no sign-in loop).
 const CORE = {
   name: 'Momo', mascot: 'sonic', onboarded: true, gems: 120, xpTotal: 340,
   streakCurrent: 4, streakLongest: 5, dailyGoal: 30, todayXp: 10, soundOn: false,

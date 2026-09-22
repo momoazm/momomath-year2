@@ -89,6 +89,8 @@ async function main() {
           version: 0,
         }),
       )
+      // guest session: the sign-in gate requires a session before the roadmap
+      localStorage.setItem('momomath-year2-auth', JSON.stringify({ state: { user: null, guestName: 'Momo' }, version: 0 }))
     })
     await page.goto(BASE + '/', { waitUntil: 'networkidle' })
     await page.waitForTimeout(1500)

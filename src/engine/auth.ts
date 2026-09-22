@@ -10,16 +10,24 @@ export interface AuthUser {
 
 interface AuthState {
   user: AuthUser | null
+  /** guest display name, remembered so returning guests are greeted by name */
+  guestName: string | null
   signIn: (u: AuthUser) => void
   signOut: () => void
+  setGuestName: (n: string) => void
+  /** guest "sign out": forget the guest session so the sign-in gate returns */
+  signGuestOut: () => void
 }
 
 export const useAuth = create<AuthState>()(
   persist(
     (set) => ({
       user: null,
+      guestName: null,
       signIn: (user) => set({ user }),
       signOut: () => set({ user: null }),
+      setGuestName: (n) => set({ guestName: n.trim() || null }),
+      signGuestOut: () => set({ guestName: null }),
     }),
     { name: 'momomath-year2-auth' },
   ),

@@ -1,0 +1,16 @@
+feat: mandatory sign-in gate (Google or named guest) + unified page width
+
+- WelcomeGate now blocks the roadmap until a session exists: a signed-in
+  Google user OR a named guest (guest path via "Continue without signing in").
+- New persisted guestName in the auth store: a guest's chosen name is stored
+  and offered back every visit (finish() calls setGuestName; continueAsGuest
+  prefills the remembered name into Step 2).
+- Guest sign-out added to ProfileScreen (signGuestOut) so sign-out — Google
+  or guest — always returns the visitor to the sign-in page.
+- TopBar re-aligned to the page column (max-w-xl, flex-wrap for narrow
+  screens) — no more zooming to reach the Library button; Library keeps the
+  TopBar visible and matches the same width; card grid rebalanced (2 cols,
+  3 on sm+) so card names/star pills fit without truncation.
+- E2E harness extended to 12 checks: gate returns on sign-out + top-bar/page
+  edge alignment on the live site; all Playwright harness seeds updated with
+  the new auth session shape. 12/12 live checks + 999/999 unit tests green.

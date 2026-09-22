@@ -25,16 +25,19 @@ export default function App() {
 
   if (new URLSearchParams(window.location.search).has('library') || showLibrary) {
     return (
-      <LibraryScreen
-        onClose={() => {
-          setShowLibrary(false)
-          if (new URLSearchParams(window.location.search).has('library')) {
-            const url = new URL(window.location.href)
-            url.searchParams.delete('library')
-            window.history.replaceState({}, '', url.toString())
-          }
-        }}
-      />
+      <>
+        <TopBar onLeagueClick={() => setTab('leagues')} onLibraryClick={() => setShowLibrary(true)} />
+        <LibraryScreen
+          onClose={() => {
+            setShowLibrary(false)
+            if (new URLSearchParams(window.location.search).has('library')) {
+              const url = new URL(window.location.href)
+              url.searchParams.delete('library')
+              window.history.replaceState({}, '', url.toString())
+            }
+          }}
+        />
+      </>
     )
   }
 
