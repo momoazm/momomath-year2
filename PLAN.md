@@ -34,6 +34,6 @@
 ## Phase 5 — Tests, verify script, ship
 - [x] 14. `npx tsc --noEmit; npx vitest run` all green. New tests: `rollChest` NEVER returns arcade ids (uniform + pity paths), `grantArcadeCard` dedupe + 3-copy grant, `checkArcadeCards` thresholds; 19-card art contract untouched.
 - [x] 15. Update `scripts/verify-gamification.mjs`: new game list, Boss Rush play-through (replaces Math Run), exclusive-card grant check, library arcade section visible with 3 cards + progress text, subject-switch roadmap check (english/science unit headers render), keep dust + mobile-viewport checks. Persist seed → v10. (Rewritten; 42/42 checks pass against local preview.)
-- [ ] 16. Commit → `node scripts/deploy.mjs` → `verify-live.mjs` + updated `verify-gamification.mjs` → report.
+- [x] 16. Commit → `node scripts/deploy.mjs` → `verify-live.mjs` + updated `verify-gamification.mjs` → report. (Commit 0455fc8; deploy VERIFIED in sync; live verify-live 12/12, verify-gamification 42/42.)
 
 **Unlock mapping:** Fang = 10 rounds · Bean = all 3 subject games · Bark = 5 bosses.
