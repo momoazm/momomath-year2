@@ -37,6 +37,7 @@ function makeQuestion(rand: () => number = Math.random): Q {
 }
 
 const ROUND_SECONDS = 60
+const FUSE_MS = 6000 // number-blaster: escape window per question
 
 export function ArcadeGame({ game, onExit }: { game: ArcadeGameDef; onExit: () => void }) {
   const [phase, setPhase] = useState<'ready' | 'play' | 'over'>('ready')
@@ -48,8 +49,11 @@ export function ArcadeGame({ game, onExit }: { game: ArcadeGameDef; onExit: () =
   const [lives, setLives] = useState(3)
   const [timeLeft, setTimeLeft] = useState(ROUND_SECONDS)
   const [flash, setFlash] = useState<'ok' | 'no' | null>(null)
+  const [fuse, setFuse] = useState(FUSE_MS)
+  const [rewards, setRewards] = useState({ xp: 0, gems: 0 })
   const best = usePlayer((s) => s.arcadeScores[game.id] ?? 0)
   const submitted = useRef(false)
+  const fuseSpent = useRef(false)
 
   const isBoss = game.id === 'boss-rush'
   const finalScore = isBoss ? bossesDown * 100 : score
@@ -60,12 +64,54 @@ export function ArcadeGame({ game, onExit }: { game: ArcadeGameDef; onExit: () =
     setPhase('over')
     const st = usePlayer.getState()
     st.submitArcadeScore(game.id, finalScore)
+    const xp = finalScore > 0 ? Math.min(30, Math.max(5, Math.round(finalScore / 10))) : 0
+    const gems = finalScore > 0 ? Math.min(20, Math.max(2, Math.round(finalScore / 20))) : 0
     if (finalScore > 0) {
-      st.addGems(Math.min(20, Math.max(2, Math.round(finalScore / 20))))
+      st.addGems(gems)
       st.addArcadeCorrect(Math.min(finalScore, 100))
+      st.addArcadeXp(xp)
     }
+    setRewards({ xp, gems })
     sfx.leagueUp()
   }, [finalScore, game.id])
+
+  const nextQuestion = useCallback(() => {
+    setQ(makeQuestion())
+    setFuse(FUSE_MS)
+    fuseSpent.current = false
+  }, [])
+
+  // Fresh timeout closure every render (reads current lives/phase/finish).
+  const onFuseOut = useRef<() => void>(() => {})
+  onFuseOut.current = () => {
+    if (phase !== 'play') return
+    sfx.wrong()
+    setFlash('no')
+    setCombo(0)
+    nextQuestion()
+    const nl = lives - 1
+    if (nl <= 0) {
+      setLives(0)
+      setTimeout(() => finish(), 200)
+    } else {
+      setLives(nl)
+    }
+    setTimeout(() => setFlash(null), 150)
+  }
+
+  // Per-question fuse: counts down, then the number escapes (lose a life).
+  useEffect(() => {
+    if (phase !== 'play' || game.id !== 'number-blaster') return
+    const t = setInterval(() => setFuse((f) => Math.max(0, f - 100)), 100)
+    return () => clearInterval(t)
+  }, [phase, game.id])
+
+  useEffect(() => {
+    if (phase !== 'play' || game.id !== 'number-blaster' || fuse > 0) return
+    if (fuseSpent.current) return
+    fuseSpent.current = true
+    onFuseOut.current()
+  }, [fuse, phase, game.id])
 
   useEffect(() => {
     if (phase !== 'play') return
@@ -93,7 +139,7 @@ export function ArcadeGame({ game, onExit }: { game: ArcadeGameDef; onExit: () =
     setBossesDown(0)
     setLives(3)
     setTimeLeft(ROUND_SECONDS)
-    setQ(makeQuestion())
+    nextQuestion()
     setPhase('play')
     sfx.tap()
   }
@@ -116,7 +162,7 @@ export function ArcadeGame({ game, onExit }: { game: ArcadeGameDef; onExit: () =
       } else {
         setScore((s) => s + 10 + combo * 2)
       }
-      setQ(makeQuestion())
+      nextQuestion()
     } else {
       sfx.wrong()
       setFlash('no')
@@ -139,7 +185,7 @@ export function ArcadeGame({ game, onExit }: { game: ArcadeGameDef; onExit: () =
       } else {
         setLives(lives - 1)
       }
-      setQ(makeQuestion())
+      nextQuestion()
     }
     setTimeout(() => setFlash(null), 150)
   }
@@ -160,7 +206,7 @@ export function ArcadeGame({ game, onExit }: { game: ArcadeGameDef; onExit: () =
               ? '⚔️ 3 correct answers defeat a boss — how many can you clear?'
               : game.id === 'math-run'
                 ? '🏃 Wrong answers cost 5s — streak for combo bonus!'
-                : '🔫 3 lives — tap the right answer fast!'}
+                : '🔫 3 lives · 6s per answer — numbers escape when time runs out!'}
           </p>
           <p>🏆 Personal best: {best || '—'}</p>
         </div>
@@ -179,6 +225,11 @@ export function ArcadeGame({ game, onExit }: { game: ArcadeGameDef; onExit: () =
           <div className="text-6xl">{finalScore > 0 ? '🎉' : '😅'}</div>
           <h2 className="mt-3 font-display text-2xl font-extrabold text-speed-blue">Time's up!</h2>
           <p className="mt-2 font-display text-4xl font-extrabold text-emerald-500">{finalScore}</p>
+          {rewards.xp + rewards.gems > 0 && (
+            <p className="mt-1 font-display font-extrabold text-sky-500">
+              ⚡ +{rewards.xp} XP · 💎 +{rewards.gems}
+            </p>
+          )}
           {isPb && <p className="mt-1 font-display font-bold text-amber-500">⭐ NEW PERSONAL BEST!</p>}
           <p className="mt-1 text-sm font-bold text-slate-400">Previous best: {best || '—'}</p>
         </motion.div>
@@ -221,6 +272,24 @@ export function ArcadeGame({ game, onExit }: { game: ArcadeGameDef; onExit: () =
         <p className="text-sm font-bold uppercase tracking-wide text-slate-400">What is</p>
         <p className="mt-1 font-display text-5xl font-extrabold text-slate-800">{q.text} = ?</p>
       </div>
+
+      {game.id === 'number-blaster' && (
+        <div
+          className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100"
+          role="progressbar"
+          aria-label="Answer time left"
+          aria-valuemin={0}
+          aria-valuemax={FUSE_MS}
+          aria-valuenow={fuse}
+        >
+          <div
+            className={`h-full rounded-full transition-[width] duration-100 ease-linear ${
+              fuse / FUSE_MS < 0.3 ? 'bg-red-400' : 'bg-emerald-400'
+            }`}
+            style={{ width: `${(fuse / FUSE_MS) * 100}%` }}
+          />
+        </div>
+      )}
 
       <div className="mt-5 grid grid-cols-2 gap-3">
         {q.options.map((opt) => (

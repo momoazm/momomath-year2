@@ -58,7 +58,9 @@ export function QuestsScreen() {
 
       {s.achievements.length > 0 && (
         <section className="mt-6">
-          <h2 className="mb-2 font-display text-sm font-bold uppercase tracking-wide text-slate-400">Achievements unlocked</h2>
+          <h2 className="mb-2 font-display text-sm font-bold uppercase tracking-wide text-slate-400">
+            Achievements unlocked ({s.achievements.length}/{ACHIEVEMENTS.length})
+          </h2>
           <ul className="space-y-2">
             {s.achievements.map((id) => {
               const a = ACHIEVEMENTS.find((x) => x.id === id)
@@ -71,6 +73,9 @@ export function QuestsScreen() {
               )
             })}
           </ul>
+          <p className="mt-2 text-center text-xs font-bold text-slate-400">
+            See all {ACHIEVEMENTS.length} achievements on your profile →
+          </p>
         </section>
       )}
     </div>

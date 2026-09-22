@@ -10,9 +10,9 @@ export function GoogleSignInInline() {
   useEffect(() => {
     if (!GOOGLE_CLIENT_ID || !btnRef.current || failed) return
     let cancelled = false
-    renderGoogleButton(btnRef.current, (u: AuthUser) => {
+    renderGoogleButton(btnRef.current, (u: AuthUser, credential: string) => {
       if (cancelled) return
-      signIn(u)
+      signIn(u, credential)
       const p = usePlayer.getState()
       if (p.name === 'Champion' && u.name) p.setName(u.name.split(' ')[0])
       p.setOnboarded()
@@ -51,9 +51,9 @@ export function AuthBadge() {
   useEffect(() => {
     if (!GOOGLE_CLIENT_ID || !btnRef.current || failed) return
     let cancelled = false
-    renderGoogleButton(btnRef.current, (u: AuthUser) => {
+    renderGoogleButton(btnRef.current, (u: AuthUser, credential: string) => {
       if (cancelled) return
-      signIn(u)
+      signIn(u, credential)
       const p = usePlayer.getState()
       if (p.name === 'Champion' && u.name) p.setName(u.name.split(' ')[0])
       p.setOnboarded()
@@ -74,7 +74,7 @@ export function AuthBadge() {
           signOutGoogle()
           signOut()
         }}
-        className="flex shrink-0 items-center gap-1.5 rounded-full border-2 border-slate-200 bg-white py-0.5 pl-0.5 pr-2 transition-colors hover:bg-slate-50"
+        className="flex shrink-0 items-center gap-1 rounded-full border-2 border-slate-200 bg-white py-0.5 pl-0.5 pr-1.5 transition-colors hover:bg-slate-50 sm:gap-1.5 sm:pr-2"
         title={`Signed in as ${user.email} — tap to sign out`}
       >
         {user.picture ? (
@@ -84,7 +84,7 @@ export function AuthBadge() {
             {user.name[0]?.toUpperCase()}
           </span>
         )}
-        <span className="max-w-[72px] truncate font-display text-xs font-extrabold text-slate-500">
+        <span className="hidden max-w-[72px] truncate font-display text-xs font-extrabold text-slate-500 sm:inline">
           {user.name.split(' ')[0]}
         </span>
         <span className="text-[10px] text-slate-300">✕</span>

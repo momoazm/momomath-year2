@@ -14,7 +14,7 @@ import {
   yesterdayISO,
   type LeagueName,
 } from './gamification'
-import { SHOP_ITEMS } from './shop'
+import { ALL_SHOP_ITEMS } from './shop'
 import { setMuted, sfx } from './sfx'
 import { STAR_THRESHOLDS, DUST_PER_CARD } from './cards'
 import type { ChestResult } from './cards'
@@ -123,6 +123,8 @@ interface PlayerState {
   claimQuest: (questId: string, reward: number) => void
   /** Count a correct answer inside an Arcade game (feeds the arcade quest). */
   addArcadeCorrect: (n?: number) => void
+  /** Award XP earned from an arcade round (xpTotal + today + league week). */
+  addArcadeXp: (n: number) => void
   /** Count a completed boss lesson (feeds the daily boss quest). */
   addBossClear: () => void
   spendGems: (amount: number) => boolean
@@ -606,6 +608,19 @@ export const usePlayer = create<PlayerState>()(
           s.arcadeCorrectToday += n
           return s
         }),
+      addArcadeXp: (n) =>
+        set((state) => {
+          const amt = Math.max(0, Math.round(Number(n) || 0))
+          if (amt === 0) return state
+          const s: PlayerState = { ...state }
+          rollDay(s)
+          rollWeek(s)
+          s.xpTotal += amt
+          s.todayXp += amt
+          s.weeklyXp += amt
+          checkAchievements(s)
+          return s
+        }),
       addBossClear: () =>
         set((state) => {
           const s = { ...state }
@@ -625,13 +640,15 @@ export const usePlayer = create<PlayerState>()(
       buyItem: (itemId) => {
         let result: { success: boolean; message: string } = { success: false, message: '' }
         set((state) => {
-          const item = SHOP_ITEMS.find((i) => i.id === itemId)
+          const item = ALL_SHOP_ITEMS.find((i) => i.id === itemId)
           if (!item) {
             result = { success: false, message: 'Item not found' }
             return state
           }
-          if (state.gems < item.price) {
-            result = { success: false, message: 'Not enough gems!' }
+          const isDust = item.currency === 'dust'
+          const balance = isDust ? state.dust : state.gems
+          if (balance < item.price) {
+            result = { success: false, message: isDust ? 'Not enough dust!' : 'Not enough gems!' }
             return state
           }
           const current = state.shopInventory[itemId] || 0
@@ -643,18 +660,19 @@ export const usePlayer = create<PlayerState>()(
           // Activate the item's effect on the engine state in the SAME set
           // callback so the inventory + the effect are committed atomically.
           const next: Partial<PlayerState> = {
-            gems: state.gems - item.price,
             shopInventory: { ...state.shopInventory, [itemId]: current + 1 },
           }
-          if (itemId === 'streak-saver') {
+          if (isDust) next.dust = state.dust - item.price
+          else next.gems = state.gems - item.price
+          if (itemId === 'streak-saver' || itemId === 'dust-streak-saver') {
             next.streakSavers = state.streakSavers + 1
-          } else if (itemId === 'chest-boost') {
+          } else if (itemId === 'chest-boost' || itemId === 'dust-chest-boost') {
             next.chestBoost = true
           } else if (itemId === 'mega-chest') {
             next.megaChest = true
-          } else if (itemId === 'double-xp') {
+          } else if (itemId === 'double-xp' || itemId === 'dust-double-xp') {
             next.doubleXpLessons = state.doubleXpLessons + 3
-          } else if (itemId === 'lucky-ticket') {
+          } else if (itemId === 'lucky-ticket' || itemId === 'dust-lucky-ticket') {
             next.luckyTickets = state.luckyTickets + 1
           }
           return next

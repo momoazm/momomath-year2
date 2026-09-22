@@ -66,6 +66,14 @@ export function ProfileScreen() {
         />
         <Stat icon="👑" label="Crowns" value={String(crowns)} />
         <Stat icon="📚" label="Lessons" value={String(lessonsCompleted)} />
+        <Stat icon="🌪️" label="Dust" value={String(s.dust)} sub="from maxed 5★ dupes" />
+        <Stat
+          icon="🕹️"
+          label="Arcade best"
+          value={String(Math.max(0, ...Object.values(s.arcadeScores)))}
+          sub={`${Object.values(s.arcadeScores).filter((v) => v > 0).length}/3 games`}
+        />
+        <Stat icon="🎁" label="Login streak" value={`${s.dailyLoginStreak}`} sub="daily calendar" />
       </section>
 
       {/* daily goal */}

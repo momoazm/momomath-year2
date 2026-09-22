@@ -41,9 +41,9 @@ function SubjectSwitch() {
 
 function Pill({ icon, iconBg, value, title, valueClass }: { icon: string; iconBg: string; value: string | number; title: string; valueClass: string }) {
   return (
-    <div className="flex items-center gap-1.5 rounded-full border border-white bg-white/90 py-0.5 pl-0.5 pr-2.5 shadow-sm" title={title}>
-      <span className={`grid h-6 w-6 place-items-center rounded-full text-sm ${iconBg}`}>{icon}</span>
-      <span className={`font-display text-base font-extrabold ${valueClass}`}>{value}</span>
+    <div className="flex items-center gap-1 rounded-full border border-white bg-white/90 py-0.5 pl-0.5 pr-1.5 shadow-sm sm:gap-1.5 sm:pr-2.5" title={title}>
+      <span className={`grid h-5 w-5 place-items-center rounded-full text-xs sm:h-6 sm:w-6 sm:text-sm ${iconBg}`}>{icon}</span>
+      <span className={`font-display text-sm font-extrabold sm:text-base ${valueClass}`}>{value}</span>
     </div>
   )
 }
@@ -61,8 +61,8 @@ export function TopBar({ onLeagueClick, onLibraryClick }: { onLeagueClick?: () =
     ? 'Daily streak'
     : 'Streak lights up when you complete a lesson today'
   return (
-    <header className="sticky top-0 z-30 mx-auto flex w-full max-w-xl flex-wrap items-center justify-between gap-2 border-b-2 border-white/60 bg-white/70 px-3 py-2 backdrop-blur-md sm:px-4">
-      <div className="flex items-center gap-2">
+    <header className="sticky top-0 z-30 mx-auto flex w-full max-w-xl flex-wrap items-center justify-between gap-x-2 gap-y-1 border-b-2 border-white/60 bg-white/70 px-2 py-1.5 backdrop-blur-md sm:px-4">
+      <div className="flex min-w-0 items-center gap-1.5">
         <SubjectSwitch />
         <Pill
           icon="🔥"
@@ -76,20 +76,20 @@ export function TopBar({ onLeagueClick, onLibraryClick }: { onLeagueClick?: () =
 
       <button
         onClick={onLeagueClick}
-        className="flex items-center gap-1.5 rounded-full border border-white bg-white/90 px-2.5 py-1 shadow-sm transition-colors hover:bg-white"
+        className="flex shrink-0 items-center gap-1 rounded-full border border-white bg-white/90 px-2 py-1 shadow-sm transition-colors hover:bg-white"
         title={`Weekly league: ${s.currentLeague}`}
       >
-        <span>{league.icon}</span>
-        <span className="font-display text-sm font-extrabold" style={{ color: league.color }}>
+        <span className="text-base leading-none">{league.icon}</span>
+        <span className="hidden font-display text-xs font-extrabold sm:inline" style={{ color: league.color }}>
           {s.currentLeague}
         </span>
       </button>
 
-      <div className="flex items-center gap-2">
+      <div className="flex shrink-0 items-center gap-1.5">
         {user && <AuthBadge />}
         {ENERGY_IS_UNLIMITED && (
           <div
-            className="rounded-full bg-gradient-to-r from-emerald-400 to-teal-400 px-2.5 py-0.5 font-display text-xs font-extrabold text-white shadow-sm"
+            className="hidden rounded-full bg-gradient-to-r from-emerald-400 to-teal-400 px-2.5 py-0.5 font-display text-xs font-extrabold text-white shadow-sm sm:block"
             title="Energy is unlimited for everyone!"
           >
             ∞
@@ -97,7 +97,7 @@ export function TopBar({ onLeagueClick, onLibraryClick }: { onLeagueClick?: () =
         )}
         <button
           onClick={onLibraryClick}
-          className="grid h-9 w-9 place-items-center rounded-full border border-white bg-white/90 text-xl shadow-sm transition-colors hover:bg-white hover:scale-105"
+          className="grid h-8 w-8 place-items-center rounded-full border border-white bg-white/90 text-lg shadow-sm transition-colors hover:bg-white hover:scale-105 sm:h-9 sm:w-9 sm:text-xl"
           title="Card Library"
           aria-label="Card Library"
         >

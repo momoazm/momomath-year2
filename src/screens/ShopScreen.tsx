@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { usePlayer } from '../engine/store'
-import { SHOP_ITEMS, formatPrice } from '../engine/shop'
+import { SHOP_ITEMS, DUST_ITEMS, formatPrice, type ShopItem } from '../engine/shop'
 import { LOGIN_REWARDS, todayISO } from '../engine/gamification'
 import { Mascot } from '../components/mascots/Mascots'
 import { sfx } from '../engine/sfx'
@@ -37,6 +37,48 @@ export function ShopScreen() {
   }
 
   const getCount = (id: string) => usePlayer.getState().shopInventory[id] || 0
+
+  const renderItem = (item: ShopItem) => {
+    const count = usePlayer.getState().shopInventory[item.id] || 0
+    const atMax = item.maxStack && count >= item.maxStack
+    const balance = item.currency === 'dust' ? dust : usePlayer.getState().gems
+    const canBuy = balance >= item.price && !atMax
+
+    return (
+      <motion.div
+        key={item.id}
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+        className={`card-white relative ${!canBuy ? 'opacity-50' : ''}`}
+      >
+        <div className="flex items-center gap-4">
+          <div className="flex-shrink-0 w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-50 to-teal-50 flex items-center justify-center text-4xl">
+            {item.icon}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-baseline justify-between gap-2">
+              <h3 className="font-display font-extrabold text-slate-800">{item.name}</h3>
+              <span className="font-display font-extrabold text-orange-500">{formatPrice(item.price, item.currency)}</span>
+            </div>
+            <p className="mt-1 text-sm font-medium text-slate-500 break-words whitespace-normal">{item.description}</p>
+            <div className="mt-2 flex items-center justify-between">
+              <span className={`text-xs font-bold ${count > 0 ? 'text-emerald-600' : 'text-slate-400'}`}>
+                Owned: {count}/{item.maxStack || '∞'}
+              </span>
+              <button
+                onClick={() => handleBuy(item.id)}
+                disabled={!canBuy}
+                className={`btn3d w-24 text-sm ${canBuy ? 'btn-green' : 'btn-grey'}`}
+              >
+                {atMax ? 'Maxed' : 'Buy'}
+              </button>
+            </div>
+          </div>
+        </div>
+      </motion.div>
+    )
+  }
 
   return (
     <div className="mx-auto w-full max-w-xl px-4 pb-28 pt-4">
@@ -136,48 +178,19 @@ export function ShopScreen() {
         </div>
       )}
 
-      {/* Shop Items */}
-      <div className="space-y-4">
-        {SHOP_ITEMS.map((item) => {
-          const count = usePlayer.getState().shopInventory[item.id] || 0
-          const atMax = item.maxStack && count >= item.maxStack
-          const canBuy = usePlayer.getState().gems >= item.price && !atMax
+      {/* Spend dust (from maxed 5★ duplicates) */}
+      <div className="mb-2 flex items-center justify-between">
+        <h2 className="font-display text-sm font-bold uppercase tracking-wide text-slate-400">Spend 🌪️ Dust</h2>
+        <span className="rounded-full bg-amber-100 px-2.5 py-0.5 font-display text-xs font-extrabold text-amber-600">{dust} dust</span>
+      </div>
+      <div className="mb-6 space-y-4">
+        {DUST_ITEMS.map((item) => renderItem(item))}
+      </div>
 
-          return (
-            <motion.div
-              key={item.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3 }}
-              className={`card-white relative ${!canBuy ? 'opacity-50' : ''}`}
-            >
-              <div className="flex items-center gap-4">
-                <div className="flex-shrink-0 w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-50 to-teal-50 flex items-center justify-center text-4xl">
-                  {item.icon}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-baseline justify-between">
-                    <h3 className="font-display font-extrabold text-slate-800">{item.name}</h3>
-                    <span className="font-display font-extrabold text-orange-500">{formatPrice(item.price)}</span>
-                  </div>
-                  <p className="mt-1 text-sm font-medium text-slate-500 break-words whitespace-normal">{item.description}</p>
-                  <div className="mt-2 flex items-center justify-between">
-                    <span className={`text-xs font-bold ${count > 0 ? 'text-emerald-600' : 'text-slate-400'}`}>
-                      Owned: {count}/{item.maxStack || '∞'}
-                    </span>
-                    <button
-                      onClick={() => handleBuy(item.id)}
-                      disabled={!canBuy}
-                      className={`btn3d w-24 text-sm ${canBuy ? 'btn-green' : 'btn-grey'}`}
-                    >
-                      {atMax ? 'Maxed' : 'Buy'}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          )
-        })}
+      {/* Shop Items (gems) */}
+      <h2 className="mb-2 font-display text-sm font-bold uppercase tracking-wide text-slate-400">Spend 💎 Gems</h2>
+      <div className="space-y-4">
+        {SHOP_ITEMS.map((item) => renderItem(item))}
       </div>
 
       {/* Toast messages */}
@@ -195,7 +208,7 @@ export function ShopScreen() {
       )}
 
       <p className="mt-8 text-center text-xs font-bold text-slate-400">
-        Gems earned from lessons & chests • Spend wisely!
+        💎 from lessons &amp; chests · 🌪️ dust from maxed 5★ duplicates • Spend wisely!
       </p>
     </div>
   )

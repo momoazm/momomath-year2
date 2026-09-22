@@ -52,7 +52,7 @@ export default function App() {
   }
 
   return (
-    <div className="relative min-h-[100dvh] pb-20">
+    <div className="relative min-h-[100dvh] pb-[calc(4.5rem+env(safe-area-inset-bottom))]">
       <Scenery />
       <div className="relative z-10">
         <WelcomeGate />
