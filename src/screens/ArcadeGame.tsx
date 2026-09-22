@@ -1,44 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import type { ArcadeGameDef } from '../engine/arcade'
+import { finishArcadeRound } from '../engine/arcadeRound'
 import { usePlayer } from '../engine/store'
 import { ARCADE_CARD_BY_ID, ARCADE_CARD_GOALS, cardImageUrl } from '../engine/cards'
 import { sfx } from '../engine/sfx'
 import { rollWordQuestion } from '../content/arcadeWords'
 import { rollLabQuestion } from '../content/arcadeScience'
+import { makeMathQuestion, type ArcadeQ } from '../content/arcadeMath'
 import { PixelBoss } from '../components/arcade/PixelBoss'
 
-type Q = { text: string; answer: string; options: string[] }
-
-/** Arithmetic question for Boss Rush (year-2 level). */
-function makeMathQuestion(rand: () => number = Math.random): Q {
-  const ops = ['+', '-', '×'] as const
-  const op = ops[Math.floor(rand() * ops.length)]
-  let a: number, b: number, answer: number
-  if (op === '+') {
-    a = 1 + Math.floor(rand() * 40)
-    b = 1 + Math.floor(rand() * 40)
-    answer = a + b
-  } else if (op === '-') {
-    a = 10 + Math.floor(rand() * 40)
-    b = 1 + Math.floor(rand() * Math.min(a - 1, 30))
-    answer = a - b
-  } else {
-    a = 2 + Math.floor(rand() * 9)
-    b = 2 + Math.floor(rand() * 9)
-    answer = a * b
-  }
-  const opts = new Set<number>([answer])
-  let guard = 0
-  while (opts.size < 4 && guard++ < 40) {
-    const delta = Math.floor(rand() * 11) - 5
-    const candidate = answer + (delta === 0 ? 3 : delta)
-    if (candidate >= 0) opts.add(candidate)
-  }
-  while (opts.size < 4) opts.add(answer + opts.size + 1)
-  const shuffled = [...opts].sort(() => rand() - 0.5)
-  return { text: `${a} ${op} ${b}`, answer: String(answer), options: shuffled.map(String) }
-}
+type Q = ArcadeQ
 
 function makeQuestion(gameId: string, rand: () => number = Math.random): Q {
   if (gameId === 'word-rescue') {
@@ -79,17 +51,7 @@ export function ArcadeGame({ game, onExit }: { game: ArcadeGameDef; onExit: () =
     if (submitted.current) return
     submitted.current = true
     setPhase('over')
-    const st = usePlayer.getState()
-    st.submitArcadeScore(game.id, finalScore)
-    const xp = finalScore > 0 ? Math.min(30, Math.max(5, Math.round(finalScore / 10))) : 0
-    const gems = finalScore > 0 ? Math.min(20, Math.max(2, Math.round(finalScore / 20))) : 0
-    if (finalScore > 0) {
-      st.addGems(gems)
-      st.addArcadeCorrect(Math.min(finalScore, 100))
-      st.addArcadeXp(xp)
-    }
-    // Count the round + bosses, then evaluate exclusive-card unlocks.
-    const granted = st.recordArcadeRound(game.id, isBoss ? bossesDown : 0)
+    const { xp, gems, granted } = finishArcadeRound(game.id, finalScore, isBoss ? bossesDown : 0)
     setRewards({ xp, gems })
     setUnlockedCard(granted[0] ?? null)
     if (granted.length > 0) sfx.streak()

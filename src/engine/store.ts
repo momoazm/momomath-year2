@@ -901,9 +901,12 @@ export const usePlayer = create<PlayerState>()(
         const snap = {
           arcadeRounds: st.arcadeRounds,
           arcadeBossesDown: st.arcadeBossesDown,
-          // Bean counts ONLY the current subject games, never legacy ids
+          // Bean counts DISTINCT SUBJECTS among current games, never legacy ids
           // (math-run / number-blaster may still exist in arcadeScores).
-          arcadeGamesPlayed: ARCADE_GAMES.filter((g) => (st.arcadeScores[g.id] ?? 0) > 0).length,
+          // Pixel Run shares the maths badge, so a 4th game keeps the goal at 3.
+          arcadeGamesPlayed: new Set(
+            ARCADE_GAMES.filter((g) => (st.arcadeScores[g.id] ?? 0) > 0).map((g) => g.subject),
+          ).size,
         }
         const granted: string[] = []
         for (const card of ARCADE_CARDS) {

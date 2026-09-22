@@ -376,6 +376,7 @@ export const ARCADE_GAMES: ArcadeGameDef[] = [
   { id: 'boss-rush', title: 'Boss Rush', desc: 'Take down pixel bosses with perfect answers', icon: '⚔️', subject: 'math' },
   { id: 'word-rescue', title: 'Word Rescue', desc: 'Pick the right spelling before time runs out', icon: '📚', subject: 'english' },
   { id: 'lab-blitz', title: 'Lab Blitz', desc: 'Answer fast science questions to power the lab', icon: '🔬', subject: 'science' },
+  { id: 'pixel-run', title: 'Pixel Run', desc: 'Jump the spikes and clear math gates to the finish', icon: '🏃', subject: 'math' },
 ]
 
 /* ---------------- Achievements ---------------- */

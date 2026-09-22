@@ -37,3 +37,9 @@
 - [x] 16. Commit → `node scripts/deploy.mjs` → `verify-live.mjs` + updated `verify-gamification.mjs` → report. (Commit 0455fc8; deploy VERIFIED in sync; live verify-live 12/12, verify-gamification 42/42.)
 
 **Unlock mapping:** Fang = 10 rounds · Bean = all 3 subject games · Bark = 5 bosses.
+
+## Phase 6 — WS5: 2D retro side-scroller "Pixel Run" (medium)
+- [x] 17. `ARCADE_GAMES` += `pixel-run` (🏃, subject math, "Jump the spikes and clear math gates to the finish"); extract `makeMathQuestion` → `src/content/arcadeMath.ts` (Boss Rush reuses it); shared `finishArcadeRound` payout helper in `src/engine/arcadeRound.ts` (used by ArcadeGame + PixelRun).
+- [x] 18. `src/components/arcade/PixelRun.tsx`: auto-run left→right, tap/Space jump, spike obstacles (−1 life + i-frames), coin arcs, math question gates every 800px (pause + MCQ; correct = +20 score/+30 coins, wrong = −1 life), finish flag at 6400px (+100), 60s/3 lives, pure `computeRunScore`/`gateX` helpers exported for tests; pixel SVG runner/spike/coin sprites (no assets). `ArcadeScreen` routes `pixel-run` → PixelRun; subtitle → "Retro games · earn ⚡ XP and set high scores".
+- [x] 19. Bean unlock counts DISTINCT SUBJECTS among current `ARCADE_GAMES` (still goal 3 — Pixel Run shares the maths badge; label/flavor "all 3 subject games" unchanged); `verify-gamification.mjs` → 4 games + new subtitle.
+- [x] 20. Tests `tests/pixelRun.test.ts` (registration, gate layout, score math, gate question shape, Bean subject-count); `npx tsc --noEmit` + `npx vitest run` (32 files / 1017 tests) + `node scripts/precommit.mjs` green; local `npm run dev` smoke 9/9 (4-game list, ready screen, stage render, jump, live score, spike hit, gate overlay, zero page errors) — no deploy.

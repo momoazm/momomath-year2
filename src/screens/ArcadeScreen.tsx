@@ -3,6 +3,7 @@ import { motion } from 'framer-motion'
 import { ARCADE_GAMES } from '../engine/arcade'
 import { usePlayer } from '../engine/store'
 import { ArcadeGame } from './ArcadeGame'
+import { PixelRun } from '../components/arcade/PixelRun'
 
 const SUBJECT_BADGE: Record<'math' | 'english' | 'science', { icon: string; label: string; cls: string }> = {
   math: { icon: '🧮', label: 'Maths', cls: 'bg-speed-bluelight text-speed-blue' },
@@ -15,14 +16,17 @@ export function ArcadeScreen() {
   const [activeId, setActiveId] = useState<string | null>(null)
 
   const active = ARCADE_GAMES.find((g) => g.id === activeId)
-  if (active) return <ArcadeGame game={active} onExit={() => setActiveId(null)} />
+  if (active) {
+    if (active.id === 'pixel-run') return <PixelRun game={active} onExit={() => setActiveId(null)} />
+    return <ArcadeGame game={active} onExit={() => setActiveId(null)} />
+  }
 
   return (
     <div className="mx-auto w-full max-w-xl px-4 pb-28 pt-4">
       <div className="mb-5 text-center">
         <h1 className="font-display text-2xl font-extrabold text-speed-blue">Retro Arcade</h1>
         <p className="font-body text-sm font-bold text-slate-400">
-          One game per subject · earn ⚡ XP and set high scores
+          Retro games · earn ⚡ XP and set high scores
         </p>
       </div>
 

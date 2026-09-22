@@ -5,7 +5,7 @@
 // Covers (PLAN.md step 15):
 //   1. v7 seed -> v10 persist migration (arcadeRounds/arcadeBossesDown backfill)
 //   2. subject switching renders unit roadmaps for english/science (no "coming soon")
-//   3. arcade lists exactly 3 subject games + badges + subtitle
+//   3. arcade lists all 4 games + badges + subtitle (Boss Rush/Word Rescue/Lab Blitz/Pixel Run)
 //   4. Boss Rush play-through: 1 boss killed, round ends, score/XP persisted
 //   5. exclusive-card grant: seeded 9 rounds -> 10th round unlocks Fang (celebration overlay)
 //   6. Library "🕹️ Arcade Exclusives" panel: 1/3 collected, live progress, locked-card toast
@@ -133,15 +133,15 @@ async function main() {
   if (await mathPill.isVisible().catch(() => false)) await mathPill.click().catch(() => {})
   await page.waitForTimeout(400)
 
-  // --- 3. Arcade tab: 3 subject games + badges + subtitle ---
+  // --- 3. Arcade tab: 4 games + badges + subtitle ---
   const arcadeTab = page.getByRole('button', { name: /Arcade/i }).first()
   ok('Arcade tab in bottom nav', await arcadeTab.isVisible().catch(() => false), 'nav button found')
   await arcadeTab.click()
   await page.waitForTimeout(500)
   const listInfo = await page.evaluate(() => {
     const body = document.body.innerText
-    const games = ['Boss Rush', 'Word Rescue', 'Lab Blitz']
-    const badges = { 'Boss Rush': 'Maths', 'Word Rescue': 'English', 'Lab Blitz': 'Science' }
+    const games = ['Boss Rush', 'Word Rescue', 'Lab Blitz', 'Pixel Run']
+    const badges = { 'Boss Rush': 'Maths', 'Word Rescue': 'English', 'Lab Blitz': 'Science', 'Pixel Run': 'Maths' }
     const perGame = {}
     for (const g of games) {
       const btn = Array.from(document.querySelectorAll('button')).find((b) => (b.textContent || '').includes(g))
@@ -149,14 +149,14 @@ async function main() {
     }
     return {
       title: body.includes('Retro Arcade'),
-      subtitle: body.includes('One game per subject'),
+      subtitle: body.includes('Retro games'),
       perGame,
     }
   })
   ok('arcade title + subtitle', listInfo.title && listInfo.subtitle, `title=${listInfo.title} subtitle=${listInfo.subtitle}`)
   const gamesOk = Object.entries(listInfo.perGame).every(([, v]) => v.present && v.badge)
   ok(
-    'all 3 subject games listed with subject badges',
+    'all 4 arcade games listed with subject badges',
     gamesOk,
     JSON.stringify(listInfo.perGame),
   )
