@@ -20,7 +20,8 @@ export const RUN = {
   PLAYER_H: 26,
   SPEED: 3.0, // camera px per 60fps frame
   GRAVITY: 0.55,
-  JUMP_V: -9.6,
+  /** initial upward velocity — POSITIVE because py = height above ground */
+  JUMP_V: 9.6,
   FINISH_X: 6400,
   GATE_EVERY: 800,
   SPIKE_MIN: 280,
