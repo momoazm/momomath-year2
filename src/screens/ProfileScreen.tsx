@@ -6,7 +6,7 @@ import { GoogleSignInInline } from '../components/ui/AuthBadge'
 import { signOutGoogle, useAuth } from '../engine/auth'
 import { sfx } from '../engine/sfx'
 import type { MascotId } from '../content/types'
-import { CARDS, STAR_THRESHOLDS, toStar } from '../engine/cards'
+import { CARDS, ALL_CARDS, STAR_THRESHOLDS, toStar } from '../engine/cards'
 
 export function ProfileScreen() {
   const s = usePlayer()
@@ -131,7 +131,7 @@ export function ProfileScreen() {
           <Stat
             icon="🃏"
             label="Unique Cards"
-            value={`${Object.keys(s.cardStars).filter((id) => s.cardStars[id] > 0).length}/${CARDS.length}`}
+            value={`${Object.keys(s.cardStars).filter((id) => s.cardStars[id] > 0).length}/${ALL_CARDS.length}`}
           />
           <Stat
             icon="📦"

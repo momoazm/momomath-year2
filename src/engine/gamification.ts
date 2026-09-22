@@ -362,17 +362,20 @@ export function rollQuestSet(day: string): QuestDef[] {
 /** 7-day login calendar rewards (gems), indexed by (streak - 1) % 7. */
 export const LOGIN_REWARDS = [5, 10, 15, 20, 25, 30, 50]
 
-/* ---------------- Arcade game defs ---------------- */export interface ArcadeGameDef {
-  id: 'math-run' | 'boss-rush' | 'number-blaster'
+/* ---------------- Arcade game defs ---------------- */
+export interface ArcadeGameDef {
+  id: string
   title: string
   desc: string
   icon: string
+  /** which subject this game exercises (shows a badge on the arcade list) */
+  subject: 'math' | 'english' | 'science'
 }
 
 export const ARCADE_GAMES: ArcadeGameDef[] = [
-  { id: 'math-run', title: 'Math Run', desc: 'Sprint through gates answering as fast as you can', icon: '🏃' },
-  { id: 'boss-rush', title: 'Boss Rush', desc: 'Take down bosses with perfect answers', icon: '⚔️' },
-  { id: 'number-blaster', title: 'Number Blaster', desc: 'Shoot the correct answers before they escape', icon: '🔫' },
+  { id: 'boss-rush', title: 'Boss Rush', desc: 'Take down pixel bosses with perfect answers', icon: '⚔️', subject: 'math' },
+  { id: 'word-rescue', title: 'Word Rescue', desc: 'Pick the right spelling before time runs out', icon: '📚', subject: 'english' },
+  { id: 'lab-blitz', title: 'Lab Blitz', desc: 'Answer fast science questions to power the lab', icon: '🔬', subject: 'science' },
 ]
 
 /* ---------------- Achievements ---------------- */

@@ -16,7 +16,7 @@ import {
 } from './gamification'
 import { ALL_SHOP_ITEMS } from './shop'
 import { setMuted, sfx } from './sfx'
-import { STAR_THRESHOLDS, DUST_PER_CARD } from './cards'
+import { STAR_THRESHOLDS, DUST_PER_CARD, ARCADE_CARDS, ARCADE_CARD_GOALS } from './cards'
 import type { ChestResult } from './cards'
 import { ARCADE_GAMES } from './arcade'
 
@@ -101,6 +101,10 @@ interface PlayerState {
   loginRewardClaimedDay: string | null
   /** per-arcade-game personal bests (see ARCADE_GAMES ids) */
   arcadeScores: Record<string, number>
+  /** lifetime finished arcade rounds (local-only; drives the Fang unlock) */
+  arcadeRounds: number
+  /** lifetime bosses defeated in Boss Rush (local-only; drives the Bark unlock) */
+  arcadeBossesDown: number
   /** timestamp (ms) of last successful cloud sync */
   lastSyncedAt: number | null
 
@@ -148,6 +152,14 @@ interface PlayerState {
   spendDust: (amount: number) => boolean
   /** Record an arcade score; returns true when a new personal best. */
   submitArcadeScore: (gameId: string, score: number) => boolean
+  /** Count a finished arcade round (+ optional bosses beaten), then evaluate
+   *  arcade-exclusive card unlocks. Returns the ids newly granted. */
+  recordArcadeRound: (gameId: string, bossesDown?: number) => string[]
+  /** Grant an arcade-exclusive card 3 copies (1★) once; false if already owned. */
+  grantArcadeCard: (id: string) => boolean
+  /** Evaluate all ARCADE_CARD_GOALS against current progress; grants every
+   *  met + unowned card. Returns the ids newly granted. */
+  checkArcadeCards: () => string[]
   /** Claim today's login-calendar reward; returns the 1-7 day index or null. */
   claimDailyLogin: () => number | null
   /** settle last week's league (promote/demote) if the 7-day week has elapsed */
@@ -469,7 +481,7 @@ const firstDay = todayISO()
 
 export const usePlayer = create<PlayerState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       name: 'Champion',
       mascot: 'sonic' as MascotId,
       subject:
@@ -522,6 +534,8 @@ export const usePlayer = create<PlayerState>()(
       lastLoginDay: null,
       loginRewardClaimedDay: null,
       arcadeScores: {},
+      arcadeRounds: 0,
+      arcadeBossesDown: 0,
       lastSyncedAt: null,
 
       completeLesson: ({ lessonId, xp, correct, totalQuestions, crownsGained, accuracy }) =>
@@ -869,6 +883,50 @@ export const usePlayer = create<PlayerState>()(
         })
         return pb
       },
+      grantArcadeCard: (id) => {
+        const def = ARCADE_CARDS.find((c) => c.id === id)
+        if (!def) return false
+        let granted = false
+        set((state) => {
+          // Owned = at least 1 star's worth of copies; never re-grant.
+          if ((state.cardStars[id] ?? 0) >= STAR_THRESHOLDS[0]) return state
+          granted = true
+          // Jump straight to 3 copies (1★); don't stack on partial counts.
+          return { cardStars: { ...state.cardStars, [id]: STAR_THRESHOLDS[0] } }
+        })
+        return granted
+      },
+      checkArcadeCards: () => {
+        const st = get()
+        const snap = {
+          arcadeRounds: st.arcadeRounds,
+          arcadeBossesDown: st.arcadeBossesDown,
+          // Bean counts ONLY the current subject games, never legacy ids
+          // (math-run / number-blaster may still exist in arcadeScores).
+          arcadeGamesPlayed: ARCADE_GAMES.filter((g) => (st.arcadeScores[g.id] ?? 0) > 0).length,
+        }
+        const granted: string[] = []
+        for (const card of ARCADE_CARDS) {
+          const goal = ARCADE_CARD_GOALS[card.id]
+          if (!goal) continue
+          if ((st.cardStars[card.id] ?? 0) >= STAR_THRESHOLDS[0]) continue
+          if (goal.progress(snap) >= goal.goal) {
+            if (get().grantArcadeCard(card.id)) granted.push(card.id)
+          }
+        }
+        return granted
+      },
+      recordArcadeRound: (gameId, bossesDown = 0) => {
+        let granted: string[] = []
+        set((state) => {
+          const s: PlayerState = { ...state }
+          s.arcadeRounds = (s.arcadeRounds ?? 0) + 1
+          s.arcadeBossesDown = (s.arcadeBossesDown ?? 0) + Math.max(0, Math.round(bossesDown))
+          return s
+        })
+        granted = get().checkArcadeCards()
+        return granted
+      },
       claimDailyLogin: () => {
         let dayIndex: number | null = null
         set((state) => {
@@ -910,7 +968,7 @@ export const usePlayer = create<PlayerState>()(
     }),
     {
       name: 'momomath-year2-player-v2',
-      version: 9,
+      version: 10,
       migrate: (persisted, version) => {
         const p = { ...(persisted as PlayerState) }
         if (version < 4) {
@@ -958,6 +1016,12 @@ export const usePlayer = create<PlayerState>()(
           p.loginRewardClaimedDay =
             typeof p.loginRewardClaimedDay === 'string' ? p.loginRewardClaimedDay : null
           p.arcadeScores = p.arcadeScores && typeof p.arcadeScores === 'object' ? p.arcadeScores : {}
+        }
+        if (version < 10) {
+          // v10: arcade-exclusive card progress counters (local-only; cardStars
+          // grants themselves sync via cloudsave as normal keys).
+          p.arcadeRounds = typeof p.arcadeRounds === 'number' ? p.arcadeRounds : 0
+          p.arcadeBossesDown = typeof p.arcadeBossesDown === 'number' ? p.arcadeBossesDown : 0
         }
         return p
       },

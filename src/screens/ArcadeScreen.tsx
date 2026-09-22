@@ -4,6 +4,12 @@ import { ARCADE_GAMES } from '../engine/arcade'
 import { usePlayer } from '../engine/store'
 import { ArcadeGame } from './ArcadeGame'
 
+const SUBJECT_BADGE: Record<'math' | 'english' | 'science', { icon: string; label: string; cls: string }> = {
+  math: { icon: '🧮', label: 'Maths', cls: 'bg-speed-bluelight text-speed-blue' },
+  english: { icon: '📚', label: 'English', cls: 'bg-orange-100 text-orange-600' },
+  science: { icon: '🔬', label: 'Science', cls: 'bg-emerald-100 text-emerald-600' },
+}
+
 export function ArcadeScreen() {
   const arcadeScores = usePlayer((s) => s.arcadeScores)
   const [activeId, setActiveId] = useState<string | null>(null)
@@ -16,7 +22,7 @@ export function ArcadeScreen() {
       <div className="mb-5 text-center">
         <h1 className="font-display text-2xl font-extrabold text-speed-blue">Retro Arcade</h1>
         <p className="font-body text-sm font-bold text-slate-400">
-          Quick math games · earn ⚡ XP and set high scores
+          One game per subject · earn ⚡ XP and set high scores
         </p>
       </div>
 
@@ -36,7 +42,14 @@ export function ArcadeScreen() {
                 {g.icon}
               </div>
               <div className="min-w-0 flex-1">
-                <p className="font-display font-extrabold text-slate-800">{g.title}</p>
+                <p className="flex items-center gap-2 font-display font-extrabold text-slate-800">
+                  {g.title}
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-[10px] font-extrabold uppercase ${SUBJECT_BADGE[g.subject].cls}`}
+                  >
+                    {SUBJECT_BADGE[g.subject].icon} {SUBJECT_BADGE[g.subject].label}
+                  </span>
+                </p>
                 <p className="truncate text-sm font-medium text-slate-500">{g.desc}</p>
               </div>
               <div className="text-right">

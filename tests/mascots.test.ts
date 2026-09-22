@@ -3,9 +3,12 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { MASCOTS } from '../src/components/mascots/Mascots'
 import type { MascotId } from '../src/content/types'
 
+/** Card-only ids (arcade exclusives) are in MascotId but NOT playable mascots. */
+type PlayableMascotId = Exclude<MascotId, 'fang' | 'bean' | 'bark'>
+
 /** Signature gradient/marker per character — proves each is real art,
  *  not a tinted clone of another mascot. */
-const SIGNATURES: Record<MascotId, string> = {
+const SIGNATURES: Record<PlayableMascotId, string> = {
   sonic: 'sncB',
   tails: 'tlsB',
   knuckles: 'knxB',

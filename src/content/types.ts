@@ -153,6 +153,10 @@ export type MascotId =
   | 'omega'
   | 'jet'
   | 'super'
+  // Arcade-exclusive cards (not playable mascots — card art only).
+  | 'fang'
+  | 'bean'
+  | 'bark'
 
 export interface LessonDef {
   id: string

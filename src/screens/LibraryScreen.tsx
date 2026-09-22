@@ -1,7 +1,7 @@
 import { useEffect, useState, type CSSProperties } from 'react'
 import { usePlayer } from '../engine/store'
-import { CARDS, cardImageUrl, STAR_THRESHOLDS, copiesToNextStar, toStar, type CardDef, type ChestTier } from '../engine/cards'
-import { RARITY_META, type ChestRarity } from '../engine/gamification'
+import { CARDS, ARCADE_CARDS, ARCADE_CARD_GOALS, ALL_CARDS, cardImageUrl, STAR_THRESHOLDS, copiesToNextStar, toStar, type CardDef, type ChestTier } from '../engine/cards'
+import { RARITY_META, ARCADE_GAMES, type ChestRarity } from '../engine/gamification'
 import { AnimatePresence, motion } from 'framer-motion'
 
 /** Map ChestTier -> ChestRarity for display colors */
@@ -16,10 +16,10 @@ const TIER_TO_RARITY: Record<ChestTier, ChestRarity> = {
 const TIER_ORDER: ChestTier[] = ['common', 'rare', 'epic', 'legendary', 'exclusive']
 
 export function LibraryScreen({ onClose }: { onClose?: () => void }) {
-  const { cardStars } = usePlayer()
+  const { cardStars, arcadeRounds, arcadeBossesDown, arcadeScores } = usePlayer()
   const [filterTier, setFilterTier] = useState<ChestTier | 'all'>('all')
   const [selectedCard, setSelectedCard] = useState<CardDef | null>(null)
-  const [lockedToast, setLockedToast] = useState<{card: CardDef; rarity: ChestRarity} | null>(null)
+  const [lockedToast, setLockedToast] = useState<{card: CardDef; rarity: ChestRarity; condition?: string} | null>(null)
 
   const owned = new Set(Object.keys(cardStars).filter((id) => (cardStars[id] ?? 0) > 0))
   const allCards = CARDS
@@ -32,9 +32,29 @@ export function LibraryScreen({ onClose }: { onClose?: () => void }) {
 
   const isOwned = (id: string) => (cardStars[id] ?? 0) > 0
 
+  const arcadeSnapshot = {
+    arcadeRounds,
+    arcadeBossesDown,
+    arcadeGamesPlayed: ARCADE_GAMES.filter((g) => (arcadeScores[g.id] ?? 0) > 0).length,
+  }
+
+  const goalText = (id: string) => {
+    const goal = ARCADE_CARD_GOALS[id]
+    if (!goal) return ''
+    return goal.label.replace('{n}', String(goal.goal))
+  }
+
+  const progressText = (id: string) => {
+    const goal = ARCADE_CARD_GOALS[id]
+    if (!goal) return ''
+    return `${goal.unit} ${goal.progress(arcadeSnapshot)}/${goal.goal}`
+  }
+
   const handleCardClick = (card: CardDef) => {
     if (isOwned(card.id)) {
       setSelectedCard(card)
+    } else if (card.source === 'arcade') {
+      setLockedToast({ card, rarity: TIER_TO_RARITY[card.tier], condition: goalText(card.id) })
     } else {
       const rarity = TIER_TO_RARITY[card.tier]
       // LockedCardToast handles its own 2.5s auto-dismiss via onDone
@@ -54,7 +74,15 @@ export function LibraryScreen({ onClose }: { onClose?: () => void }) {
 
   return (
     <div className="mx-auto max-w-xl px-4 pb-24 pt-4 sm:px-6">
-      <LibraryHeader ownedCount={owned.size} totalCount={allCards.length} onClose={onClose} />
+      <LibraryHeader ownedCount={owned.size} totalCount={ALL_CARDS.length} onClose={onClose} />
+      <ArcadeExclusives
+        isOwned={isOwned}
+        onCardClick={handleCardClick}
+        getHiddenCardStyle={getHiddenCardStyle}
+        cardStars={cardStars}
+        goalText={goalText}
+        progressText={progressText}
+      />
       <TierFilterTabs filterTier={filterTier} setFilterTier={setFilterTier} />
       <CardGrid
         cards={filteredCards}
@@ -71,9 +99,89 @@ export function LibraryScreen({ onClose }: { onClose?: () => void }) {
       <LockedCardToast
         card={lockedToast?.card ?? null}
         rarity={lockedToast?.rarity ?? null}
+        condition={lockedToast?.condition ?? null}
         onDone={() => setLockedToast(null)}
       />
     </div>
+  )
+}
+
+function ArcadeExclusives({
+  isOwned,
+  onCardClick,
+  getHiddenCardStyle,
+  cardStars,
+  goalText,
+  progressText,
+}: {
+  isOwned: (id: string) => boolean
+  onCardClick: (card: CardDef) => void
+  getHiddenCardStyle: (tier: ChestTier) => CSSProperties
+  cardStars: Record<string, number>
+  goalText: (id: string) => string
+  progressText: (id: string) => string
+}) {
+  const collected = ARCADE_CARDS.filter((c) => isOwned(c.id)).length
+  return (
+    <section className="mb-6" aria-label="Arcade Exclusives">
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="font-display text-xl font-extrabold text-slate-800">🕹️ Arcade Exclusives</h2>
+        <span className="text-sm text-slate-500">{collected} / {ARCADE_CARDS.length} collected</span>
+      </div>
+      <div className="grid grid-cols-3 gap-3">
+        {ARCADE_CARDS.map((card) => {
+          const owned_ = isOwned(card.id)
+          const hiddenStyle = getHiddenCardStyle(card.tier)
+          const count = cardStars[card.id] ?? 0
+          return (
+            <motion.button
+              key={card.id}
+              onClick={() => onCardClick(card)}
+              className={`relative aspect-[3/4] rounded-xl overflow-hidden card-white transition-all ${
+                owned_ ? 'cursor-pointer' : 'cursor-default'
+              }`}
+              whileTap={{ scale: 0.95 }}
+              style={owned_ ? undefined : hiddenStyle}
+            >
+              {owned_ ? (
+                <>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center p-2">
+                    <img
+                      src={cardImageUrl(card)}
+                      alt={card.name}
+                      loading="lazy"
+                      onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
+                      className="h-full w-full object-contain drop-shadow-md"
+                    />
+                  </div>
+                  <div className="absolute inset-x-0 bottom-0 bg-white/90 px-1 py-1 text-center">
+                    <p className="font-display text-[11px] font-extrabold text-slate-800 truncate">{card.name}</p>
+                    <div className="flex justify-center gap-0.5" aria-label={`${toStar(count)} out of 5 stars`}>
+                      {[1, 2, 3, 4, 5].map((s) => (
+                        <span key={s} className={`text-[10px] ${s <= toStar(count) ? 'text-amber-400' : 'text-slate-300'}`}>★</span>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div
+                  className="absolute inset-0 flex flex-col items-center justify-center p-2 text-center"
+                  style={{
+                    background: `linear-gradient(145deg, #f59e0b20, #f59e0b05)`,
+                    border: '2px solid #f59e0b',
+                  }}
+                >
+                  <span className="text-2xl">🔒</span>
+                  <p className="mt-1 font-display text-[11px] font-extrabold text-amber-600">Exclusive</p>
+                  <p className="mt-1 text-[9px] font-bold leading-tight text-slate-500">{goalText(card.id)}</p>
+                  <p className="mt-1 font-display text-[10px] font-extrabold text-amber-600">{progressText(card.id)}</p>
+                </div>
+              )}
+            </motion.button>
+          )
+        })}
+      </div>
+    </section>
   )
 }
 
@@ -346,12 +454,18 @@ function CardModal({ selectedCard, setSelectedCard }: CardModalProps) {
               </div>
 
               <div className="mt-6 p-4 rounded-xl bg-slate-50">
-                <p className="text-sm text-slate-600">
-                  Obtained from <strong className="font-display capitalize">{selectedCard.tier}</strong> chests
-                  {selectedCard.tier === 'legendary' || selectedCard.tier === 'exclusive'
-                    ? ' (guaranteed card drop)'
-                    : ' (~10% chance per chest)'}
-                </p>
+                {selectedCard.source === 'arcade' ? (
+                  <p className="text-sm text-slate-600">
+                    <strong className="font-display">Unlocked in the Retro Arcade</strong>
+                  </p>
+                ) : (
+                  <p className="text-sm text-slate-600">
+                    Obtained from <strong className="font-display capitalize">{selectedCard.tier}</strong> chests
+                    {selectedCard.tier === 'legendary' || selectedCard.tier === 'exclusive'
+                      ? ' (guaranteed card drop)'
+                      : ' (~10% chance per chest)'}
+                  </p>
+                )}
               </div>
 
               <button
@@ -369,7 +483,7 @@ function CardModal({ selectedCard, setSelectedCard }: CardModalProps) {
   )
 }
 
-function LockedCardToast({ card, rarity, onDone }: { card: CardDef | null; rarity: ChestRarity | null; onDone: () => void }) {
+function LockedCardToast({ card, rarity, condition, onDone }: { card: CardDef | null; rarity: ChestRarity | null; condition: string | null; onDone: () => void }) {
   // Auto-dismiss the toast after 2.5s; reset the timer if a new toast arrives.
   useEffect(() => {
     if (!card) return
@@ -402,7 +516,11 @@ function LockedCardToast({ card, rarity, onDone }: { card: CardDef | null; rarit
                     {card.name}
                   </p>
                   <p className="text-xs text-slate-500">
-                    Win from a <span style={{ color: meta.color, fontWeight: 700 }}>{meta.label}</span> chest
+                    {condition ? (
+                      condition
+                    ) : (
+                      <>Win from a <span style={{ color: meta.color, fontWeight: 700 }}>{meta.label}</span> chest</>
+                    )}
                   </p>
                 </div>
               </div>

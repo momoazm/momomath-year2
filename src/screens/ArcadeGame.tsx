@@ -1,13 +1,17 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import type { ArcadeGameDef } from '../engine/arcade'
 import { usePlayer } from '../engine/store'
+import { ARCADE_CARD_BY_ID, ARCADE_CARD_GOALS, cardImageUrl } from '../engine/cards'
 import { sfx } from '../engine/sfx'
+import { rollWordQuestion } from '../content/arcadeWords'
+import { rollLabQuestion } from '../content/arcadeScience'
+import { PixelBoss } from '../components/arcade/PixelBoss'
 
-// Simple kid-safe arithmetic generator (year 2 level) for arcade rounds.
-type Q = { text: string; answer: number; options: number[] }
+type Q = { text: string; answer: string; options: string[] }
 
-function makeQuestion(rand: () => number = Math.random): Q {
+/** Arithmetic question for Boss Rush (year-2 level). */
+function makeMathQuestion(rand: () => number = Math.random): Q {
   const ops = ['+', '-', '×'] as const
   const op = ops[Math.floor(rand() * ops.length)]
   let a: number, b: number, answer: number
@@ -24,38 +28,51 @@ function makeQuestion(rand: () => number = Math.random): Q {
     b = 2 + Math.floor(rand() * 9)
     answer = a * b
   }
-  const options = new Set<number>([answer])
+  const opts = new Set<number>([answer])
   let guard = 0
-  while (options.size < 4 && guard++ < 40) {
+  while (opts.size < 4 && guard++ < 40) {
     const delta = Math.floor(rand() * 11) - 5
     const candidate = answer + (delta === 0 ? 3 : delta)
-    if (candidate >= 0) options.add(candidate)
+    if (candidate >= 0) opts.add(candidate)
   }
-  while (options.size < 4) options.add(answer + options.size + 1)
-  const shuffled = [...options].sort(() => rand() - 0.5)
-  return { text: `${a} ${op} ${b}`, answer, options: shuffled }
+  while (opts.size < 4) opts.add(answer + opts.size + 1)
+  const shuffled = [...opts].sort(() => rand() - 0.5)
+  return { text: `${a} ${op} ${b}`, answer: String(answer), options: shuffled.map(String) }
+}
+
+function makeQuestion(gameId: string, rand: () => number = Math.random): Q {
+  if (gameId === 'word-rescue') {
+    const r = rollWordQuestion(rand)
+    return { text: r.text, answer: r.answer, options: r.options }
+  }
+  if (gameId === 'lab-blitz') {
+    const r = rollLabQuestion(rand)
+    return { text: `${r.emoji} ${r.text}`, answer: r.answer, options: r.options }
+  }
+  return makeMathQuestion(rand)
 }
 
 const ROUND_SECONDS = 60
-const FUSE_MS = 6000 // number-blaster: escape window per question
 
 export function ArcadeGame({ game, onExit }: { game: ArcadeGameDef; onExit: () => void }) {
   const [phase, setPhase] = useState<'ready' | 'play' | 'over'>('ready')
-  const [q, setQ] = useState<Q>(() => makeQuestion())
+  const [q, setQ] = useState<Q>(() => makeQuestion(game.id))
   const [score, setScore] = useState(0)
   const [combo, setCombo] = useState(0)
   const [bossHp, setBossHp] = useState(3)
   const [bossesDown, setBossesDown] = useState(0)
+  const [bossAnim, setBossAnim] = useState<'idle' | 'hurt' | 'defeated'>('idle')
+  const [bossRound, setBossRound] = useState(0) // increments per defeated boss → hue variant
   const [lives, setLives] = useState(3)
   const [timeLeft, setTimeLeft] = useState(ROUND_SECONDS)
   const [flash, setFlash] = useState<'ok' | 'no' | null>(null)
-  const [fuse, setFuse] = useState(FUSE_MS)
   const [rewards, setRewards] = useState({ xp: 0, gems: 0 })
+  const [unlockedCard, setUnlockedCard] = useState<string | null>(null)
   const best = usePlayer((s) => s.arcadeScores[game.id] ?? 0)
   const submitted = useRef(false)
-  const fuseSpent = useRef(false)
 
   const isBoss = game.id === 'boss-rush'
+  const isWords = game.id === 'word-rescue'
   const finalScore = isBoss ? bossesDown * 100 : score
 
   const finish = useCallback(() => {
@@ -71,47 +88,17 @@ export function ArcadeGame({ game, onExit }: { game: ArcadeGameDef; onExit: () =
       st.addArcadeCorrect(Math.min(finalScore, 100))
       st.addArcadeXp(xp)
     }
+    // Count the round + bosses, then evaluate exclusive-card unlocks.
+    const granted = st.recordArcadeRound(game.id, isBoss ? bossesDown : 0)
     setRewards({ xp, gems })
+    setUnlockedCard(granted[0] ?? null)
+    if (granted.length > 0) sfx.streak()
     sfx.leagueUp()
-  }, [finalScore, game.id])
+  }, [finalScore, game.id, isBoss, bossesDown])
 
   const nextQuestion = useCallback(() => {
-    setQ(makeQuestion())
-    setFuse(FUSE_MS)
-    fuseSpent.current = false
-  }, [])
-
-  // Fresh timeout closure every render (reads current lives/phase/finish).
-  const onFuseOut = useRef<() => void>(() => {})
-  onFuseOut.current = () => {
-    if (phase !== 'play') return
-    sfx.wrong()
-    setFlash('no')
-    setCombo(0)
-    nextQuestion()
-    const nl = lives - 1
-    if (nl <= 0) {
-      setLives(0)
-      setTimeout(() => finish(), 200)
-    } else {
-      setLives(nl)
-    }
-    setTimeout(() => setFlash(null), 150)
-  }
-
-  // Per-question fuse: counts down, then the number escapes (lose a life).
-  useEffect(() => {
-    if (phase !== 'play' || game.id !== 'number-blaster') return
-    const t = setInterval(() => setFuse((f) => Math.max(0, f - 100)), 100)
-    return () => clearInterval(t)
-  }, [phase, game.id])
-
-  useEffect(() => {
-    if (phase !== 'play' || game.id !== 'number-blaster' || fuse > 0) return
-    if (fuseSpent.current) return
-    fuseSpent.current = true
-    onFuseOut.current()
-  }, [fuse, phase, game.id])
+    setQ(makeQuestion(game.id))
+  }, [game.id])
 
   useEffect(() => {
     if (phase !== 'play') return
@@ -137,14 +124,17 @@ export function ArcadeGame({ game, onExit }: { game: ArcadeGameDef; onExit: () =
     setCombo(0)
     setBossHp(3)
     setBossesDown(0)
+    setBossAnim('idle')
+    setBossRound(0)
     setLives(3)
     setTimeLeft(ROUND_SECONDS)
+    setUnlockedCard(null)
     nextQuestion()
     setPhase('play')
     sfx.tap()
   }
 
-  const answer = (opt: number) => {
+  const answer = (opt: string) => {
     if (phase !== 'play') return
     const correct = opt === q.answer
     if (correct) {
@@ -154,10 +144,18 @@ export function ArcadeGame({ game, onExit }: { game: ArcadeGameDef; onExit: () =
       if (isBoss) {
         const nextHp = bossHp - 1
         if (nextHp <= 0) {
+          // Boss lost: defeated animation, then the next boss spawns.
+          setBossAnim('defeated')
           setBossesDown((b) => b + 1)
-          setBossHp(3)
+          setTimeout(() => {
+            setBossRound((r) => r + 1)
+            setBossHp(3)
+            setBossAnim('idle')
+          }, 650)
         } else {
           setBossHp(nextHp)
+          setBossAnim('hurt')
+          setTimeout(() => setBossAnim('idle'), 320)
         }
       } else {
         setScore((s) => s + 10 + combo * 2)
@@ -167,31 +165,24 @@ export function ArcadeGame({ game, onExit }: { game: ArcadeGameDef; onExit: () =
       sfx.wrong()
       setFlash('no')
       setCombo(0)
-      if (game.id === 'math-run') {
-        setTimeLeft((t) => Math.max(0, t - 5))
-      } else if (game.id === 'number-blaster') {
-        const nl = lives - 1
-        if (nl <= 0) {
-          setLives(0)
-          setTimeout(() => finish(), 200)
-          return
-        }
-        setLives(nl)
-      } else if (lives <= 1) {
-        // boss-rush: 3 wrong ends the run
+      const nl = lives - 1
+      if (nl <= 0) {
         setLives(0)
+        nextQuestion()
         setTimeout(() => finish(), 200)
+        setTimeout(() => setFlash(null), 150)
         return
-      } else {
-        setLives(lives - 1)
       }
+      setLives(nl)
       nextQuestion()
+      setTimeout(() => setFlash(null), 150)
     }
-    setTimeout(() => setFlash(null), 150)
   }
 
   const shownScore = isBoss ? bossesDown * 100 : score
   const isPb = phase === 'over' && finalScore > best
+  const unlockedDef = unlockedCard ? ARCADE_CARD_BY_ID[unlockedCard] : null
+  const unlockedGoal = unlockedCard ? ARCADE_CARD_GOALS[unlockedCard] : null
 
   if (phase === 'ready') {
     return (
@@ -203,12 +194,13 @@ export function ArcadeGame({ game, onExit }: { game: ArcadeGameDef; onExit: () =
           <p>⏱ {ROUND_SECONDS}s round</p>
           <p>
             {isBoss
-              ? '⚔️ 3 correct answers defeat a boss — how many can you clear?'
-              : game.id === 'math-run'
-                ? '🏃 Wrong answers cost 5s — streak for combo bonus!'
-                : '🔫 3 lives · 6s per answer — numbers escape when time runs out!'}
+              ? '⚔️ 3 correct answers defeat a pixel boss — how many can you clear?'
+              : isWords
+                ? '📚 3 lives — pick the word that is spelled right!'
+                : '🔬 3 lives — answer fast science questions!'}
           </p>
           <p>🏆 Personal best: {best || '—'}</p>
+          <p className="mt-1 text-xs font-bold text-slate-400">🕹️ Rounds feed exclusive card unlocks</p>
         </div>
         <div className="mt-6 flex justify-center gap-3">
           <button className="btn3d btn-green !px-8" onClick={start}>▶ Play</button>
@@ -233,6 +225,28 @@ export function ArcadeGame({ game, onExit }: { game: ArcadeGameDef; onExit: () =
           {isPb && <p className="mt-1 font-display font-bold text-amber-500">⭐ NEW PERSONAL BEST!</p>}
           <p className="mt-1 text-sm font-bold text-slate-400">Previous best: {best || '—'}</p>
         </motion.div>
+
+        {unlockedDef && (
+          <motion.div
+            initial={{ scale: 0, rotate: -8 }}
+            animate={{ scale: 1, rotate: 0 }}
+            transition={{ delay: 0.35, type: 'spring', stiffness: 200, damping: 12 }}
+            className="card-white mx-auto mt-4 max-w-xs border-2 border-amber-300 bg-gradient-to-b from-amber-50 to-white"
+          >
+            <p className="font-display text-sm font-extrabold uppercase tracking-wide text-amber-600">
+              🕹️ Exclusive card unlocked!
+            </p>
+            <img src={cardImageUrl(unlockedDef)} alt={unlockedDef.name} className="mx-auto mt-2 h-28" />
+            <p className="font-display text-lg font-extrabold text-slate-800">{unlockedDef.name}</p>
+            <p className="text-xs font-bold text-slate-500">{unlockedDef.flavor}</p>
+            {unlockedGoal && (
+              <p className="mt-1 text-[10px] font-bold uppercase tracking-wide text-amber-500">
+                {unlockedGoal.label.replace('{n}', String(unlockedGoal.goal))}
+              </p>
+            )}
+          </motion.div>
+        )}
+
         <div className="mt-6 flex justify-center gap-3">
           <button className="btn3d btn-green !px-8" onClick={start}>↻ Play again</button>
           <button className="btn3d btn-grey !px-6" onClick={onExit}>← Back</button>
@@ -251,7 +265,7 @@ export function ArcadeGame({ game, onExit }: { game: ArcadeGameDef; onExit: () =
         <span className="rounded-xl bg-amber-100 px-3 py-1 text-amber-600">🔥 {combo}</span>
       </div>
 
-      {!isBoss && game.id === 'number-blaster' && (
+      {!isBoss && (
         <div className="mb-3 text-center font-display font-extrabold text-red-400">
           ❤️ {'❤️'.repeat(lives)}{'🤍'.repeat(Math.max(0, 3 - lives))}
         </div>
@@ -259,8 +273,13 @@ export function ArcadeGame({ game, onExit }: { game: ArcadeGameDef; onExit: () =
 
       {isBoss && (
         <div className="mb-4 rounded-2xl border-2 border-red-200 bg-red-50 p-3 text-center">
-          <p className="font-display text-sm font-extrabold text-red-500">👹 Boss HP: {'❤️'.repeat(bossHp)}{'🖤'.repeat(3 - bossHp)}</p>
-          <p className="text-xs font-bold text-slate-400">Bosses defeated: {bossesDown} · Lives: {'❤️'.repeat(lives)}</p>
+          <PixelBoss phase={bossAnim} variant={bossRound} hp={bossHp} maxHp={3} />
+          <p className="mt-1 font-display text-sm font-extrabold text-red-500">
+            Boss HP: {'❤️'.repeat(bossHp)}{'🖤'.repeat(Math.max(0, 3 - bossHp))}
+          </p>
+          <p className="text-xs font-bold text-slate-400">
+            Bosses defeated: {bossesDown} · Lives: {'❤️'.repeat(lives)}
+          </p>
         </div>
       )}
 
@@ -269,34 +288,22 @@ export function ArcadeGame({ game, onExit }: { game: ArcadeGameDef; onExit: () =
           flash === 'ok' ? '!bg-emerald-50' : flash === 'no' ? '!bg-red-50' : ''
         }`}
       >
-        <p className="text-sm font-bold uppercase tracking-wide text-slate-400">What is</p>
-        <p className="mt-1 font-display text-5xl font-extrabold text-slate-800">{q.text} = ?</p>
+        <p className="text-sm font-bold uppercase tracking-wide text-slate-400">
+          {isBoss ? 'What is' : isWords ? 'Which is spelled right?' : 'Science question'}
+        </p>
+        <p className={`mt-1 font-display font-extrabold text-slate-800 ${isBoss ? 'text-5xl' : 'text-2xl'}`}>
+          {isBoss ? `${q.text} = ?` : q.text}
+        </p>
       </div>
 
-      {game.id === 'number-blaster' && (
-        <div
-          className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100"
-          role="progressbar"
-          aria-label="Answer time left"
-          aria-valuemin={0}
-          aria-valuemax={FUSE_MS}
-          aria-valuenow={fuse}
-        >
-          <div
-            className={`h-full rounded-full transition-[width] duration-100 ease-linear ${
-              fuse / FUSE_MS < 0.3 ? 'bg-red-400' : 'bg-emerald-400'
-            }`}
-            style={{ width: `${(fuse / FUSE_MS) * 100}%` }}
-          />
-        </div>
-      )}
-
-      <div className="mt-5 grid grid-cols-2 gap-3">
+      <div className={`mt-5 grid gap-3 ${isBoss ? 'grid-cols-2' : 'grid-cols-1 sm:grid-cols-2'}`}>
         {q.options.map((opt) => (
           <button
             key={opt}
             onClick={() => answer(opt)}
-            className="btn3d btn-green !py-4 !text-2xl font-display font-extrabold"
+            className={`btn3d btn-green font-display font-extrabold ${
+              isBoss ? '!py-4 !text-2xl' : '!py-3 !text-base'
+            }`}
           >
             {opt}
           </button>
