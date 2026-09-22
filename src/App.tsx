@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { startCloudSync } from './engine/cloudsave'
 import { AnimatePresence, motion } from 'framer-motion'
 import { TopBar } from './components/ui/TopBar'
 import { BottomNav, type Tab } from './components/ui/BottomNav'
@@ -9,6 +10,7 @@ import { QuestsScreen } from './screens/QuestsScreen'
 import { ProfileScreen } from './screens/ProfileScreen'
 import { ShopScreen } from './screens/ShopScreen'
 import { LibraryScreen } from './screens/LibraryScreen'
+import { ArcadeScreen } from './screens/ArcadeScreen'
 import { WelcomeGate } from './components/ui/WelcomeGate'
 import { AutoLeagueSettle } from './components/ui/AutoLeagueSettle'
 import { Scenery } from './components/ui/Scenery'
@@ -18,6 +20,10 @@ export default function App() {
   const [tab, setTab] = useState<Tab>('path')
   const [activeLesson, setActiveLesson] = useState<string | null>(null)
   const [showLibrary, setShowLibrary] = useState(false)
+
+  useEffect(() => {
+    startCloudSync()
+  }, [])
 
   if (new URLSearchParams(window.location.search).has('gallery')) {
     return <MascotGallery />
@@ -64,6 +70,7 @@ export default function App() {
       {tab === 'shop' && <ShopScreen />}
       {tab === 'leagues' && <LeaguesScreen />}
       {tab === 'quests' && <QuestsScreen />}
+      {tab === 'arcade' && <ArcadeScreen />}
       {tab === 'profile' && <ProfileScreen />}
         </motion.main>
         </AnimatePresence>

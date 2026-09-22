@@ -316,30 +316,63 @@ export interface QuestSnapshot {
   xpToday: number
   lessonsToday: number
   correctToday: number
+  bossesToday: number
+  arcadeCorrectToday: number
 }
 
+/** Rotating pool — questsForDay picks 3 for a given day. */
 export const DAILY_QUESTS: QuestDef[] = [
-  {
-    id: 'xp20',
-    label: (g) => `Earn ${g} XP`,
-    goal: 20,
-    reward: 10,
-    progress: (s) => s.xpToday,
-  },
-  {
-    id: 'lessons2',
-    label: () => 'Complete 2 lessons',
-    goal: 2,
-    reward: 15,
-    progress: (s) => s.lessonsToday,
-  },
-  {
-    id: 'correct10',
-    label: (g) => `Answer ${g} questions correctly`,
-    goal: 10,
-    reward: 15,
-    progress: (s) => s.correctToday,
-  },
+  { id: 'xp20', label: (g) => `Earn ${g} XP`, goal: 20, reward: 10, progress: (s) => s.xpToday },
+  { id: 'lessons2', label: () => 'Complete 2 lessons', goal: 2, reward: 15, progress: (s) => s.lessonsToday },
+  { id: 'correct10', label: (g) => `Answer ${g} questions correctly`, goal: 10, reward: 15, progress: (s) => s.correctToday },
+  { id: 'xp50', label: (g) => `Earn ${g} XP`, goal: 50, reward: 20, progress: (s) => s.xpToday },
+  { id: 'lessons5', label: () => 'Complete 5 lessons', goal: 5, reward: 25, progress: (s) => s.lessonsToday },
+  { id: 'correct25', label: (g) => `Answer ${g} questions correctly`, goal: 25, reward: 25, progress: (s) => s.correctToday },
+  { id: 'boss1', label: () => 'Clear 1 boss level', goal: 1, reward: 30, progress: (s) => s.bossesToday },
+  { id: 'arcade10', label: (g) => `Score ${g} points in the arcade`, goal: 10, reward: 20, progress: (s) => s.arcadeCorrectToday },
+  { id: 'xp100', label: (g) => `Earn ${g} XP`, goal: 100, reward: 40, progress: (s) => s.xpToday },
+]
+
+/** Deterministic pick of 3 quests for a given calendar day. */
+function seededIndex(seed: number, len: number): number {
+  return Math.abs(Math.imul(seed, 2654435761) >>> 0) % len
+}
+
+export function questsForDay(day: string): QuestDef[] {
+  let hash = 2166136261
+  for (let i = 0; i < day.length; i++) {
+    hash ^= day.charCodeAt(i)
+    hash = Math.imul(hash, 16777619)
+  }
+  const picks: number[] = []
+  let h = hash >>> 0
+  while (picks.length < Math.min(3, DAILY_QUESTS.length)) {
+    const idx = seededIndex(h, DAILY_QUESTS.length)
+    if (!picks.includes(idx)) picks.push(idx)
+    h = (h + 0x9e3779b9) >>> 0
+  }
+  return picks.map((i) => DAILY_QUESTS[i])
+}
+
+/** Alias for arcade.ts compatibility. */
+export function rollQuestSet(day: string): QuestDef[] {
+  return questsForDay(day)
+}
+
+/** 7-day login calendar rewards (gems), indexed by (streak - 1) % 7. */
+export const LOGIN_REWARDS = [5, 10, 15, 20, 25, 30, 50]
+
+/* ---------------- Arcade game defs ---------------- */export interface ArcadeGameDef {
+  id: 'math-run' | 'boss-rush' | 'number-blaster'
+  title: string
+  desc: string
+  icon: string
+}
+
+export const ARCADE_GAMES: ArcadeGameDef[] = [
+  { id: 'math-run', title: 'Math Run', desc: 'Sprint through gates answering as fast as you can', icon: '🏃' },
+  { id: 'boss-rush', title: 'Boss Rush', desc: 'Take down bosses with perfect answers', icon: '⚔️' },
+  { id: 'number-blaster', title: 'Number Blaster', desc: 'Shoot the correct answers before they escape', icon: '🔫' },
 ]
 
 /* ---------------- Achievements ---------------- */
@@ -354,8 +387,24 @@ export interface AchievementDef {
 export interface AchievementSnapshot {
   xpTotal: number
   streakCurrent: number
+  streakLongest: number
   lessonsCompleted: number
   crowns: number
+  crownsAll: number
+  crownsTotal: number
+  bestAccuracy: number
+  unitsTouched: number
+  cardsOwned: number
+  cardsFiveStar: number
+  cardDust: number
+  gems: number
+  perfectToday: boolean
+  league: string
+  leagueWeeks: number
+  arcadeBests: number
+  arcadeTop: number
+  subjectsPlayed: number
+  dailyLoginStreak: number
 }
 
 /**
@@ -387,7 +436,36 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   { id: 'first-lesson', title: 'First Win!', desc: 'Finish your first lesson', icon: '🎉', test: (s) => s.lessonsCompleted >= 1 },
   { id: 'streak-3', title: 'On Fire', desc: 'Keep a 3-day streak', icon: '🔥', test: (s) => s.streakCurrent >= 3 },
   { id: 'streak-7', title: 'Week Warrior', desc: 'Keep a 7-day streak', icon: '⚡', test: (s) => s.streakCurrent >= 7 },
+  { id: 'streak-14', title: 'Unstoppable', desc: 'Keep a 14-day streak', icon: '🌋', test: (s) => s.streakCurrent >= 14 },
+  { id: 'streak-30', title: 'Monthly Master', desc: 'Keep a 30-day streak', icon: '🏆', test: (s) => s.streakCurrent >= 30 },
+  { id: 'streak-longest-21', title: 'Iron Will', desc: 'Reach a 21-day best streak', icon: '🛡️', test: (s) => s.streakLongest >= 21 },
   { id: 'xp-250', title: 'XP Collector', desc: 'Earn 250 XP total', icon: '🌟', test: (s) => s.xpTotal >= 250 },
+  { id: 'xp-1000', title: 'XP Machine', desc: 'Earn 1,000 XP total', icon: '💫', test: (s) => s.xpTotal >= 1000 },
+  { id: 'xp-5000', title: 'XP Legend', desc: 'Earn 5,000 XP total', icon: '🌈', test: (s) => s.xpTotal >= 5000 },
   { id: 'lessons-10', title: 'Marathon Mind', desc: 'Complete 10 lessons', icon: '🏃', test: (s) => s.lessonsCompleted >= 10 },
+  { id: 'lessons-50', title: 'Learning Machine', desc: 'Complete 50 lessons', icon: '🤖', test: (s) => s.lessonsCompleted >= 50 },
+  { id: 'lessons-100', title: 'Century Club', desc: 'Complete 100 lessons', icon: '💯', test: (s) => s.lessonsCompleted >= 100 },
   { id: 'crowns-5', title: 'Crown Club', desc: 'Win 5 crown levels', icon: '👑', test: (s) => s.crowns >= 5 },
+  { id: 'crowns-25', title: 'Crown Royalty', desc: 'Collect 25 crowns', icon: '🤴', test: (s) => s.crowns >= 25 },
+  { id: 'crowns-75', title: 'Crown Empire', desc: 'Collect 75 crowns', icon: '🏰', test: (s) => s.crowns >= 75 },
+  { id: 'lessons-touched-10', title: 'Explorer', desc: 'Try 10 different lessons', icon: '🧭', test: (s) => s.crownsTotal >= 10 },
+  { id: 'units-3', title: 'Well Rounded', desc: 'Play lessons in 3 units', icon: '🎨', test: (s) => s.unitsTouched >= 3 },
+  { id: 'units-5', title: 'Topic Traveler', desc: 'Play lessons in 5 units', icon: '✈️', test: (s) => s.unitsTouched >= 5 },
+  { id: 'accuracy-90', title: 'Eagle Eye', desc: 'Score 90%+ best accuracy', icon: '🦅', test: (s) => s.bestAccuracy >= 90 },
+  { id: 'accuracy-100', title: 'Sharpshooter', desc: 'Score 100% in a lesson', icon: '🎯', test: (s) => s.bestAccuracy >= 100 },
+  { id: 'cards-5', title: 'Collector', desc: 'Own 5 character cards', icon: '🃏', test: (s) => s.cardsOwned >= 5 },
+  { id: 'cards-10', title: 'Card Master', desc: 'Own 10 character cards', icon: '🎴', test: (s) => s.cardsOwned >= 10 },
+  { id: 'cards-5star-1', title: 'First 5-Star', desc: 'Max a card to 5 stars', icon: '⭐', test: (s) => s.cardsFiveStar >= 1 },
+  { id: 'cards-5star-3', title: 'Star Crusher', desc: 'Max 3 cards to 5 stars', icon: '🌟', test: (s) => s.cardsFiveStar >= 3 },
+  { id: 'gems-500', title: 'Gem Hoarder', desc: 'Hold 500 gems at once', icon: '💎', test: (s) => s.gems >= 500 },
+  { id: 'dust-100', title: 'Dust Grinder', desc: 'Hold 100 dust at once', icon: '🌪️', test: (s) => s.cardDust >= 100 },
+  { id: 'league-gold', title: 'Gold League', desc: 'Reach the Gold league', icon: '🥇', test: (s) => LEAGUES.indexOf(s.league as LeagueName) >= LEAGUES.indexOf('Gold') },
+  { id: 'league-sapphire', title: 'Sapphire League', desc: 'Reach the Sapphire league', icon: '🔹', test: (s) => LEAGUES.indexOf(s.league as LeagueName) >= LEAGUES.indexOf('Sapphire') },
+  { id: 'league-diamond', title: 'Diamond League', desc: 'Reach the Diamond league', icon: '💎', test: (s) => LEAGUES.indexOf(s.league as LeagueName) >= LEAGUES.indexOf('Diamond') },
+  { id: 'league-weeks-4', title: 'League Veteran', desc: 'Finish 4 league weeks', icon: '📅', test: (s) => s.leagueWeeks >= 4 },
+  { id: 'arcade-debut', title: 'Arcade Debut', desc: 'Set a score in any arcade game', icon: '🕹️', test: (s) => s.arcadeBests >= 1 },
+  { id: 'arcade-3', title: 'Arcade Ace', desc: 'Set scores in 3 arcade games', icon: '👾', test: (s) => s.arcadeBests >= 3 },
+  { id: 'arcade-100', title: 'High Scorer', desc: 'Score 100+ in an arcade game', icon: '🚀', test: (s) => s.arcadeTop >= 100 },
+  { id: 'subjects-3', title: 'Triple Threat', desc: 'Play all 3 subjects', icon: '🎓', test: (s) => s.subjectsPlayed >= 3 },
+  { id: 'login-7', title: 'Loyal Player', desc: 'Claim 7 login rewards in a row', icon: '🎁', test: (s) => s.dailyLoginStreak >= 7 },
 ]

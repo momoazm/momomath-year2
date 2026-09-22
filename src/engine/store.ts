@@ -3,11 +3,12 @@ import { persist } from 'zustand/middleware'
 import type { MascotId, Subject } from '../content/types'
 import {
   ACHIEVEMENTS,
-  DAILY_QUESTS,
   advanceLeague,
   leagueOutcomeByRank,
   leagueOutcomeByXp,
   leagueWeekElapsed,
+  LOGIN_REWARDS,
+  questsForDay,
   streakMilestoneFor,
   todayISO,
   yesterdayISO,
@@ -15,8 +16,9 @@ import {
 } from './gamification'
 import { SHOP_ITEMS } from './shop'
 import { setMuted, sfx } from './sfx'
-import { STAR_THRESHOLDS } from './cards'
+import { STAR_THRESHOLDS, DUST_PER_CARD } from './cards'
 import type { ChestResult } from './cards'
+import { ARCADE_GAMES } from './arcade'
 
 export interface LessonProgress {
   crown: number
@@ -51,6 +53,10 @@ interface PlayerState {
   lessonsToday: number
   correctTodayDay: string
   correctToday: number
+  bossesTodayDay: string
+  bossesToday: number
+  arcadeCorrectTodayDay: string
+  arcadeCorrectToday: number
   weeklyXpWeek: string
   weeklyXp: number
   lessonProgress: Record<string, LessonProgress>
@@ -85,6 +91,16 @@ interface PlayerState {
   cardPity: number
   /** shop Lucky Ticket stack; consumed on the next chest */
   luckyTickets: number
+  /** dust earned from maxed 5★ duplicates (spendable in the shop) */
+  dust: number
+  /** 7-day login calendar streak (independent of lesson streak) */
+  dailyLoginStreak: number
+  /** last day a lesson-ish activity or calendar claim touched login streak */
+  lastLoginDay: string | null
+  /** last day the login calendar reward was claimed */
+  loginRewardClaimedDay: string | null
+  /** per-arcade-game personal bests (see ARCADE_GAMES ids) */
+  arcadeScores: Record<string, number>
   /** timestamp (ms) of last successful cloud sync */
   lastSyncedAt: number | null
 
@@ -105,6 +121,10 @@ interface PlayerState {
   addGems: (n: number) => void
   toggleSound: () => void
   claimQuest: (questId: string, reward: number) => void
+  /** Count a correct answer inside an Arcade game (feeds the arcade quest). */
+  addArcadeCorrect: (n?: number) => void
+  /** Count a completed boss lesson (feeds the daily boss quest). */
+  addBossClear: () => void
   spendGems: (amount: number) => boolean
   buyItem: (itemId: string) => { success: boolean; message: string }
   useStreakSaver: () => boolean
@@ -122,6 +142,12 @@ interface PlayerState {
   consumeLuckyTicket: () => boolean
   applySyncedSnapshot: (snap: Partial<PlayerState>) => void
   setLastSyncedAt: (t: number | null) => void
+  /** Spend `amount` dust; false if balance is short. */
+  spendDust: (amount: number) => boolean
+  /** Record an arcade score; returns true when a new personal best. */
+  submitArcadeScore: (gameId: string, score: number) => boolean
+  /** Claim today's login-calendar reward; returns the 1-7 day index or null. */
+  claimDailyLogin: () => number | null
   /** settle last week's league (promote/demote) if the 7-day week has elapsed */
   syncLeagueWeek: () => void
   /** rank-based settle: top 3 promote, middle stay, bottom 3 demote (clamps
@@ -146,6 +172,14 @@ function rollDay(s: PlayerState) {
   if (s.correctTodayDay !== today) {
     s.correctTodayDay = today
     s.correctToday = 0
+  }
+  if (s.bossesTodayDay !== today) {
+    s.bossesTodayDay = today
+    s.bossesToday = 0
+  }
+  if (s.arcadeCorrectTodayDay !== today) {
+    s.arcadeCorrectTodayDay = today
+    s.arcadeCorrectToday = 0
   }
 }
 
@@ -368,28 +402,66 @@ export function updateStreak(
   s.lastActiveDay = today
 }
 
-function checkAchievements(s: PlayerState) {
-  const lessonsCompleted = Object.values(s.lessonProgress).reduce(
-    (a, p) => a + p.completions,
-    0,
-  )
-  const crowns = Object.values(s.lessonProgress).reduce((a, p) => a + p.crown, 0)
-  const snap = {
-    xpTotal: s.xpTotal,
-    streakCurrent: s.streakCurrent,
-    lessonsCompleted,
-    crowns,
-  }
-  let gained = false
-  for (const a of ACHIEVEMENTS) {
-    if (!s.achievements.includes(a.id) && a.test(snap)) {
-      s.achievements.push(a.id)
-      s.gems += 20
-      gained = true
+  /** Achievements: fields are MAXED (highest value ever seen) so an unlock
+   *  can never be lost by a later regression (spending gems, etc.). */
+  function checkAchievements(s: PlayerState) {
+    const lessonsCompleted = Object.values(s.lessonProgress).reduce(
+      (a, p) => a + p.completions,
+      0,
+    )
+    const crowns = Object.values(s.lessonProgress).reduce((a, p) => a + p.crown, 0)
+    const units = new Set<string>()
+    for (const id of Object.keys(s.lessonProgress)) {
+      const m = id.match(/^([a-z]+\d+)/)
+      if (m) units.add(m[1])
     }
+    let bestAccuracy = 0
+    for (const p of Object.values(s.lessonProgress)) {
+      bestAccuracy = Math.max(bestAccuracy, p.bestAccuracy)
+    }
+    const cards = Object.values(s.cardStars)
+    const cardsOwned = cards.filter((n) => n > 0).length
+    const maxCopies = STAR_THRESHOLDS[STAR_THRESHOLDS.length - 1]
+    const cardsFiveStar = cards.filter((n) => n >= maxCopies).length
+    const subjects = new Set<string>()
+    for (const id of Object.keys(s.lessonProgress)) {
+      if (id.startsWith('e')) subjects.add('english')
+      else if (id.startsWith('s') && !id.startsWith('sc')) subjects.add('science')
+      else if (id.startsWith('u')) subjects.add('math')
+    }
+    const snap = {
+      xpTotal: s.xpTotal,
+      streakCurrent: s.streakCurrent,
+      streakLongest: Math.max(s.streakLongest, s.streakCurrent),
+      lessonsCompleted,
+      crowns,
+      crownsAll: 0,
+      crownsTotal: Object.keys(s.lessonProgress).length,
+      bestAccuracy,
+      unitsTouched: units.size,
+      cardsOwned,
+      cardsFiveStar,
+      cardDust: s.dust,
+      gems: s.gems,
+      perfectToday: false,
+      league: s.currentLeague,
+      leagueWeeks: s.leagueHistory.length,
+      arcadeBests: Object.values(s.arcadeScores).filter((v) => v > 0).length,
+      arcadeTop: Math.max(0, ...Object.values(s.arcadeScores)),
+      subjectsPlayed: subjects.size,
+      dailyLoginStreak: s.dailyLoginStreak,
+    }
+    let gained = false
+    for (const a of ACHIEVEMENTS) {
+      if (s.achievements.includes(a.id)) continue
+      if (a.test(snap)) {
+        s.achievements.push(a.id)
+        s.gems += 20
+        gained = true
+      }
+    }
+    if (gained) sfx.leagueUp()
   }
-  if (gained) sfx.leagueUp()
-}
 
 const firstDay = todayISO()
 
@@ -417,6 +489,10 @@ export const usePlayer = create<PlayerState>()(
       lessonsToday: 0,
       correctTodayDay: firstDay,
       correctToday: 0,
+      bossesTodayDay: firstDay,
+      bossesToday: 0,
+      arcadeCorrectTodayDay: firstDay,
+      arcadeCorrectToday: 0,
       weeklyXpWeek: todayISO(), // league week anchored at 12:00 AM today
       weeklyXp: 0,
       lessonProgress: {},
@@ -439,6 +515,11 @@ export const usePlayer = create<PlayerState>()(
       cardCounts: {},
       cardPity: 0,
       luckyTickets: 0,
+      dust: 0,
+      dailyLoginStreak: 0,
+      lastLoginDay: null,
+      loginRewardClaimedDay: null,
+      arcadeScores: {},
       lastSyncedAt: null,
 
       completeLesson: ({ lessonId, xp, correct, totalQuestions, crownsGained, accuracy }) =>
@@ -517,6 +598,20 @@ export const usePlayer = create<PlayerState>()(
             gems: state.gems + reward,
             claimedQuests: { day: today, questIds: [...base, questId] },
           }
+        }),
+      addArcadeCorrect: (n = 1) =>
+        set((state) => {
+          const s = { ...state }
+          rollDay(s)
+          s.arcadeCorrectToday += n
+          return s
+        }),
+      addBossClear: () =>
+        set((state) => {
+          const s = { ...state }
+          rollDay(s)
+          s.bossesToday += 1
+          return s
         }),
       spendGems: (amount) => {
         let success = false
@@ -604,13 +699,22 @@ export const usePlayer = create<PlayerState>()(
           if (anyNew) pity = 0
           else pity = pity + 1
 
-          // Double gems if the packed character is already at 5★
-          // (5★ means cardStars[id] >= STAR_THRESHOLDS[4] = 21 copies)
-          const maxed = (cardStars[chest.cardId] ?? 0) >= STAR_THRESHOLDS[STAR_THRESHOLDS.length - 1]
-          const gemMultiplier = maxed ? 2 : 1
-          const bonusGems = ((chest.gems ?? 0) + (chest.dust ?? 0)) * gemMultiplier
+          // Dust for duplicates: once the packed character is 5★, extra
+          // copies convert into dust (shop currency) at DUST_PER_CARD each —
+          // otherwise maxing a character dead-ends the gacha.
+          const maxThreshold = STAR_THRESHOLDS[STAR_THRESHOLDS.length - 1]
+          const prevCopies = cardStars[chest.cardId] - chest.copies
+          const maxedCopies = Math.max(0, Math.min(chest.copies, cardStars[chest.cardId] - maxThreshold))
+          const dustEarned = (chest.dust ?? 0) + maxedCopies * DUST_PER_CARD[chest.finalTier]
+          const gemMultiplier = maxedCopies > 0 || prevCopies >= maxThreshold ? 2 : 1
+          const bonusGems = (chest.gems ?? 0) * gemMultiplier
 
-          return { gems: state.gems + bonusGems, cardStars, cardPity: pity }
+          return {
+            gems: state.gems + bonusGems,
+            dust: state.dust + dustEarned,
+            cardStars,
+            cardPity: pity,
+          }
         }),
       addLuckyTickets: (n) => set((state) => ({ luckyTickets: state.luckyTickets + n })),
       consumeStreakChest: () => {
@@ -633,30 +737,139 @@ export const usePlayer = create<PlayerState>()(
       },
       applySyncedSnapshot: (snap) =>
         set((state) => {
-          // Conservative field-by-field merge (see sync.ts mergeStates for the
-          // authoritative union/max rules). Only touches fields present in snap.
+          // Conservative field-by-field merge. Local counters only ever move
+          // UP (the server merges before responding, so remote values already
+          // contain the union); identity/display fields follow the remote save.
           const next: Partial<PlayerState> = {}
-          if (typeof snap.name === 'string') next.name = snap.name
+          const maxNum = (a: number, b: unknown) =>
+            typeof b === 'number' && Number.isFinite(b) ? Math.max(a, b) : undefined
+          if (typeof snap.name === 'string' && snap.name) next.name = snap.name
           if (snap.mascot) next.mascot = snap.mascot
-          if (typeof snap.xpTotal === 'number') next.xpTotal = Math.max(state.xpTotal, snap.xpTotal)
-          if (typeof snap.gems === 'number') next.gems = Math.max(state.gems, snap.gems)
-          if (typeof snap.streakLongest === 'number')
-            next.streakLongest = Math.max(state.streakLongest, snap.streakLongest)
-          if (typeof snap.streakCurrent === 'number')
-            next.streakCurrent = Math.max(state.streakCurrent, snap.streakCurrent)
+          if (snap.subject) next.subject = snap.subject
+          if (typeof snap.dailyGoal === 'number') next.dailyGoal = snap.dailyGoal
+          if (typeof snap.onboarded === 'boolean') next.onboarded = snap.onboarded
+          if (typeof snap.soundOn === 'boolean') next.soundOn = snap.soundOn
+          if (typeof snap.lastActiveDay === 'string' || snap.lastActiveDay === null)
+            next.lastActiveDay = snap.lastActiveDay
+          if (typeof snap.lastLoginDay === 'string' || snap.lastLoginDay === null)
+            next.lastLoginDay = snap.lastLoginDay
+          if (typeof snap.loginRewardClaimedDay === 'string' || snap.loginRewardClaimedDay === null)
+            next.loginRewardClaimedDay = snap.loginRewardClaimedDay
+          if (typeof snap.weeklyXpWeek === 'string') next.weeklyXpWeek = snap.weeklyXpWeek
+          if (snap.pendingLeagueSettle !== undefined)
+            next.pendingLeagueSettle = snap.pendingLeagueSettle
+          const xp = maxNum(state.xpTotal, snap.xpTotal)
+          if (xp !== undefined) next.xpTotal = xp
+          const gems = maxNum(state.gems, snap.gems)
+          if (gems !== undefined) next.gems = gems
+          const dust = maxNum(state.dust, snap.dust)
+          if (dust !== undefined) next.dust = dust
+          const sc = maxNum(state.streakCurrent, snap.streakCurrent)
+          if (sc !== undefined) next.streakCurrent = sc
+          const sl = maxNum(state.streakLongest, snap.streakLongest)
+          if (sl !== undefined) next.streakLongest = sl
+          const dls = maxNum(state.dailyLoginStreak, snap.dailyLoginStreak)
+          if (dls !== undefined) next.dailyLoginStreak = dls
+          const ls = maxNum(state.lastStreakReward, snap.lastStreakReward)
+          if (ls !== undefined) next.lastStreakReward = ls
+          const lt = maxNum(state.luckyTickets, snap.luckyTickets)
+          if (lt !== undefined) next.luckyTickets = lt
+          const dx = maxNum(state.doubleXpLessons, snap.doubleXpLessons)
+          if (dx !== undefined) next.doubleXpLessons = dx
+          const ss = maxNum(state.streakSavers, snap.streakSavers)
+          if (ss !== undefined) next.streakSavers = ss
+          const pity = typeof snap.cardPity === 'number' ? Math.min(state.cardPity, snap.cardPity) : undefined
+          if (pity !== undefined) next.cardPity = pity
+          if (snap.pendingStreakMilestone !== undefined)
+            next.pendingStreakMilestone = snap.pendingStreakMilestone
+          if (typeof snap.chestBoost === 'boolean') next.chestBoost = snap.chestBoost
+          if (typeof snap.megaChest === 'boolean') next.megaChest = snap.megaChest
           if (snap.achievements?.length)
             next.achievements = [...new Set([...state.achievements, ...snap.achievements])]
-          if ((snap as any).cardCollection?.length) {
-            const migrated: Record<string, number> = {}
-            for (const id of (snap as any).cardCollection) migrated[id] = 3
-            next.cardCounts = { ...state.cardCounts, ...migrated }
+          if (snap.lessonProgress) {
+            const merged: Record<string, LessonProgress> = { ...state.lessonProgress }
+            for (const [k, v] of Object.entries(snap.lessonProgress)) {
+              if (!v || typeof v !== 'object') continue
+              const prev = merged[k]
+              merged[k] = prev
+                ? {
+                    crown: Math.max(prev.crown, v.crown),
+                    bestAccuracy: Math.max(prev.bestAccuracy, v.bestAccuracy),
+                    completions: Math.max(prev.completions, v.completions),
+                  }
+                : { ...v }
+            }
+            next.lessonProgress = merged
           }
-          if (snap.lessonProgress)
-            next.lessonProgress = { ...state.lessonProgress, ...snap.lessonProgress }
-          if (snap.shopInventory) next.shopInventory = { ...state.shopInventory, ...snap.shopInventory }
+          if (snap.cardStars) {
+            const merged: Record<string, number> = { ...state.cardStars }
+            for (const [k, v] of Object.entries(snap.cardStars)) {
+              if (typeof v === 'number' && Number.isFinite(v))
+                merged[k] = Math.max(merged[k] ?? 0, v)
+            }
+            next.cardStars = merged
+          }
+          if (snap.shopInventory) {
+            const merged: Record<string, number> = { ...state.shopInventory }
+            for (const [k, v] of Object.entries(snap.shopInventory)) {
+              if (typeof v === 'number' && Number.isFinite(v))
+                merged[k] = Math.max(merged[k] ?? 0, v)
+            }
+            next.shopInventory = merged
+          }
+          if (snap.arcadeScores) {
+            const merged: Record<string, number> = { ...state.arcadeScores }
+            for (const [k, v] of Object.entries(snap.arcadeScores)) {
+              if (typeof v === 'number' && Number.isFinite(v))
+                merged[k] = Math.max(merged[k] ?? 0, v)
+            }
+            next.arcadeScores = merged
+          }
+          if (snap.claimedQuests?.day) next.claimedQuests = snap.claimedQuests
           return next
         }),
       setLastSyncedAt: (t) => set({ lastSyncedAt: t }),
+      spendDust: (amount) => {
+        let success = false
+        set((state) => {
+          if (amount < 0 || state.dust < amount) return state
+          success = true
+          return { dust: state.dust - amount }
+        })
+        return success
+      },
+      submitArcadeScore: (gameId, score) => {
+        const key = String(gameId ?? '').slice(0, 32)
+        if (!key) return false
+        let pb = false
+        set((state) => {
+          const n = Math.max(0, Math.round(Number(score) || 0))
+          const prev = state.arcadeScores[key] ?? 0
+          if (n <= prev) return state
+          pb = true
+          return { arcadeScores: { ...state.arcadeScores, [key]: n } }
+        })
+        return pb
+      },
+      claimDailyLogin: () => {
+        let dayIndex: number | null = null
+        set((state) => {
+          const today = todayISO()
+          if (state.loginRewardClaimedDay === today) return state
+          const yesterday = yesterdayISO()
+          const streak =
+            state.lastLoginDay === yesterday ? state.dailyLoginStreak + 1 : 1
+          const idx = ((streak - 1) % 7) as number
+          dayIndex = idx
+          return {
+            dailyLoginStreak: streak,
+            lastLoginDay: today,
+            loginRewardClaimedDay: today,
+            gems: state.gems + LOGIN_REWARDS[idx],
+          }
+        })
+        return dayIndex
+      },
       syncLeagueWeek: () =>
         set((state) => {
           const s: PlayerState = { ...state }
@@ -679,7 +892,7 @@ export const usePlayer = create<PlayerState>()(
     }),
     {
       name: 'momomath-year2-player-v2',
-      version: 8,
+      version: 9,
       migrate: (persisted, version) => {
         const p = { ...(persisted as PlayerState) }
         if (version < 4) {
@@ -719,6 +932,15 @@ export const usePlayer = create<PlayerState>()(
           // pre-v8 states settle cleanly on the Leagues tab.
           if (!p.pendingLeagueSettle) (p as any).pendingLeagueSettle = null
         }
+        if (version < 9) {
+          // v9: card dust, login calendar, arcade personal bests.
+          p.dust = typeof p.dust === 'number' ? p.dust : 0
+          p.dailyLoginStreak = typeof p.dailyLoginStreak === 'number' ? p.dailyLoginStreak : 0
+          p.lastLoginDay = typeof p.lastLoginDay === 'string' ? p.lastLoginDay : null
+          p.loginRewardClaimedDay =
+            typeof p.loginRewardClaimedDay === 'string' ? p.loginRewardClaimedDay : null
+          p.arcadeScores = p.arcadeScores && typeof p.arcadeScores === 'object' ? p.arcadeScores : {}
+        }
         return p
       },
     },
@@ -726,16 +948,21 @@ export const usePlayer = create<PlayerState>()(
 )
 
 export function questProgressSnapshot(s: PlayerState) {
+  const today = todayISO()
   return {
-    xpToday: s.todayXp,
-    lessonsToday: s.lessonsToday,
-    correctToday: s.correctToday,
+    xpToday: s.todayXpDay === today ? s.todayXp : 0,
+    lessonsToday: s.lessonsTodayDay === today ? s.lessonsToday : 0,
+    correctToday: s.correctTodayDay === today ? s.correctToday : 0,
+    bossesToday: s.bossesTodayDay === today ? s.bossesToday : 0,
+    arcadeCorrectToday: s.arcadeCorrectTodayDay === today ? s.arcadeCorrectToday : 0,
   }
 }
 
 export function questsDone(s: PlayerState) {
   const snap = questProgressSnapshot(s)
-  return DAILY_QUESTS.filter((q) => q.progress(snap) >= q.goal).map((q) => q.id)
+  return questsForDay(todayISO())
+    .filter((q) => q.progress(snap) >= q.goal)
+    .map((q) => q.id)
 }
 
 export function isQuestClaimed(s: PlayerState, questId: string) {

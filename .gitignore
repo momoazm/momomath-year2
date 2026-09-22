@@ -32,3 +32,14 @@ _*.vbs
 
 # research scratch (firecrawl outputs)
 .firecrawl/
+deploy.log
+deploy.err.log
+commit.log
+commit.err.log
+commit-msg.txt
+vl-gate*.log
+vl-final*.log
+vt-gate*.log
+vt-final*.log
+build-gate*.log
+big-shot*.log

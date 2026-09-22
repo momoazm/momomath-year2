@@ -2,13 +2,26 @@ import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { usePlayer } from '../engine/store'
 import { SHOP_ITEMS, formatPrice } from '../engine/shop'
+import { LOGIN_REWARDS, todayISO } from '../engine/gamification'
 import { Mascot } from '../components/mascots/Mascots'
 import { sfx } from '../engine/sfx'
 
 export function ShopScreen() {
-  const { gems, shopInventory, buyItem, streakSavers, doubleXpLessons, chestBoost, megaChest } = usePlayer()
+  const { gems, shopInventory, buyItem, streakSavers, doubleXpLessons, chestBoost, megaChest, dust, dailyLoginStreak, loginRewardClaimedDay } = usePlayer()
   const [selectedItem, setSelectedItem] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
+
+  const canClaimLogin = loginRewardClaimedDay !== todayISO()
+  const loginIdx = ((Math.max(dailyLoginStreak, 1) - 1) % 7)
+
+  const handleClaimLogin = () => {
+    const idx = usePlayer.getState().claimDailyLogin()
+    if (idx !== null) {
+      sfx.leagueUp()
+      setMessage(`Daily reward: 💎${LOGIN_REWARDS[idx]}`)
+      setTimeout(() => setMessage(null), 2000)
+    }
+  }
 
   const handleBuy = (itemId: string) => {
     const result = usePlayer.getState().buyItem(itemId)
@@ -30,10 +43,54 @@ export function ShopScreen() {
       {/* Header */}
       <div className="mb-5 flex items-center justify-between">
         <h1 className="font-display text-2xl font-extrabold text-speed-blue">Item Shop</h1>
-        <div className="flex items-center gap-2 bg-gradient-to-r from-emerald-400 to-teal-400 px-4 py-2 rounded-2xl shadow-lg">
-          <span className="text-lg">💎</span>
-          <span className="font-display font-extrabold text-white">{usePlayer.getState().gems}</span>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 bg-gradient-to-r from-amber-400 to-orange-400 px-3 py-2 rounded-2xl shadow-lg">
+            <span className="text-lg">🌪️</span>
+            <span className="font-display font-extrabold text-white">{dust}</span>
+          </div>
+          <div className="flex items-center gap-2 bg-gradient-to-r from-emerald-400 to-teal-400 px-4 py-2 rounded-2xl shadow-lg">
+            <span className="text-lg">💎</span>
+            <span className="font-display font-extrabold text-white">{gems}</span>
+          </div>
         </div>
+      </div>
+
+      {/* Daily login calendar */}
+      <div className="mb-5 card-white bg-gradient-to-r from-sky-50 to-indigo-50">
+        <div className="mb-2 flex items-center justify-between">
+          <p className="font-display font-extrabold text-slate-800">Daily Login Rewards</p>
+          <span className="text-xs font-bold text-slate-400">🔥 {dailyLoginStreak} day streak</span>
+        </div>
+        <div className="grid grid-cols-7 gap-1.5">
+          {LOGIN_REWARDS.map((reward, i) => {
+            const claimedBefore =
+              dailyLoginStreak > 0 && i < ((dailyLoginStreak - 1) % 7 || 7) && loginRewardClaimedDay !== null
+            const isToday = canClaimLogin && i === loginIdx
+            return (
+              <div
+                key={i}
+                className={`rounded-xl border-2 p-1.5 text-center ${
+                  isToday
+                    ? 'border-speed-blue bg-speed-bluelight'
+                    : claimedBefore
+                      ? 'border-emerald-300 bg-emerald-50'
+                      : 'border-slate-100 bg-slate-50'
+                }`}
+              >
+                <p className="text-[10px] font-bold text-slate-400">Day {i + 1}</p>
+                <p className="text-sm">💎</p>
+                <p className="text-[10px] font-extrabold text-slate-600">{reward}</p>
+              </div>
+            )
+          })}
+        </div>
+        <button
+          onClick={handleClaimLogin}
+          disabled={!canClaimLogin}
+          className={`btn3d mt-3 w-full ${canClaimLogin ? 'btn-green' : 'btn-grey'}`}
+        >
+          {canClaimLogin ? `Claim Day ${(loginIdx % 7) + 1} reward` : '✓ Claimed — come back tomorrow'}
+        </button>
       </div>
 
       {/* Active Boosts */}

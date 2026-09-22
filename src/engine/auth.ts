@@ -10,9 +10,12 @@ export interface AuthUser {
 
 interface AuthState {
   user: AuthUser | null
+  /** Google ID token (GIS credential) — proves identity to the cloud-save API.
+   *  Kept in memory + localStorage only; never sent anywhere but the sync API. */
+  credential: string | null
   /** guest display name, remembered so returning guests are greeted by name */
   guestName: string | null
-  signIn: (u: AuthUser) => void
+  signIn: (u: AuthUser, credential?: string | null) => void
   signOut: () => void
   setGuestName: (n: string) => void
   /** guest "sign out": forget the guest session so the sign-in gate returns */
@@ -23,9 +26,10 @@ export const useAuth = create<AuthState>()(
   persist(
     (set) => ({
       user: null,
+      credential: null,
       guestName: null,
-      signIn: (user) => set({ user }),
-      signOut: () => set({ user: null }),
+      signIn: (user, credential = null) => set({ user, credential }),
+      signOut: () => set({ user: null, credential: null }),
       setGuestName: (n) => set({ guestName: n.trim() || null }),
       signGuestOut: () => set({ guestName: null }),
     }),
@@ -82,10 +86,11 @@ function decodeJwtPayload(jwt: string): Record<string, unknown> {
   return JSON.parse(json)
 }
 
-/** Renders the official Google button into `el`; resolves after it is drawn. */
+/** Renders the official Google button into `el`; resolves after it is drawn.
+ *  The raw ID token is forwarded so the cloud-save API can verify it. */
 export async function renderGoogleButton(
   el: HTMLElement,
-  onSignedIn: (user: AuthUser) => void,
+  onSignedIn: (user: AuthUser, credential: string) => void,
 ): Promise<void> {
   await loadGsi()
   const g = window.google
@@ -94,12 +99,15 @@ export async function renderGoogleButton(
     client_id: GOOGLE_CLIENT_ID,
     callback: (resp) => {
       const p = decodeJwtPayload(resp.credential)
-      onSignedIn({
-        sub: String(p.sub),
-        name: String(p.name ?? p.email ?? 'Player'),
-        email: String(p.email ?? ''),
-        picture: typeof p.picture === 'string' ? p.picture : undefined,
-      })
+      onSignedIn(
+        {
+          sub: String(p.sub),
+          name: String(p.name ?? p.email ?? 'Player'),
+          email: String(p.email ?? ''),
+          picture: typeof p.picture === 'string' ? p.picture : undefined,
+        },
+        resp.credential,
+      )
     },
   })
   el.innerHTML = ''

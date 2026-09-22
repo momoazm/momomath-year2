@@ -1,4 +1,4 @@
-import { ACHIEVEMENTS, DAILY_QUESTS } from '../engine/gamification'
+import { ACHIEVEMENTS, questsForDay, todayISO } from '../engine/gamification'
 import { isQuestClaimed, questProgressSnapshot, questsDone, usePlayer } from '../engine/store'
 import { Mascot } from '../components/mascots/Mascots'
 import { sfx } from '../engine/sfx'
@@ -7,6 +7,7 @@ export function QuestsScreen() {
   const s = usePlayer()
   const snap = questProgressSnapshot(s)
   const doneIds = questsDone(s)
+  const quests = questsForDay(todayISO())
 
   return (
     <div className="mx-auto w-full max-w-xl px-4 pb-28 pt-4">
@@ -19,7 +20,7 @@ export function QuestsScreen() {
       </p>
 
       <ul className="space-y-3">
-        {DAILY_QUESTS.map((q) => {
+        {quests.map((q) => {
           const p = Math.min(q.progress(snap), q.goal)
           const done = doneIds.includes(q.id)
           const claimed = isQuestClaimed(s, q.id)
