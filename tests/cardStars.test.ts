@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
+  ALL_CARDS,
+  ARCADE_CARDS,
   CARDS,
   DUST_PER_CARD,
   MAX_STAR,
@@ -51,7 +53,9 @@ describe('star curve [3,6,10,15,21]', () => {
 
 describe('library card art contract (real images, no blanks)', () => {
   it('all 100 shipped cards point at an existing art file', () => {
-    expect(CARDS).toHaveLength(100)
+    expect(ALL_CARDS).toHaveLength(100)
+    expect(CARDS).toHaveLength(97)
+    expect(ARCADE_CARDS).toHaveLength(3)
     const expected: Record<string, string> = {
       tails: 'cards/tails.webp',
       amy: 'cards/amy.webp',
@@ -155,12 +159,12 @@ describe('library card art contract (real images, no blanks)', () => {
       'dark-gaia': 'cards/dark-gaia.webp',
     }
     expect(Object.keys(expected)).toHaveLength(100)
-    for (const card of CARDS) {
+    for (const card of ALL_CARDS) {
       expect(card.image, card.id).toBe(expected[card.id])
     }
   })
 
   it('every card points at painted .webp art (SVG drawings retired)', () => {
-    for (const card of CARDS) expect(card.image.endsWith('.webp')).toBe(true)
+    for (const card of ALL_CARDS) expect(card.image.endsWith('.webp')).toBe(true)
   })
 })

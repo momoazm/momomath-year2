@@ -21,13 +21,17 @@ export interface CardDef {
   name: string
   flavor: string
   image: string
+  /** 'chest' (default) = drops from lesson chests; 'arcade' = unlock-only,
+   *  never in the chest pool (drawCardId/mastered read CARDS, which excludes these). */
+  source?: 'chest' | 'arcade'
 }
 
 
-/** The full shipped card collection (100 cards; roster in PLAN.md §7).
- *  Every `image` below exists on disk under public/ as a real .webp. */
+/** The full chest-drop collection (97 cards; roster in PLAN.md §7).
+ *  Every `image` below exists on disk under public/ as a real .webp.
+ *  Arcade exclusives live in ARCADE_CARDS (PLAN.md §10). */
 export const CARDS: CardDef[] = [
-  // Common (41)
+  // Common (39)
   { id: 'tails', tier: 'common', name: 'Tails', flavor: 'Two tails are faster than one!', image: 'cards/tails.webp' },
   { id: 'amy', tier: 'common', name: 'Amy', flavor: 'A friend with a big heart!', image: 'cards/amy.webp' },
   { id: 'cream', tier: 'common', name: 'Cream', flavor: 'Sweet as honey and cakes!', image: 'cards/cream.webp' },
@@ -42,8 +46,6 @@ export const CARDS: CardDef[] = [
   { id: 'sticks', tier: 'common', name: 'Sticks the Badger', flavor: 'Wild, brave, and paranoid!', image: 'cards/sticks.webp' },
   { id: 'tangle', tier: 'common', name: 'Tangle', flavor: 'Tail-swinging into action!', image: 'cards/tangle.webp' },
   { id: 'jewel', tier: 'common', name: 'Jewel', flavor: 'Cool, calm, and crystal-bright!', image: 'cards/jewel.webp' },
-  { id: 'bean', tier: 'common', name: 'Bean the Dynamite', flavor: 'Bombs away!', image: 'cards/bean.webp' },
-  { id: 'bark', tier: 'common', name: 'Bark the Polar Bear', flavor: 'Small polar bear, huge punch!', image: 'cards/bark.webp' },
   { id: 'trip', tier: 'common', name: 'Trip the Cat', flavor: 'The cat with goggles!', image: 'cards/trip.webp' },
   { id: 'movie-stone', tier: 'common', name: 'Agent Stone', flavor: 'Loyal to the last mustache!', image: 'cards/movie-stone.webp' },
   { id: 'classic-tails', tier: 'common', name: 'Classic Tails', flavor: 'The 1992 sidekick!', image: 'cards/classic-tails.webp' },
@@ -69,7 +71,7 @@ export const CARDS: CardDef[] = [
   { id: 'zeena', tier: 'common', name: 'Zeena the Zeti', flavor: 'Queen of attitude!', image: 'cards/zeena.webp' },
   { id: 'master-zik', tier: 'common', name: 'Master Zik', flavor: 'Old master, new mischief!', image: 'cards/master-zik.webp' },
   { id: 'maria', tier: 'common', name: 'Maria', flavor: 'A gentle friend from the ark!', image: 'cards/maria.webp' },
-  // Rare (26)
+  // Rare (25)
   { id: 'knuckles', tier: 'rare', name: 'Knuckles', flavor: 'The master of the fist!', image: 'cards/knuckles.webp' },
   { id: 'blaze', tier: 'rare', name: 'Blaze', flavor: 'Faster than the fire!', image: 'cards/blaze.webp' },
   { id: 'rouge', tier: 'rare', name: 'Rouge', flavor: 'A jewel thief with style!', image: 'cards/rouge.webp' },
@@ -80,7 +82,6 @@ export const CARDS: CardDef[] = [
   { id: 'movie-knuckles', tier: 'rare', name: 'Movie Knuckles', flavor: 'Honorable fists, movie punch!', image: 'cards/movie-knuckles.webp' },
   { id: 'wave', tier: 'rare', name: 'Wave the Swallow', flavor: 'Gearhead of the Babylon Rogues!', image: 'cards/wave.webp' },
   { id: 'storm', tier: 'rare', name: 'Storm the Albatross', flavor: "The sky's heavy hitter!", image: 'cards/storm.webp' },
-  { id: 'fang', tier: 'rare', name: 'Fang the Sniper', flavor: 'Corkscrew-wielding rival!', image: 'cards/fang.webp' },
   { id: 'mighty', tier: 'rare', name: 'Mighty the Armadillo', flavor: 'Shell-shocked and sturdy!', image: 'cards/mighty.webp' },
   { id: 'faker', tier: 'rare', name: 'Faker Sonic', flavor: 'A fake blue imposter!', image: 'cards/faker.webp' },
   { id: 'metal-knuckles', tier: 'rare', name: 'Metal Knuckles', flavor: 'Chrome-plated puncher!', image: 'cards/metal-knuckles.webp' },
@@ -135,6 +136,22 @@ export const CARDS: CardDef[] = [
 ]
 
 export const CARD_BY_ID: Record<string, CardDef> = Object.fromEntries(CARDS.map((c) => [c.id, c]))
+
+/* -------------------- arcade-exclusive cards -------------------- */
+/** Unlock-only Sonic the Fighters trio — NEVER in the chest pool (uniform pick,
+ *  locked-pity and novelty math all read CARDS, which excludes these).
+ *  Display-only in this tree (no Arcade tab yet — PLAN.md §10); granted once
+ *  a future arcade trigger exists. Art: existing free-source webps. */
+export const ARCADE_CARDS: CardDef[] = [
+  { id: 'fang', tier: 'exclusive', name: 'Fang the Sniper', flavor: 'Finishes 10 arcade rounds!', image: 'cards/fang.webp', source: 'arcade' },
+  { id: 'bean', tier: 'exclusive', name: 'Bean the Dynamite', flavor: 'Scores in all 3 subject games!', image: 'cards/bean.webp', source: 'arcade' },
+  { id: 'bark', tier: 'exclusive', name: 'Bark the Polar Bear', flavor: 'Crushes 5 bosses in Boss Rush!', image: 'cards/bark.webp', source: 'arcade' },
+]
+
+/** Every card incl. arcade exclusives (library/profile display only). */
+export const ALL_CARDS: CardDef[] = [...CARDS, ...ARCADE_CARDS]
+
+export const ARCADE_CARD_BY_ID: Record<string, CardDef> = Object.fromEntries(ARCADE_CARDS.map((c) => [c.id, c]))
 
 /** Resolves a card's character render to an absolute URL under the Vite base path. */
 export function cardImageUrl(card: CardDef): string {

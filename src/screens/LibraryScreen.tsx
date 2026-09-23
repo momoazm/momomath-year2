@@ -1,6 +1,6 @@
 import { useEffect, useState, type CSSProperties } from 'react'
 import { usePlayer } from '../engine/store'
-import { CARDS, cardImageUrl, STAR_THRESHOLDS, copiesToNextStar, toStar, TIER_META, TIER_ORDER, type CardDef, type ChestTier } from '../engine/cards'
+import { CARDS, ALL_CARDS, ARCADE_CARDS, cardImageUrl, STAR_THRESHOLDS, copiesToNextStar, toStar, TIER_META, TIER_ORDER, type CardDef, type ChestTier } from '../engine/cards'
 import { AnimatePresence, motion } from 'framer-motion'
 
 function isOwnedId(cardStars: Record<string, number>, id: string): boolean {
@@ -17,6 +17,8 @@ export function LibraryScreen({ onClose }: { onClose?: () => void }) {
 
   const owned = new Set(Object.keys(cardStars).filter((id) => (cardStars[id] ?? 0) > 0))
   const allCards = CARDS
+  const totalCount = ALL_CARDS.length
+  const ownedCount = ALL_CARDS.filter((c) => owned.has(c.id)).length
 
   const q = query.trim().toLowerCase()
   const filteredCards = allCards.filter((c) => {
@@ -48,7 +50,13 @@ export function LibraryScreen({ onClose }: { onClose?: () => void }) {
 
   return (
     <div className="mx-auto max-w-xl p-4 pb-24">
-      <LibraryHeader ownedCount={owned.size} totalCount={allCards.length} onClose={onClose} />
+      <LibraryHeader ownedCount={ownedCount} totalCount={totalCount} onClose={onClose} />
+      <ArcadeExclusives
+        isOwned={isOwned}
+        onCardClick={handleCardClick}
+        getHiddenCardStyle={getHiddenCardStyle}
+        cardStars={cardStars}
+      />
       <LibraryToolbar
         filterTier={filterTier}
         setFilterTier={setFilterTier}
@@ -81,6 +89,102 @@ export function LibraryScreen({ onClose }: { onClose?: () => void }) {
 }
 
 /* --- Sub-components below --- */
+
+function ArcadeExclusives({
+  isOwned,
+  onCardClick,
+  getHiddenCardStyle,
+  cardStars,
+}: {
+  isOwned: (id: string) => boolean
+  onCardClick: (card: CardDef) => void
+  getHiddenCardStyle: (tier: ChestTier) => CSSProperties
+  cardStars: Record<string, number>
+}) {
+  const collected = ARCADE_CARDS.filter((c) => isOwned(c.id)).length
+  return (
+    <section className="mb-6" aria-label="Arcade Exclusives">
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="font-display text-xl font-extrabold text-slate-800">🕹️ Arcade Exclusives</h2>
+        <span className="text-sm text-slate-500">{collected} / {ARCADE_CARDS.length} collected</span>
+      </div>
+      <div className="grid grid-cols-3 gap-3">
+        {ARCADE_CARDS.map((card) => {
+          const owned_ = isOwned(card.id)
+          const hiddenStyle = getHiddenCardStyle(card.tier)
+          const count = cardStars[card.id] ?? 0
+          const meta = TIER_META[card.tier]
+          return (
+            <motion.button
+              key={card.id}
+              onClick={() => onCardClick(card)}
+              className={`relative aspect-[3/4] rounded-xl overflow-hidden card-white transition-all ${
+                owned_ ? 'cursor-pointer' : 'cursor-default'
+              }`}
+              whileTap={{ scale: 0.95 }}
+              style={owned_ ? { borderColor: meta.color, boxShadow: `0 0 0 2px ${meta.color}, 0 0 24px ${meta.glow}` } : hiddenStyle}
+            >
+              <div className="absolute inset-0">
+                <img
+                  src={cardImageUrl(card)}
+                  alt={owned_ ? card.name : `${card.name} (locked)`}
+                  loading="lazy"
+                  onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
+                  className={`absolute inset-0 h-full w-full object-cover transition-[filter,opacity] ${
+                    owned_ ? '' : 'opacity-55 saturate-[0.25] brightness-75'
+                  }`}
+                />
+                <div
+                  className="absolute inset-x-0 top-0 flex items-center justify-between px-2 pt-1.5"
+                  style={{ background: `linear-gradient(180deg, ${meta.color}66, transparent)` }}
+                >
+                  <span
+                    className="font-display text-[11px] font-extrabold px-2 py-0.5 rounded-full"
+                    style={{ background: meta.color, color: 'white' }}
+                  >
+                    {meta.label}
+                  </span>
+                </div>
+                {!owned_ && (
+                  <div className="absolute inset-0 flex flex-col items-center justify-end p-2 text-center"
+                    style={{ background: 'linear-gradient(0deg, rgba(2,6,23,0.78) 0%, transparent 55%)' }}>
+                    <p className="font-display text-sm font-extrabold text-white drop-shadow">{card.name}</p>
+                    <p className="font-display text-[10px] font-bold text-slate-200">🔒 Arcade exclusive</p>
+                    <p className="font-display text-[9px] font-bold text-slate-300 leading-tight">{card.flavor}</p>
+                  </div>
+                )}
+                {owned_ && (
+                  <div className="absolute inset-x-0 bottom-0 px-2 pb-2 pt-6 text-center"
+                    style={{ background: 'linear-gradient(0deg, rgba(2,6,23,0.85) 35%, transparent)' }}>
+                    {(() => {
+                      const star = toStar(count)
+                      const need = copiesToNextStar(count)
+                      return (
+                        <>
+                          <div className="flex justify-center gap-0.5">
+                            {[1,2,3,4,5].map(s => (
+                              <span key={s} className={"text-xs " + (s <= star ? "text-amber-400" : "text-slate-500")}>★</span>
+                            ))}
+                          </div>
+                          <h3 className="font-display text-base font-extrabold leading-tight text-white drop-shadow">
+                            {card.name}
+                          </h3>
+                          <p className="mt-0.5 text-center font-display text-[10px] font-extrabold text-slate-200">
+                            ×{count} {need > 0 ? `· ${need} more for ${star + 1}★` : '· MAX ★'}
+                          </p>
+                        </>
+                      )
+                    })()}
+                  </div>
+                )}
+              </div>
+            </motion.button>
+          )
+        })}
+      </div>
+    </section>
+  )
+}
 
 function LibraryHeader({ ownedCount, totalCount, onClose }: { ownedCount: number; totalCount: number; onClose?: () => void }) {
   return (
@@ -338,10 +442,16 @@ function CardModal({ selectedCard, setSelectedCard }: CardModalProps) {
 
               <div className="mt-6 p-4 rounded-xl bg-slate-50">
                 <p className="text-sm text-slate-600">
-                  Obtained from <strong className="font-display capitalize">{selectedCard.tier}</strong> chests
-                  {selectedCard.tier === 'legendary' || selectedCard.tier === 'exclusive'
-                    ? ' (guaranteed card drop)'
-                    : ' (~10% chance per chest)'}
+                  {selectedCard.source === 'arcade' ? (
+                    <>Arcade exclusive — unlock through the <strong className="font-display">Retro Arcade</strong> (coming soon)</>
+                  ) : (
+                    <>
+                      Obtained from <strong className="font-display capitalize">{selectedCard.tier}</strong> chests
+                      {selectedCard.tier === 'legendary' || selectedCard.tier === 'exclusive'
+                        ? ' (guaranteed card drop)'
+                        : ' (~10% chance per chest)'}
+                    </>
+                  )}
                 </p>
               </div>
 
@@ -393,7 +503,13 @@ function LockedCardToast({ card, tier, onDone }: { card: CardDef | null; tier: C
                     {card.name}
                   </p>
                   <p className="text-xs text-slate-500">
-                    Win from a <span style={{ color: meta.color, fontWeight: 700 }}>{meta.label}</span> chest
+                    {card.source === 'arcade' ? (
+                      <>🔒 Arcade exclusive — {card.flavor}</>
+                    ) : (
+                      <>
+                        Win from a <span style={{ color: meta.color, fontWeight: 700 }}>{meta.label}</span> chest
+                      </>
+                    )}
                   </p>
                 </div>
               </div>

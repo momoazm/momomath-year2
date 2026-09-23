@@ -498,15 +498,17 @@ Deploy (gh-pages) ONLY when the user explicitly asks.
 
 ## 7. Appendix — ~100-card roster draft (WS4c)
 
-**Status (2026-09-23)**: SHIPPED — full **100-card** roster below (+2:
+**Status (2026-09-23)**: SHIPPED — full **100-card** collection below (+2:
 `maria` common, `chao` rare; free sonic.fandom.com art). **Tier ladder is
 LOCKED to the existing 5 tiers** (common | rare | epic | legendary |
 exclusive) — user decision 2026-09-23: **no uncommon/mythic tiers**. All 100
 rows ✅ (art on disk, free-source WS3/WS100 pipeline; image = `cards/<id>.webp`).
-Distribution: **41 common / 26 rare / 18 epic / 10 legendary / 5 exclusive =
-100**. All art sourced free (no paid services).
+Distribution (PLAN §10 split): **97 chest = 39 common / 25 rare / 18 epic /
+10 legendary / 5 exclusive** + **3 arcade exclusives** (fang/bean/bark,
+`source: 'arcade'`, exclusive tier) = **100**. All art sourced free (no paid
+services).
 
-### Common (41) — ✅41 shipped
+### Common (39) — ✅39 shipped
 
 | # | id | name | flavor | image | art |
 |---|----|------|--------|-------|-----|
@@ -524,114 +526,120 @@ Distribution: **41 common / 26 rare / 18 epic / 10 legendary / 5 exclusive =
 | 12 | sticks | Sticks the Badger | Wild, brave, and paranoid! | cards/sticks.webp | ✅ |
 | 13 | tangle | Tangle | Tail-swinging into action! | cards/tangle.webp | ✅ |
 | 14 | jewel | Jewel | Cool, calm, and crystal-bright! | cards/jewel.webp | ✅ |
-| 15 | bean | Bean the Dynamite | Bombs away! | cards/bean.webp | ✅ |
-| 16 | bark | Bark the Polar Bear | Small polar bear, huge punch! | cards/bark.webp | ✅ |
-| 17 | trip | Trip the Cat | The cat with goggles! | cards/trip.webp | ✅ |
-| 18 | movie-stone | Agent Stone | Loyal to the last mustache! | cards/movie-stone.webp | ✅ |
-| 19 | classic-tails | Classic Tails | The 1992 sidekick! | cards/classic-tails.webp | ✅ |
-| 20 | classic-knuckles | Classic Knuckles | Punch first, guard later! | cards/classic-knuckles.webp | ✅ |
-| 21 | classic-amy | Classic Amy | Pigtail-powered hammer! | cards/classic-amy.webp | ✅ |
-| 22 | classic-eggman | Classic Eggman | The original mustache! | cards/classic-eggman.webp | ✅ |
-| 23 | boom-sonic | Boom Sonic | Bigger attitude, bigger banter! | cards/boom-sonic.webp | ✅ |
-| 24 | boom-tails | Boom Tails | DIY gadgets and sarcasm! | cards/boom-tails.webp | ✅ |
-| 25 | boom-knuckles | Boom Knuckles | Strong, proud, easily tricked! | cards/boom-knuckles.webp | ✅ |
-| 26 | boom-amy | Boom Amy | Nerf-charging hammer time! | cards/boom-amy.webp | ✅ |
-| 27 | boom-eggman | Boom Eggman | Trapped in his own sitcom! | cards/boom-eggman.webp | ✅ |
-| 28 | orbot | Orbot | The smart red sphere! | cards/orbot.webp | ✅ |
-| 29 | cubot | Cubot | The (mostly) working cube! | cards/cubot.webp | ✅ |
-| 30 | egg-robo | Egg-Robo | Clockwork helper gone rogue! | cards/egg-robo.webp | ✅ |
-| 31 | motobug | Motobug | Vroom vroom — watch out! | cards/motobug.webp | ✅ |
-| 32 | crabmeat | Crabmeat | Sideways snapper! | cards/crabmeat.webp | ✅ |
-| 33 | buzz-bomber | Buzz Bomber | Sting in a jetpack! | cards/buzz-bomber.webp | ✅ |
-| 34 | chopper | Chopper | Jumping fish alert! | cards/chopper.webp | ✅ |
-| 35 | egg-pawn | Egg Pawn | Eggman's foot soldier! | cards/egg-pawn.webp | ✅ |
-| 36 | zazz | Zazz the Zeti | Zeti of pure chaos! | cards/zazz.webp | ✅ |
-| 37 | zomom | Zomom the Zeti | Hungry for trouble! | cards/zomom.webp | ✅ |
-| 38 | zor | Zor the Zeti | Lazy but lethal! | cards/zor.webp | ✅ |
-| 39 | zeena | Zeena the Zeti | Queen of attitude! | cards/zeena.webp | ✅ |
-| 40 | master-zik | Master Zik | Old master, new mischief! | cards/master-zik.webp | ✅ |
-| 41 | maria | Maria | A gentle friend from the ark! | cards/maria.webp | ✅ |
+| 15 | trip | Trip the Cat | The cat with goggles! | cards/trip.webp | ✅ |
+| 16 | movie-stone | Agent Stone | Loyal to the last mustache! | cards/movie-stone.webp | ✅ |
+| 17 | classic-tails | Classic Tails | The 1992 sidekick! | cards/classic-tails.webp | ✅ |
+| 18 | classic-knuckles | Classic Knuckles | Punch first, guard later! | cards/classic-knuckles.webp | ✅ |
+| 19 | classic-amy | Classic Amy | Pigtail-powered hammer! | cards/classic-amy.webp | ✅ |
+| 20 | classic-eggman | Classic Eggman | The original mustache! | cards/classic-eggman.webp | ✅ |
+| 21 | boom-sonic | Boom Sonic | Bigger attitude, bigger banter! | cards/boom-sonic.webp | ✅ |
+| 22 | boom-tails | Boom Tails | DIY gadgets and sarcasm! | cards/boom-tails.webp | ✅ |
+| 23 | boom-knuckles | Boom Knuckles | Strong, proud, easily tricked! | cards/boom-knuckles.webp | ✅ |
+| 24 | boom-amy | Boom Amy | Nerf-charging hammer time! | cards/boom-amy.webp | ✅ |
+| 25 | boom-eggman | Boom Eggman | Trapped in his own sitcom! | cards/boom-eggman.webp | ✅ |
+| 26 | orbot | Orbot | The smart red sphere! | cards/orbot.webp | ✅ |
+| 27 | cubot | Cubot | The (mostly) working cube! | cards/cubot.webp | ✅ |
+| 28 | egg-robo | Egg-Robo | Clockwork helper gone rogue! | cards/egg-robo.webp | ✅ |
+| 29 | motobug | Motobug | Vroom vroom — watch out! | cards/motobug.webp | ✅ |
+| 30 | crabmeat | Crabmeat | Sideways snapper! | cards/crabmeat.webp | ✅ |
+| 31 | buzz-bomber | Buzz Bomber | Sting in a jetpack! | cards/buzz-bomber.webp | ✅ |
+| 32 | chopper | Chopper | Jumping fish alert! | cards/chopper.webp | ✅ |
+| 33 | egg-pawn | Egg Pawn | Eggman's foot soldier! | cards/egg-pawn.webp | ✅ |
+| 34 | zazz | Zazz the Zeti | Zeti of pure chaos! | cards/zazz.webp | ✅ |
+| 35 | zomom | Zomom the Zeti | Hungry for trouble! | cards/zomom.webp | ✅ |
+| 36 | zor | Zor the Zeti | Lazy but lethal! | cards/zor.webp | ✅ |
+| 37 | zeena | Zeena the Zeti | Queen of attitude! | cards/zeena.webp | ✅ |
+| 38 | master-zik | Master Zik | Old master, new mischief! | cards/master-zik.webp | ✅ |
+| 39 | maria | Maria | A gentle friend from the ark! | cards/maria.webp | ✅ |
 
-### Rare (26) — ✅26 shipped
+### Rare (25) — ✅25 shipped
 
 | # | id | name | flavor | image | art |
 |---|----|------|--------|-------|-----|
-| 41 | knuckles | Knuckles | The master of the fist! | cards/knuckles.webp | ✅ |
-| 42 | blaze | Blaze | Faster than the fire! | cards/blaze.webp | ✅ |
-| 43 | rouge | Rouge | A jewel thief with style! | cards/rouge.webp | ✅ |
-| 44 | ray | Ray the Flying Squirrel | Glide through the sky! | cards/ray.webp | ✅ |
-| 45 | vector | Vector the Crocodile | A loud, loveable leader! | cards/vector.webp | ✅ |
-| 46 | classic-sonic | Classic Sonic | The original 1991 hedgehog! | cards/classic-sonic.webp | ✅ |
-| 47 | werehog-sonic | Werehog Sonic | Big fists when the sun goes down! | cards/werehog-sonic.webp | ✅ |
-| 48 | movie-knuckles | Movie Knuckles | Honorable fists, movie punch! | cards/movie-knuckles.webp | ✅ |
-| 49 | wave | Wave the Swallow | Gearhead of the Babylon Rogues! | cards/wave.webp | ✅ |
-| 50 | storm | Storm the Albatross | The sky's heavy hitter! | cards/storm.webp | ✅ |
-| 51 | fang | Fang the Sniper | Corkscrew-wielding rival! | cards/fang.webp | ✅ |
-| 52 | mighty | Mighty the Armadillo | Shell-shocked and sturdy! | cards/mighty.webp | ✅ |
-| 53 | faker | Faker Sonic | A fake blue imposter! | cards/faker.webp | ✅ |
-| 54 | metal-knuckles | Metal Knuckles | Chrome-plated puncher! | cards/metal-knuckles.webp | ✅ |
-| 55 | tails-doll | Tails Doll | Not as cute as he looks! | cards/tails-doll.webp | ✅ |
-| 56 | tikal | Tikal | Keeper of the emeralds' peace! | cards/tikal.webp | ✅ |
-| 57 | whisper | Whisper the Wolf | Quiet, precise, deadly! | cards/whisper.webp | ✅ |
-| 58 | surge | Surge the Tenrec | Electric troublemaker! | cards/surge.webp | ✅ |
-| 59 | kit | Kit the Fennec | Loyal to a fault! | cards/kit.webp | ✅ |
-| 60 | sally | Sally Acorn | Team leader with a plan! | cards/sally.webp | ✅ |
-| 61 | movie-amy | Movie Amy | Hammer swing, big entrance! | cards/movie-amy.webp | ✅ |
-| 62 | movie-eggman | Movie Eggman | Showman villain, big goggles! | cards/movie-eggman.webp | ✅ |
-| 63 | gamma | E-102 Gamma | Robot with a heart of gold! | cards/gamma.webp | ✅ |
-| 64 | heavy-king | Heavy King | The Mania kingpin! | cards/heavy-king.webp | ✅ |
-| 65 | heavy-magician | Heavy Magician | Tricks up every sleeve! | cards/heavy-magician.webp | ✅ |
-| 66 | chao | Chao | A tiny friend with a big heart! | cards/chao.webp | ✅ |
+| 40 | knuckles | Knuckles | The master of the fist! | cards/knuckles.webp | ✅ |
+| 41 | blaze | Blaze | Faster than the fire! | cards/blaze.webp | ✅ |
+| 42 | rouge | Rouge | A jewel thief with style! | cards/rouge.webp | ✅ |
+| 43 | ray | Ray the Flying Squirrel | Glide through the sky! | cards/ray.webp | ✅ |
+| 44 | vector | Vector the Crocodile | A loud, loveable leader! | cards/vector.webp | ✅ |
+| 45 | classic-sonic | Classic Sonic | The original 1991 hedgehog! | cards/classic-sonic.webp | ✅ |
+| 46 | werehog-sonic | Werehog Sonic | Big fists when the sun goes down! | cards/werehog-sonic.webp | ✅ |
+| 47 | movie-knuckles | Movie Knuckles | Honorable fists, movie punch! | cards/movie-knuckles.webp | ✅ |
+| 48 | wave | Wave the Swallow | Gearhead of the Babylon Rogues! | cards/wave.webp | ✅ |
+| 49 | storm | Storm the Albatross | The sky's heavy hitter! | cards/storm.webp | ✅ |
+| 50 | mighty | Mighty the Armadillo | Shell-shocked and sturdy! | cards/mighty.webp | ✅ |
+| 51 | faker | Faker Sonic | A fake blue imposter! | cards/faker.webp | ✅ |
+| 52 | metal-knuckles | Metal Knuckles | Chrome-plated puncher! | cards/metal-knuckles.webp | ✅ |
+| 53 | tails-doll | Tails Doll | Not as cute as he looks! | cards/tails-doll.webp | ✅ |
+| 54 | tikal | Tikal | Keeper of the emeralds' peace! | cards/tikal.webp | ✅ |
+| 55 | whisper | Whisper the Wolf | Quiet, precise, deadly! | cards/whisper.webp | ✅ |
+| 56 | surge | Surge the Tenrec | Electric troublemaker! | cards/surge.webp | ✅ |
+| 57 | kit | Kit the Fennec | Loyal to a fault! | cards/kit.webp | ✅ |
+| 58 | sally | Sally Acorn | Team leader with a plan! | cards/sally.webp | ✅ |
+| 59 | movie-amy | Movie Amy | Hammer swing, big entrance! | cards/movie-amy.webp | ✅ |
+| 60 | movie-eggman | Movie Eggman | Showman villain, big goggles! | cards/movie-eggman.webp | ✅ |
+| 61 | gamma | E-102 Gamma | Robot with a heart of gold! | cards/gamma.webp | ✅ |
+| 62 | heavy-king | Heavy King | The Mania kingpin! | cards/heavy-king.webp | ✅ |
+| 63 | heavy-magician | Heavy Magician | Tricks up every sleeve! | cards/heavy-magician.webp | ✅ |
+| 64 | chao | Chao | A tiny friend with a big heart! | cards/chao.webp | ✅ |
 
 ### Epic (18) — ✅18 shipped
 
 | # | id | name | flavor | image | art |
 |---|----|------|--------|-------|-----|
-| 66 | shadow | Shadow | The ultimate lifeform! | cards/shadow.webp | ✅ |
-| 67 | silver | Silver | Psychic power of the future! | cards/silver.webp | ✅ |
-| 68 | metal | Metal Sonic | A copy built to win! | cards/metal.webp | ✅ |
-| 69 | espio | Espio the Chameleon | Master of disguise! | cards/espio.webp | ✅ |
-| 70 | omega | Omega | The ultimate E-Series robot! | cards/omega.webp | ✅ |
-| 71 | movie-sonic | Movie Sonic | Gotta go fast on the big screen! | cards/movie-sonic.webp | ✅ |
-| 72 | movie-shadow | Movie Shadow | Shadow hits the silver screen! | cards/movie-shadow.webp | ✅ |
-| 73 | neo-metal | Neo Metal Sonic | Metal evolved — now with attitude! | cards/neo-metal.webp | ✅ |
-| 74 | dark-sonic | Dark Sonic | Anger made him faster! | cards/dark-sonic.webp | ✅ |
-| 75 | mephiles | Mephiles the Dark | Shadow's darkest reflection! | cards/mephiles.webp | ✅ |
-| 76 | infinite | Infinite | Fear is his weapon! | cards/infinite.webp | ✅ |
-| 77 | zavok | Zavok the Zeti | Leader of the Deadly Six! | cards/zavok.webp | ✅ |
-| 78 | sage | Sage | The digital daughter of Eggman! | cards/sage.webp | ✅ |
-| 79 | chaos | Chaos | Guardian of the chao, uncontrollable! | cards/chaos.webp | ✅ |
-| 80 | eggman-nega | Eggman Nega | From a future of endless schemes! | cards/eggman-nega.webp | ✅ |
-| 81 | black-doom | Black Doom | The black arm's warlord! | cards/black-doom.webp | ✅ |
-| 82 | erazor-djinn | Erazor Djinn | A lamp thief with a grudge! | cards/erazor-djinn.webp | ✅ |
-| 83 | king-arthur | King Arthur | Ruler of the foggy realm! | cards/king-arthur.webp | ✅ |
+| 65 | shadow | Shadow | The ultimate lifeform! | cards/shadow.webp | ✅ |
+| 66 | silver | Silver | Psychic power of the future! | cards/silver.webp | ✅ |
+| 67 | metal | Metal Sonic | A copy built to win! | cards/metal.webp | ✅ |
+| 68 | espio | Espio the Chameleon | Master of disguise! | cards/espio.webp | ✅ |
+| 69 | omega | Omega | The ultimate E-Series robot! | cards/omega.webp | ✅ |
+| 70 | movie-sonic | Movie Sonic | Gotta go fast on the big screen! | cards/movie-sonic.webp | ✅ |
+| 71 | movie-shadow | Movie Shadow | Shadow hits the silver screen! | cards/movie-shadow.webp | ✅ |
+| 72 | neo-metal | Neo Metal Sonic | Metal evolved — now with attitude! | cards/neo-metal.webp | ✅ |
+| 73 | dark-sonic | Dark Sonic | Anger made him faster! | cards/dark-sonic.webp | ✅ |
+| 74 | mephiles | Mephiles the Dark | Shadow's darkest reflection! | cards/mephiles.webp | ✅ |
+| 75 | infinite | Infinite | Fear is his weapon! | cards/infinite.webp | ✅ |
+| 76 | zavok | Zavok the Zeti | Leader of the Deadly Six! | cards/zavok.webp | ✅ |
+| 77 | sage | Sage | The digital daughter of Eggman! | cards/sage.webp | ✅ |
+| 78 | chaos | Chaos | Guardian of the chao, uncontrollable! | cards/chaos.webp | ✅ |
+| 79 | eggman-nega | Eggman Nega | From a future of endless schemes! | cards/eggman-nega.webp | ✅ |
+| 80 | black-doom | Black Doom | The black arm's warlord! | cards/black-doom.webp | ✅ |
+| 81 | erazor-djinn | Erazor Djinn | A lamp thief with a grudge! | cards/erazor-djinn.webp | ✅ |
+| 82 | king-arthur | King Arthur | Ruler of the foggy realm! | cards/king-arthur.webp | ✅ |
 
 ### Legendary (10) — ✅10 shipped
 
 | # | id | name | flavor | image | art |
 |---|----|------|--------|-------|-----|
-| 84 | sonic | Sonic | The fastest thing alive! | cards/sonic.webp | ✅ |
-| 85 | jet | Jet the Hawk | King of the Babylon Rogues! | cards/jet.webp | ✅ |
-| 86 | super-shadow | Super Shadow | Chaos energy, golden glow! | cards/super-shadow.webp | ✅ |
-| 87 | hyper-sonic | Hyper Sonic | Super power plus all seven emeralds! | cards/hyper-sonic.webp | ✅ |
-| 88 | hyper-shadow | Hyper Shadow | Ultimate power, ultimate glow! | cards/hyper-shadow.webp | ✅ |
-| 89 | excalibur-sonic | Excalibur Sonic | Knight of the golden sword! | cards/excalibur-sonic.webp | ✅ |
-| 90 | super-knuckles | Super Knuckles | Glowing fists, tunnel vision! | cards/super-knuckles.webp | ✅ |
-| 91 | super-blaze | Super Blaze | Burning brighter than before! | cards/super-blaze.webp | ✅ |
-| 92 | devil-doom | Devil Doom | The black arm's final form! | cards/devil-doom.webp | ✅ |
-| 93 | time-eater | Time Eater | Eats history for breakfast! | cards/time-eater.webp | ✅ |
+| 83 | sonic | Sonic | The fastest thing alive! | cards/sonic.webp | ✅ |
+| 84 | jet | Jet the Hawk | King of the Babylon Rogues! | cards/jet.webp | ✅ |
+| 85 | super-shadow | Super Shadow | Chaos energy, golden glow! | cards/super-shadow.webp | ✅ |
+| 86 | hyper-sonic | Hyper Sonic | Super power plus all seven emeralds! | cards/hyper-sonic.webp | ✅ |
+| 87 | hyper-shadow | Hyper Shadow | Ultimate power, ultimate glow! | cards/hyper-shadow.webp | ✅ |
+| 88 | excalibur-sonic | Excalibur Sonic | Knight of the golden sword! | cards/excalibur-sonic.webp | ✅ |
+| 89 | super-knuckles | Super Knuckles | Glowing fists, tunnel vision! | cards/super-knuckles.webp | ✅ |
+| 90 | super-blaze | Super Blaze | Burning brighter than before! | cards/super-blaze.webp | ✅ |
+| 91 | devil-doom | Devil Doom | The black arm's final form! | cards/devil-doom.webp | ✅ |
+| 92 | time-eater | Time Eater | Eats history for breakfast! | cards/time-eater.webp | ✅ |
 
-### Exclusive (5) — ✅5 shipped
+### Exclusive chest (5) — ✅5 shipped
 
 | # | id | name | flavor | image | art |
 |---|----|------|--------|-------|-----|
-| 94 | eggman | Dr. Eggman | The mad scientist of mayhem! | cards/eggman.webp | ✅ |
-| 95 | super | Super Sonic | The legendary golden form! | cards/super-sonic.webp | ✅ |
-| 96 | metal-overlord | Metal Overlord | Metal Sonic's ultimate evolution! | cards/metal-overlord.webp | ✅ |
-| 97 | perfect-chaos | Perfect Chaos | A tsunami with a grudge! | cards/perfect-chaos.webp | ✅ |
-| 98 | dark-gaia | Dark Gaia | The night itself awakened! | cards/dark-gaia.webp | ✅ |
+| 93 | eggman | Dr. Eggman | The mad scientist of mayhem! | cards/eggman.webp | ✅ |
+| 94 | super | Super Sonic | The legendary golden form! | cards/super-sonic.webp | ✅ |
+| 95 | metal-overlord | Metal Overlord | Metal Sonic's ultimate evolution! | cards/metal-overlord.webp | ✅ |
+| 96 | perfect-chaos | Perfect Chaos | A tsunami with a grudge! | cards/perfect-chaos.webp | ✅ |
+| 97 | dark-gaia | Dark Gaia | The night itself awakened! | cards/dark-gaia.webp | ✅ |
+
+### Arcade exclusives (3) — ✅3 shipped (`ARCADE_CARDS`, PLAN §10)
+
+| # | id | name | flavor / unlock hint | image | art |
+|---|----|------|----------------------|-------|-----|
+| 98 | fang | Fang the Sniper | Finishes 10 arcade rounds! | cards/fang.webp | ✅ |
+| 99 | bean | Bean the Dynamite | Scores in all 3 subject games! | cards/bean.webp | ✅ |
+| 100 | bark | Bark the Polar Bear | Crushes 5 bosses in Boss Rush! | cards/bark.webp | ✅ |
 
 **Totals**: 100 cards · 100 shipped (art on disk, all free sources) · 0 pending.
+Chest pool (`CARDS`) = 97; library/profile total (`ALL_CARDS`) = 100.
 New ids are plain strings (`CardDef.id: string`, widened 2026-09-23) and
 stay disjoint from the 19 playable `MascotId`s — no mascot is added to the
 playable set by this roster.
@@ -665,6 +673,75 @@ tail / per-difficulty ranges / LLM follow-ups, Monte-Carlo drop sim.
 
 ---
 
+## 10. Arcade Exclusives — Fang / Bean / Bark (user 2026-09-23)
+
+**User decisions (locked)**:
+1. **Locked for now (display only)** — no Arcade tab in this tree; trio moves
+   out of the chest pool into `ARCADE_CARDS` and stays locked until a future
+   unlock trigger.
+2. **All three → `exclusive` tier** (match home `ARCADE_CARDS`).
+3. **Total stays 100** = `ALL_CARDS` = 97 chest (`CARDS`) + 3 arcade.
+4. Locked cover = **existing gray style** (dimmed art + 🔒), not the home
+   repo's amber-empty tile.
+5. Panel **at top of Library**, above tier tabs; tier tabs/search/Owned
+   filter only the 97-card main grid.
+
+**Checklist**:
+- [x] Persist §10 (this block).
+- [x] `cards.ts`: `source?: 'chest' | 'arcade'`; remove fang/bean/bark from
+      `CARDS` (97: 39/25/18/10/5); add `ARCADE_CARDS` (exclusive, arcade
+      source, unlock-condition flavors); `ALL_CARDS` (100);
+      `ARCADE_CARD_BY_ID`. `drawCardId`/`mastered` keep reading `CARDS`.
+- [x] `LibraryScreen.tsx`: `ArcadeExclusives` panel (heading + x/3 + 3-card
+      grid, existing locked style); header total = `ALL_CARDS.length`;
+      locked toast/modal copy branches on `source === 'arcade'`.
+- [x] `ProfileScreen.tsx`: unique-cards denominator + star distribution use
+      `ALL_CARDS`.
+- [x] Tests: chestCards band → 39/25/18/10/5 + `toBe(97)` + new arcade
+      describe (`ALL_CARDS` 100, ARCADE disjoint/source/exclusive/images,
+      `drawCardId` never returns them); cardStars art contract over
+      `ALL_CARDS` (keep 100-entry map; assert 97 chest + 100 all).
+- [x] `PLAN.md` §7: distribution note + move three rows to Arcade subsection;
+      §8 changelog row.
+- [x] Gates: `npx tsc -b` → `npx vitest run` → `npm run verify`.
+- [x] Local smoke: Library top panel 3 gray tiles, header `/100`, main grid 97.
+- [x] Commit + deploy (user: "do it and deploy").
+
+---
+
+## 10. Arcade Exclusives panel — Fang / Bean / Bark (user 2026-09-23)
+
+User decisions (locked):
+1. **Locked / display-only** — no arcade engine in this tree; trio stays
+   unobtainable until a future trigger (matches home-repo `ARCADE_CARDS`).
+2. **All three → `exclusive` tier** (leave chest band: common 39 / rare 25 /
+   epic 18 / legendary 10 / exclusive 5 = **97** chest cards).
+3. **Total stays 100** — `ALL_CARDS = [...CARDS, ...ARCADE_CARDS]` (97 + 3).
+4. **Locked cover = existing gray style** (dimmed art + 🔒), not the home
+   repo's amber bare-tile.
+5. **Panel pinned at top of Library** ("🕹️ Arcade Exclusives"), ignores
+   tier/search/Owned filters; main grid stays 97 chest cards.
+
+Checklist:
+- [x] Persist §10 (this block).
+- [x] `cards.ts`: `source?: 'chest' | 'arcade'`; move fang/bean/bark out of
+      `CARDS` into `ARCADE_CARDS` (exclusive, arcade source, unlock-condition
+      flavors); export `ALL_CARDS` + `ARCADE_CARD_BY_ID`. `drawCardId` and
+      `mastered` keep reading `CARDS` only.
+- [x] `LibraryScreen.tsx`: `ArcadeExclusives` panel; header total = 100
+      (`ALL_CARDS`); locked toast/modal copy branches on `source === 'arcade'`.
+- [x] `ProfileScreen.tsx`: unique-cards denominator + ★ distribution use
+      `ALL_CARDS`.
+- [x] Tests: chestCards band → 39/25/18/10/5 + `CARDS` 97 + new arcade
+      describe (`ALL_CARDS` 100, ids disjoint, never drawn); cardStars art
+      contract over `ALL_CARDS` (100 map unchanged).
+- [x] §7 roster note (97 chest + 3 arcade); §8 changelog row.
+- [x] Gates: `npx tsc -b` · full `npx vitest run` · `npm run verify`.
+- [x] Local smoke: top panel 3 gray tiles, header …/100, main grid 97.
+- [x] Commit + `node scripts/deploy.mjs` (user asked to deploy).
+
+---
+
 ## 8. Session changelog
 
 | Date | Session | What happened |
@@ -685,4 +762,5 @@ tail / per-difficulty ranges / LLM follow-ups, Monte-Carlo drop sim.
 | 2026-09-23 | WS4a/4b-closure + roadmap-verify | Closed remaining WS4a steps 2–5 and all of WS4b without inventing scope. WS4a-2: audited every roadmap — german/arabic/religion/social/science say "gaps: none known"; english gaps are features/audit not unit expansion → no new subject lessons. WS4a-3: `QUESTIONS_PER_LESSON` stays 10 (not asked). WS4a-4: path 5 + curriculum 282 green (no absolute-total assertions). WS4a-5: `tests/adaptive/*` 8 files green; `buildCatalog` is lazy over `getCurriculum()` so WS4a's 19 practice lessons auto-enter. WS4b-1: 5-tier lock confirmed; 4b-2 N/A (no new tiers); 4b-3: `CARD_CHANCE` strict common→exclusive monotonicity already asserted in chestCards (mythic N/A); 4b-4: `STAR_THRESHOLDS` kept (user never asked). Roadmap §4 verify blocks for german+arabic+religion+social+science **all green** (combined 37 files / 552 tests). PLAN.md steps ticked. |
 | 2026-09-23 | english-audit + §5.1 gaps | **(1) english-audit-spec pass DONE** — QA hand-audit of every generator bank e01–e13 + temp invariant dump over seeds 42/7 (mcq choices/answerIndex, tiles 3–10 lowercase, story lines ≤90 chars, match-pair sanity, tap-count target math): 154/154 green, temp file deleted after run. **23 content fixes, content files only, no unit restructure**: **e02** mon·ster gloss "a spooky costume"→"a scary creature" (monster ≠ costume); **e04** HOMOPHONE_FILLS_2 "My feet are bare…" was missing ___ (answer visible in prompt) → "My feet are ___…"; **e05** TIME_OPENERS[0] missing ___ (answer "Then" embedded in the full-sentence prompt) → blank inserted; **e09** intro body "…and or offers a choice" garbled → quoted joiners; **e10** 5 `gSpotRhyme` distractor pairs that THEMSELVES rhyme (trail/fail, bee/knee, frog/bog, goat/boat, mouse/louse — kid could pick a second correct answer) replaced with non-rhyming pairs + typos/scene ("The Class caterpillar"→Caterpillar, "The Spiders Web"→"The Spider's Web", scene [" sawdust"]→🪵, "Every clack of claps"→"Every round of claps", "Riddle Miss Okafor"→"Miss Okafor and her riddles") + 5 `gWhereAreThey` stories given their place word in-line (park/library/museum/cafe/zoo — hint promised "the place word inside the story" but answers were only inferable, and park-vs-farm was defensible for ducks+pond); **e13** gFactGroup ambiguity where ≥1 distractor equally suited the heading ("Life of a Sea Turtle"→"Where Sea Turtles Are Born", "The Water Cycle"→"How Puddles Disappear", yawn distractors "contagious/tired"→non-why statements, "Magnets have two poles"→junkyards). **Unfixed observations (by design, not errors)**: mcq audioText for "Which spelling did you hear?" is the containing sentence (homophones disambiguated by context; word-level hear items all satisfy the say() rule); wow-word/exciting-sentence distractors are deliberately dull-but-grammatical (mechanic is "best fit"); e1l4 intro blurb says "target sound" while the shipped exercise is exact-word tap (prompt+hint self-consistent). **(2) §5.1 gap 2 CLOSED by decision: NO new `audio-mcq`/`dictation` kinds** — mcq+audioText and order+audio cover catalogue #3/#13; new LessonScreen modes deferred post-launch. **(3) Gap 3 Flashcard Sprint deferral confirmed** (unchanged). **(4) Gap 4 adaptive tail marked POST-LAUNCH** — no adaptive-engine touches in WS1–WS4 beyond the catalog. **Gates**: english+registry 15 files/273 green; roadmap §4 verify blocks re-run green — german+arabic+religion+social combined 36/470, science (scienceRegistry+noDup) 754; full `npx vitest run` 83 files/**2450 green**; `npx tsc --noEmit -p tsconfig.json` clean. Files: src/content/english/{e02,e04,e05,e09,e10,e13}.ts, PLAN.md. Off-limits (TopBar/speak/cards/adaptive/chest/math) untouched. |
 | 2026-09-23 | §9 A+B1–B5+C1/C2 | **All §9 items done [x]**: C1 roster 98→100 (`maria` common + `chao` rare; distribution 41/26/18/10/5; `public/cards/` exactly 100 `.webp`; orphans honey/flicky deleted; cardStars/chestCards assert 100; Library real art on every tile, locked = dimmed + 🔒 not `?`; imgcheck 100/100). C2 hardened START_TABLES / CARD_CHANCE / KICK_UPGRADE — joint odds strictly decrease in all 4 contexts, pity preserved. A: PathScreen empty-state → generic "No roadmap here yet". B1: `tests/contentQaSubjects.test.ts` (16) green; findings documented in §9 (binary A/B prompts by design, match rights de-duped by matchLayout, fingerprint uniqueness via everyLesson + 8 seeds). B2: `subjectsToday` day-roll + subjects2/subjects3 quests + subjects-3/subjects-5/cards-10/cards-40 achievements + `subjectOfLesson`; `questsMultiSubject.test.ts` (6). B3: lucky-ticket copy (start odds + card drops); shop 19/19. B4: onboarding smoke welcome → path/lesson, 0 pageerrors. B5: Library search + Owned filter + tier tabs; search "maria" → 1 tile. Gates: `npx tsc -b` clean; full `npx vitest run` green; `npm run verify` OK. Files: cards.ts, store.ts, gamification.ts, shop.ts, LibraryScreen.tsx, PathScreen.tsx, tests/{contentQaSubjects,questsMultiSubject,cardStars,chestCards,shop}, public/cards/*.webp, PLAN.md. Not committed/deployed. |
-| 2026-09-23 | WS5-gameplay | **Pixel Run gameplay revision (user request): Sonic character, coin-friendly jump, safe coin placement, gate benefit/drawback.** (1) Player = Sonic `<Mascot id="sonic">` (happy/excited/cheer expressions, cyan shield ring; `aria-label="Runner"` kept for smoke scripts; PLAYER_W 22?26). (2) Jump retuned so a well-timed jump sweeps the whole coin arc: GRAVITY 0.55?0.6, JUMP_V?10.2 (apex �87 > coin top 52), coin hitbox +6px generous, arc spacing 24 / heights 8/34/52/34/8. (3) Coins never lead into obstacles: new pure `planFeatures(rand, fromX, untilX)` sequential spawner (spike ~45% / arc ~55%, shared cursor, `GATE_CLEAR=80`, `COIN_GAP_AFTER=130`, stops before finish-140) + layout-invariant tests. (4) Gate outcomes clear: correct = GATE_SCORE 20?**50** + 30 coins + **4s shield** (spikes pass through, cyan ring); wrong = -1 life + **WRONG_PENALTY=30** score (floor 0) + i-frames; live HUD ???/?n; over-screen shows wrong total. (5) ProfileScreen `/3 games` ? `ARCADE_GAMES.length`. Exclusives confirmed still rendering (Library panel 3 tiles). **Verify**: tsc clean; vitest 32 files/**1022** tests (pixelRun 13 incl. planFeatures invariants); precommit OK; local smoke **13/13** (jump +73px, gate overlay + HUD penalty, exclusives); deployed gh-pages `index-CxsAI_FX.js`; live `verify-gamification` **42/42**. Files: src/components/arcade/PixelRun.tsx, src/screens/ProfileScreen.tsx, tests/pixelRun.test.ts, both PLAN.md. |
+| 2026-09-23 | WS5-gameplay | **Pixel Run gameplay revision (user request): Sonic character, coin-friendly jump, safe coin placement, gate benefit/drawback.** (1) Player = Sonic `<Mascot id="sonic">` (happy/excited/cheer expressions, cyan shield ring; `aria-label="Runner"` kept for smoke scripts; PLAYER_W 22?26). (2) Jump retuned so a well-timed jump sweeps the whole coin arc: GRAVITY 0.55?0.6, JUMP_V?10.2 (apex �87 > coin top 52), coin hitbox +6px generous, arc spacing 24 / heights 8/34/52/34/8. (3) Coins never lead into obstacles: new pure `planFeatures(rand, fromX, untilX)` sequential spawner (spike ~45% / arc ~55%, shared cursor, `GATE_CLEAR=80`, `COIN_GAP_AFTER=130`, stops before finish-140) + layout-invariant tests. (4) Gate outcomes clear: correct = GATE_SCORE 20?**50** + 30 coins + **4s shield** (spikes pass through, cyan ring); wrong = -1 life + **WRONG_PENALTY=30** score (floor 0) + i-frames; live HUD ???/?n; over-screen shows wrong total. (5) ProfileScreen `/3 games` ? `ARCADE_GAMES.length`. Exclusives confirmed still rendering (Library panel 3 tiles). **Verify**: tsc clean; vitest 32 files/**1022** tests (pixelRun 13 incl. planFeatures invariants); precommit OK; local smoke **13/13** (jump +73px, gate overlay + HUD penalty, exclusives); deployed gh-pages `index-CxsAI_FX.js`; live `verify-gamification` **42/42**. Files: src/components/arcade/PixelRun.tsx, src/screens/ProfileScreen.tsx, tests/pixelRun.test.ts, both PLAN.md. |
+| 2026-09-23 | §10 arcade-exclusives | **Fang/Bean/Bark moved to arcade exclusives (user decisions locked).** (1) `cards.ts`: `source?: 'chest'|'arcade'`; removed trio from `CARDS` → chest pool **97 (39/25/18/10/5)**; added `ARCADE_CARDS` (all exclusive, source arcade, unlock-condition flavors), `ALL_CARDS` (100), `ARCADE_CARD_BY_ID`; `drawCardId`/`mastered` still read `CARDS` only. (2) Library: top `🕹️ Arcade Exclusives` panel (x/3 collected, existing gray locked style: dimmed art + 🔒 + condition line); header total = `ALL_CARDS.length` (100); locked toast + modal obtain copy branch on `source === 'arcade'`; tier/search/Owned still filter only the 97-card main grid. (3) Profile unique-cards + ★ distribution use `ALL_CARDS`. (4) Tests: chestCards band → 39/25/18/10/5 + `toBe(97)` + new arcade describe (`ALL_CARDS` 100, ARCADE disjoint/exclusive/source/images, `rollChest` never drops them); cardStars art contract over `ALL_CARDS` (100-entry map kept). (5) PLAN §7 renumbered + Arcade subsection; §10 checklist. **Gates**: `npx tsc -b` clean; full `npx vitest run` **85 files / 2442 tests green**; `npm run verify` OK. Local smoke: arcade panel 3 tiles, header `/100`, main grid 97, exclusive tab 5, search fang → 0 main + panel intact. Files: src/engine/cards.ts, src/screens/LibraryScreen.tsx, src/screens/ProfileScreen.tsx, tests/{chestCards,cardStars}.test.ts, PLAN.md. |

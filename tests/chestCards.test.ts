@@ -2,6 +2,9 @@
 import { existsSync } from 'node:fs'
 import { mulberry32 } from '../src/content/rng'
 import {
+  ALL_CARDS,
+  ARCADE_CARDS,
+  ARCADE_CARD_BY_ID,
   CARDS,
   CARD_BY_ID,
   CARD_CHANCE,
@@ -513,19 +516,59 @@ describe('WS2 invariant D — reveal totals == grantChest payout', () => {
   })
 })
 
-describe('WS4c roster (full 100-card roster, PLAN.md §7)', () => {
-  /** Exact PLAN §7 target per tier after +2 cards (maria common, chao rare):
-   *  41/26/18/10/5 = 100. */
+describe('WS4c roster (full 100-card collection, PLAN.md §7 + §10)', () => {
+  /** Exact PLAN §7 chest band after moving fang/bean/bark to ARCADE_CARDS:
+   *  39/25/18/10/5 = 97 chest cards; ALL_CARDS = 97 + 3 arcade = 100. */
   const PLAN_BAND: Record<ChestTier, [number, number]> = {
-    common: [41, 41],
-    rare: [26, 26],
+    common: [39, 39],
+    rare: [25, 25],
     epic: [18, 18],
     legendary: [10, 10],
     exclusive: [5, 5],
   }
 
-  it('roster count is exactly the plan total (100)', () => {
-    expect(CARDS.length).toBe(100)
+  it('chest roster count is exactly the plan total (97)', () => {
+    expect(CARDS.length).toBe(97)
+  })
+
+  it('ALL_CARDS is exactly 100 (97 chest + 3 arcade exclusives)', () => {
+    expect(ALL_CARDS).toHaveLength(100)
+    expect(ARCADE_CARDS).toHaveLength(3)
+    expect(CARDS.length + ARCADE_CARDS.length).toBe(ALL_CARDS.length)
+  })
+
+  it('arcade exclusives are exclusive-tier, source arcade, and disjoint from CARDS', () => {
+    const chestIds = new Set(CARDS.map((c) => c.id))
+    for (const c of ARCADE_CARDS) {
+      expect(c.tier, c.id).toBe('exclusive')
+      expect(c.source, c.id).toBe('arcade')
+      expect(chestIds.has(c.id), c.id).toBe(false)
+      expect(ARCADE_CARD_BY_ID[c.id], c.id).toBe(c)
+      expect(ALL_CARDS).toContain(c)
+    }
+    expect(new Set(ARCADE_CARDS.map((c) => c.id)).size).toBe(3)
+  })
+
+  it('rollChest never drops an arcade exclusive id', () => {
+    const arcadeIds = new Set(ARCADE_CARDS.map((c) => c.id))
+    for (let i = 0; i < 5000; i++) {
+      const r = rollChest(rng(i * 17 + 3), 'normal', {}, i % 3 === 0 ? PITY_LIMIT : 0)
+      for (const card of r.cards) {
+        expect(arcadeIds.has(card.cardId), card.cardId).toBe(false)
+      }
+    }
+    // pool subset: every tier pool is built from CARDS only
+    for (const tier of TIER_ORDER) {
+      const pool = CARDS.filter((c) => c.tier === tier).map((c) => c.id)
+      for (const id of pool) expect(arcadeIds.has(id), id).toBe(false)
+    }
+  })
+
+  it('every arcade exclusive image exists on disk under public/', () => {
+    for (const c of ARCADE_CARDS) {
+      const file = new URL(`../public/${c.image}`, import.meta.url)
+      expect(existsSync(file), `${c.id} -> ${c.image}`).toBe(true)
+    }
   })
 
   it('tier distribution stays within the plan ranges', () => {
