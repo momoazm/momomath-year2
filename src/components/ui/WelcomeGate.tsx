@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { GOOGLE_CLIENT_ID, renderGoogleButton, useAuth, type AuthUser } from '../../engine/auth'
 import { usePlayer } from '../../engine/store'
+import { useSyncStatus } from '../../engine/cloudsave'
+import { resolveGatePhase } from '../../engine/gatePhase'
 import { MASCOTS, Mascot } from '../mascots/Mascots'
 import { sfx } from '../../engine/sfx'
 import type { MascotId } from '../../content/types'
@@ -23,29 +25,41 @@ const CHARACTERS: { id: MascotId; label: string }[] = [
 
 export function WelcomeGate() {
   const user = useAuth((s) => s.user)
+  const credential = useAuth((s) => s.credential)
   const signIn = useAuth((s) => s.signIn)
-  const guestName = useAuth((s) => s.guestName)
-  const setGuestName = useAuth((s) => s.setGuestName)
   const onboarded = usePlayer((s) => s.onboarded)
   const setName = usePlayer((s) => s.setName)
   const setMascot = usePlayer((s) => s.setMascot)
   const setOnboarded = usePlayer((s) => s.setOnboarded)
-  const qaStep = Number(new URLSearchParams(window.location.search).get('gate') ?? 0)
-  const [step, setStep] = useState<1 | 2 | 3>(qaStep === 2 || qaStep === 3 ? qaStep : 1)
+  const syncStatus = useSyncStatus((s) => s.status)
+  const remoteSeen = useSyncStatus((s) => s.remoteSeen)
+  const qaRaw = Number(new URLSearchParams(window.location.search).get('gate') ?? 0)
+  const qaForcedStep: 0 | 2 | 3 = qaRaw === 2 || qaRaw === 3 ? qaRaw : 0
+
+  const phase = resolveGatePhase({
+    hasUser: !!user,
+    hasCredential: !!credential,
+    syncStatus,
+    remoteExists: remoteSeen,
+    localOnboarded: onboarded,
+    qaForcedStep,
+  })
+
+  const [step, setStep] = useState<2 | 3>(qaForcedStep || 2)
   const [draft, setDraft] = useState('')
   const [picked, setPicked] = useState<MascotId>('sonic')
   const [failed, setFailed] = useState(false)
   const btnRef = useRef<HTMLDivElement>(null)
 
+  /* New user just became picker-eligible: prefill Google first name. */
   useEffect(() => {
-    if (user && step === 1) {
-      setDraft(user.name.split(' ')[0])
-      setStep(2)
+    if (phase === 'picker' && user) {
+      setDraft((d) => d || user.name.split(' ')[0])
     }
-  }, [user, step])
+  }, [phase, user])
 
   /* If the Google button never paints (GIS blocked/slow/hung iframe),
-     renderButton may never reject — so fall back to the guest path on a
+     renderButton may never reject — surface the error + Retry on a
      timeout instead of stranding the user on a dead sign-in card. */
   useEffect(() => {
     if (!GOOGLE_CLIENT_ID || failed || user) return
@@ -55,18 +69,17 @@ export function WelcomeGate() {
     return () => clearTimeout(t)
   }, [failed, user])
 
-  const continueAsGuest = () => {
+  const retrySignIn = () => {
     sfx.tap()
-    setDraft((d) => d || guestName || 'Player')
-    setStep(2)
+    setFailed(false)
   }
 
   useEffect(() => {
     if (!GOOGLE_CLIENT_ID || !btnRef.current || failed || user) return
     let cancelled = false
-    renderGoogleButton(btnRef.current, (u: AuthUser) => {
+    renderGoogleButton(btnRef.current, (u: AuthUser, credential: string) => {
       if (cancelled) return
-      signIn(u)
+      signIn(u, credential)
       sfx.complete()
     }).catch(() => {
       if (!cancelled) setFailed(true)
@@ -76,27 +89,26 @@ export function WelcomeGate() {
     }
   }, [signIn, failed, user])
 
-  /* The gate stays up until a real session exists: a Google user OR a named
-     guest. No bypass: without a session the roadmap never opens. A returning
-     guest's remembered name is offered back so they can tap straight through. */
-  const hasSession = !!user || !!guestName
-  if (hasSession && !qaStep) return null
+  /* Closes only when resolveGatePhase says the session is settled and
+     onboarded — never on user presence alone (that skipped the picker
+     and the remote-save wait). `?gate=2|3` forces the picker for QA. */
+  if (phase === 'open' && !qaRaw) return null
 
   const finish = () => {
     sfx.complete()
     const finalName = draft.trim() || 'Player'
     setName(finalName)
-    setGuestName(finalName)
     setMascot(picked)
     setOnboarded()
   }
 
+  const activeDot = phase === 'signin' ? 1 : phase === 'picker' ? step : 0
   const stepDots = (
     <div className="mb-4 flex justify-center gap-2">
       {[1, 2, 3].map((n) => (
         <span
           key={n}
-          className={`h-2.5 w-8 rounded-full ${n === step ? 'bg-speed-blue' : n < step ? 'bg-emerald-400' : 'bg-slate-200'}`}
+          className={`h-2.5 w-8 rounded-full ${n === activeDot ? 'bg-speed-blue' : n < activeDot ? 'bg-emerald-400' : 'bg-slate-200'}`}
         />
       ))}
     </div>
@@ -110,10 +122,9 @@ export function WelcomeGate() {
         transition={{ type: 'spring', stiffness: 220, damping: 20 }}
         className="card-white my-auto w-full max-w-md p-6 text-center"
       >
-        {stepDots}
-
-        {step === 1 && (
+        {phase === 'signin' && (
           <>
+            {stepDots}
             <div className="mx-auto h-28 w-28 gpu animate-float-y">
               <Mascot id="sonic" expression="cheer" />
             </div>
@@ -124,102 +135,121 @@ export function WelcomeGate() {
               Step 1 - Sign in with your Google account to join the leaderboard.
             </p>
             {GOOGLE_CLIENT_ID && !failed ? (
-              <>
-                <div className="mt-6 flex justify-center" ref={btnRef} />
-                <button
-                  onClick={continueAsGuest}
-                  className="mt-4 w-full font-body text-xs font-bold text-slate-400 underline"
-                >
-                  Continue without signing in
-                </button>
-              </>
+              <div className="mt-6 flex justify-center" ref={btnRef} />
             ) : (
               <>
                 <p className="mt-6 font-body text-xs font-bold text-slate-300">
-                  Google sign-in unavailable right now.
+                  Google sign-in unavailable right now. Check your connection and try again.
                 </p>
-                <button
-                  onClick={continueAsGuest}
-                  className="btn3d btn-grey mt-4 w-full"
-                >
-                  Continue without signing in
+                <button onClick={retrySignIn} className="btn3d btn-grey mt-4 w-full">
+                  Retry
                 </button>
               </>
             )}
           </>
         )}
 
-        {step === 2 && (
+        {phase === 'loading' && (
           <>
             <div className="mx-auto h-24 w-24 gpu animate-float-y">
-              <Mascot id="tails" expression="excited" />
+              <Mascot id="sonic" expression="happy" />
             </div>
             <h2 className="mt-2 font-display text-xl font-extrabold text-speed-blue">
-              Step 2 - Pick your player name
+              Loading your progress…
             </h2>
             <p className="mt-1 font-body text-sm font-bold text-slate-400">
-              This is the name everyone sees on the leaderboard.
+              Syncing your save from the cloud.
             </p>
-            <input
-              value={draft}
-              maxLength={16}
-              onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && draft.trim() && (sfx.tap(), setStep(3))}
-              placeholder="Type your name"
-              className="mt-4 w-full rounded-xl border-2 border-slate-200 px-4 py-3 text-center font-display text-lg font-extrabold outline-none focus:border-speed-blue"
-            />
-            <div className="mt-2 flex flex-wrap justify-center gap-2">
-              {NAME_CHIPS.map((n) => (
-                <button
-                  key={n}
-                  onClick={() => { sfx.tap(); setDraft(n) }}
-                  className={`rounded-full px-3 py-1 font-display text-xs font-extrabold transition-colors ${
-                    draft === n ? 'bg-speed-blue text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-                  }`}
-                >
-                  {n}
-                </button>
+            <div className="mt-4 flex justify-center gap-2">
+              {[0, 1, 2].map((i) => (
+                <motion.span
+                  key={i}
+                  className="h-3 w-3 rounded-full bg-speed-blue"
+                  animate={{ opacity: [0.25, 1, 0.25] }}
+                  transition={{ duration: 0.9, repeat: Infinity, delay: i * 0.15 }}
+                />
               ))}
             </div>
-            <button
-              onClick={() => { sfx.tap(); setStep(3) }}
-              disabled={!draft.trim()}
-              className={`btn3d mt-5 w-full ${draft.trim() ? 'btn-blue' : 'btn-grey'}`}
-            >
-              Next: choose character
-            </button>
           </>
         )}
 
-        {step === 3 && (
+        {phase === 'picker' && (
           <>
-            <h2 className="mt-2 font-display text-xl font-extrabold text-speed-blue">
-              Step 3 - Choose your character
-            </h2>
-            <p className="mt-1 font-body text-sm font-bold text-slate-400">
-              Tap a character to play as {draft || 'them'}!
-            </p>
-            <div className="mt-4 grid grid-cols-4 gap-2">
-              {CHARACTERS.map((c) => (
+            {stepDots}
+
+            {step === 2 && (
+              <>
+                <div className="mx-auto h-24 w-24 gpu animate-float-y">
+                  <Mascot id="tails" expression="excited" />
+                </div>
+                <h2 className="mt-2 font-display text-xl font-extrabold text-speed-blue">
+                  Step 2 - Pick your player name
+                </h2>
+                <p className="mt-1 font-body text-sm font-bold text-slate-400">
+                  This is the name everyone sees on the leaderboard.
+                </p>
+                <input
+                  value={draft}
+                  maxLength={16}
+                  onChange={(e) => setDraft(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && draft.trim() && (sfx.tap(), setStep(3))}
+                  placeholder="Type your name"
+                  className="mt-4 w-full rounded-xl border-2 border-slate-200 px-4 py-3 text-center font-display text-lg font-extrabold outline-none focus:border-speed-blue"
+                />
+                <div className="mt-2 flex flex-wrap justify-center gap-2">
+                  {NAME_CHIPS.map((n) => (
+                    <button
+                      key={n}
+                      onClick={() => { sfx.tap(); setDraft(n) }}
+                      className={`rounded-full px-3 py-1 font-display text-xs font-extrabold transition-colors ${
+                        draft === n ? 'bg-speed-blue text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                      }`}
+                    >
+                      {n}
+                    </button>
+                  ))}
+                </div>
                 <button
-                  key={c.id}
-                  onClick={() => { sfx.tap(c.id); setPicked(c.id) }}
-                  className={`flex flex-col items-center rounded-2xl border-2 p-2 transition-transform hover:scale-105 ${
-                    picked === c.id ? 'border-speed-blue bg-speed-bluelight shadow-pop' : 'border-slate-100'
-                  }`}
+                  onClick={() => { sfx.tap(); setStep(3) }}
+                  disabled={!draft.trim()}
+                  className={`btn3d mt-5 w-full ${draft.trim() ? 'btn-blue' : 'btn-grey'}`}
                 >
-                  <div className="h-14 w-14">
-                    <Mascot id={c.id} expression={picked === c.id ? 'excited' : 'happy'} />
-                  </div>
-                  <span className={`mt-1 font-display text-[10px] font-extrabold ${picked === c.id ? 'text-speed-blue' : 'text-slate-400'}`}>
-                    {c.label}
-                  </span>
+                  Next: choose character
                 </button>
-              ))}
-            </div>
-            <button onClick={finish} className="btn3d btn-green mt-6 w-full">
-              Start playing as {draft} ▶
-            </button>
+              </>
+            )}
+
+            {step === 3 && (
+              <>
+                <h2 className="mt-2 font-display text-xl font-extrabold text-speed-blue">
+                  Step 3 - Choose your character
+                </h2>
+                <p className="mt-1 font-body text-sm font-bold text-slate-400">
+                  Tap a character to play as {draft || 'them'}!
+                </p>
+                <div className="mt-4 grid grid-cols-4 gap-2">
+                  {CHARACTERS.map((c) => (
+                    <button
+                      key={c.id}
+                      onClick={() => { sfx.tap(c.id); setPicked(c.id) }}
+                      className={`flex flex-col items-center rounded-2xl border-2 p-2 transition-transform hover:scale-105 ${
+                        picked === c.id ? 'border-speed-blue bg-speed-bluelight shadow-pop' : 'border-slate-100'
+                      }`}
+                    >
+                      <div className="h-14 w-14">
+                        <Mascot id={c.id} expression={picked === c.id ? 'excited' : 'happy'} />
+                      </div>
+                      <span className={`mt-1 font-display text-[10px] font-extrabold ${picked === c.id ? 'text-speed-blue' : 'text-slate-400'}`}>
+                        {c.label}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+                <button onClick={finish} className="btn3d btn-green mt-6 w-full">
+                  Start playing as {draft} ▶
+                </button>
+              </>
+            )}
           </>
         )}
       </motion.div>

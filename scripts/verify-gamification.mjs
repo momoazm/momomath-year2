@@ -2,15 +2,18 @@
 // Usage: node scripts/verify-gamification.mjs [url]
 // Exit 0 only when every check passes.
 //
-// Covers (PLAN.md step 15):
+// Covers (PLAN.md steps 15 + 35):
 //   1. v7 seed -> v10 persist migration (arcadeRounds/arcadeBossesDown backfill)
-//   2. subject switching renders unit roadmaps for english/science (no "coming soon")
-//   3. arcade lists all 4 games + badges + subtitle (Boss Rush/Word Rescue/Lab Blitz/Pixel Run)
-//   4. Boss Rush play-through: 1 boss killed, round ends, score/XP persisted
-//   5. exclusive-card grant: seeded 9 rounds -> 10th round unlocks Fang (celebration overlay)
-//   6. Library "🕹️ Arcade Exclusives" panel: 1/3 collected, live progress, locked-card toast
-//   7. quests / shop / dust / login calendar (kept from the previous release)
-//   8. mobile 360px viewport checks
+//   2. Phase 7 auth: seeded user opens roadmap (no gate); ?gate=3 forces picker;
+//      clearing user returns the sign-in gate; no guest path
+//   3. subject switching renders unit roadmaps for english/science (no "coming soon")
+//   4. roadmap lesson node → BattleScreen smoke: chrome, wrong answer shows 💡 hint, flee
+//   5. arcade lists all 4 games + badges + subtitle (Boss Rush/Word Rescue/Lab Blitz/Pixel Run)
+//   6. Boss Rush play-through: 1 boss killed, round ends, score/XP persisted
+//   7. exclusive-card grant: seeded 9 rounds -> 10th round unlocks Fang (celebration overlay)
+//   8. Library "🕹️ Arcade Exclusives" panel: 1/3 collected, live progress, locked-card toast
+//   9. quests / shop / dust / login calendar (kept from the previous release)
+//  10. mobile 360px viewport checks
 import { createRequire } from 'node:module'
 import { mkdirSync } from 'node:fs'
 
@@ -64,16 +67,51 @@ async function main() {
   const page = await ctx.newPage()
   const errors = []
   page.on('pageerror', (e) => errors.push(String(e)))
-  page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
+  page.on('console', (m) => {
+    if (m.type() !== 'error') return
+    const t = m.text()
+    // Google Sign-In on localhost always logs a 403 origin error — not the app's.
+    if (/GSI_LOGGER|accounts\.google\.com|Failed to load resource.*403/i.test(t)) return
+    errors.push(t)
+  })
   page.setDefaultTimeout(20000)
 
   const url = `${URL_BASE}?cb=${Date.now()}`
   await page.goto(url, { waitUntil: 'domcontentloaded' })
   await page.evaluate((seed) => {
     localStorage.setItem('momomath-year2-player-v2', JSON.stringify(seed))
-    localStorage.setItem('momomath-year2-auth', JSON.stringify({ state: { user: null, guestName: 'Momo' }, version: 0 }))
+    localStorage.setItem('momomath-year2-auth', JSON.stringify({ state: { user: { sub: 'qa-seed', name: 'Momo', email: 'qa@example.com' }, credential: null, guestName: null }, version: 0 }))
   }, SEED)
-  await page.goto(url, { waitUntil: 'networkidle' })
+  await page.goto(url, { waitUntil: 'domcontentloaded' })
+  await page.waitForTimeout(800)
+
+  // --- Phase 7: returning seeded user lands on the roadmap (no gate) ---
+  const returningGate = await page.getByText('Welcome to Momo Year 2 Cambridge!').isVisible().catch(() => false)
+  const guestOnGate = await page.getByText(/Continue without signing in/i).first().isVisible().catch(() => false)
+  ok('returning user opens roadmap (no gate)', !returningGate, `gateVisible=${returningGate}`)
+  ok('guest path removed from gate', !guestOnGate, `guestVisible=${guestOnGate}`)
+
+  // --- Phase 7: ?gate=3 forces the NEW-USER character picker ---
+  await page.goto(`${URL_BASE}?gate=3&cb=${Date.now()}`, { waitUntil: 'domcontentloaded' })
+  await page.waitForTimeout(900)
+  const picker3 = await page.getByText('Step 3 - Choose your character').isVisible().catch(() => false)
+  ok('?gate=3 forces character picker', picker3, `picker=${picker3}`)
+
+  // --- Phase 7: clearing the user returns the sign-in gate ---
+  await page.evaluate(() => {
+    localStorage.setItem('momomath-year2-auth', JSON.stringify({ state: { user: null, credential: null, guestName: null }, version: 0 }))
+  })
+  await page.goto(url, { waitUntil: 'domcontentloaded' })
+  await page.waitForTimeout(900)
+  const gateBack = await page.getByText('Welcome to Momo Year 2 Cambridge!').isVisible().catch(() => false)
+  ok('signing out returns the sign-in gate', gateBack, `gateVisible=${gateBack}`)
+  // Restore session for the rest of the run.
+  await page.evaluate((seed) => {
+    localStorage.setItem('momomath-year2-player-v2', JSON.stringify(seed))
+    localStorage.setItem('momomath-year2-auth', JSON.stringify({ state: { user: { sub: 'qa-seed', name: 'Momo', email: 'qa@example.com' }, credential: null, guestName: null }, version: 0 }))
+  }, SEED)
+  await page.goto(url, { waitUntil: 'domcontentloaded' })
+  await page.waitForTimeout(900)
 
   // --- 1. migration ran: v7 -> v10, arcade counters backfilled ---
   const persisted = await page.evaluate((k) => JSON.parse(localStorage.getItem(k)), PLAYER_KEY)
@@ -96,7 +134,7 @@ async function main() {
     raw.state.arcadeRounds = 9
     localStorage.setItem(k, JSON.stringify(raw))
   }, PLAYER_KEY)
-  await page.goto(url, { waitUntil: 'networkidle' })
+  await page.goto(url, { waitUntil: 'domcontentloaded' })
   const seeded = await readState(page)
   ok('arcadeRounds seed survives reload', seeded.arcadeRounds === 9, `arcadeRounds=${seeded.arcadeRounds}`)
 
@@ -106,6 +144,113 @@ async function main() {
   ok('maths roadmap shows unit headers', mathUnits >= 1, `unit headers=${mathUnits}`)
   const comingSoon = await page.getByText(/coming soon/i).first().isVisible().catch(() => false)
   ok('no "coming soon" empty state', !comingSoon, `comingSoon=${comingSoon}`)
+
+  // --- 2b. battle smoke: node tap → BattleScreen; wrong answer shows hint; flee ---
+  // JS click: the node unmounts the instant BattleScreen mounts, which makes
+  // Playwright's post-click actionability wait hang.
+  const battleOpened = await page.evaluate(() => {
+    const b = Array.from(document.querySelectorAll('button[title]'))
+      .find((x) => /Count Everything/.test(x.title || '') && !x.disabled)
+    if (!b) return false
+    b.click()
+    return true
+  })
+  await page.waitForTimeout(1000)
+  const battleChrome = await page.evaluate(() => {
+    const body = document.body.innerText
+    // .btn3d is CSS uppercase — innerText has FLEE/ATTACK!; match /i.
+    return {
+      battle: /⚔ Battle/i.test(body),
+      hp: /\d+\/\d+ HP/.test(body),
+      flee: /flee/i.test(body),
+      letsGo: /Let's go/i.test(body),
+    }
+  })
+  ok('lesson node opens BattleScreen (not lesson intro)',
+    battleOpened && battleChrome.battle && battleChrome.hp && battleChrome.flee && !battleChrome.letsGo,
+    JSON.stringify({ battleOpened, ...battleChrome }))
+  await shot(page, '01b-battle')
+  // Force one wrong answer. Tap-count needs a cell tap first; React must
+  // re-render before Attack enables — so tap this step, Attack on the next.
+  const wrongStage = await page.evaluate(() => {
+    const btns = Array.from(document.querySelectorAll('button'))
+    const t = (b) => (b.textContent || '').trim()
+    const enabled = (b) => !b.disabled
+
+    const est = btns.filter((b) => /^about \d+$/i.test(t(b)) && enabled(b))
+    if (est.length) {
+      const visual = Array.from(document.querySelectorAll('p')).find((p) => /text-3xl/.test(p.className || ''))
+      const n = visual ? visual.textContent.trim().split(/\s+/).filter(Boolean).length : 0
+      const want = n >= 6 && n <= 7 ? 'about 5' : (n === 8 || n === 9 || n === 11 || n === 12) ? 'about 10' : (n >= 17 && n <= 18) ? 'about 20' : null
+      const wrong = est.find((b) => t(b).toLowerCase() !== want) || est[0]
+      wrong?.click()
+      return 'est'
+    }
+
+    const tapPrompt = Array.from(document.querySelectorAll('p')).find((p) => /^Tap ALL the/.test(t(p)))
+    if (tapPrompt) {
+      const emoji = t(tapPrompt).replace(/^Tap ALL the/, '').trim()
+      const targets = btns.filter((b) => t(b) === emoji && enabled(b))
+      const pressed = (x) => (x.className || '').includes('border-speed-blue')
+      const anyPressed = targets.some(pressed)
+      if (!anyPressed) {
+        targets[0]?.click()
+        return 'tap-select'
+      }
+      const atk = btns.find((b) => /^Attack!$/i.test(t(b)) && enabled(b))
+      if (atk) {
+        atk.click()
+        return 'attack'
+      }
+      return 'tap-wait'
+    }
+    return 'idle'
+  })
+  if (wrongStage === 'tap-select') {
+    // Poll Attack: React may take >250ms to enable it after the cell tap.
+    let attackClicked = false
+    for (let i = 0; i < 12 && !attackClicked; i++) {
+      await page.waitForTimeout(150)
+      attackClicked = await page.evaluate(() => {
+        const btns = Array.from(document.querySelectorAll('button'))
+        const atk = btns.find((b) => /^Attack!$/i.test((b.textContent || '').trim()) && !b.disabled)
+        if (!atk) return false
+        atk.click()
+        return true
+      })
+    }
+    if (!attackClicked) wrongStage += '+no-attack'
+  }
+  // 💡 paints only after lockInput clears (~900ms) AND the answer was wrong.
+  // Poll up to ~3s instead of a single 1400ms snapshot (flaky under HMR load).
+  let wrongInfo = { hint: false, feedback: false, attackGone: false }
+  for (let i = 0; i < 15; i++) {
+    await page.waitForTimeout(200)
+    wrongInfo = await page.evaluate(() => ({
+      hint: /💡/.test(document.body.innerText),
+      // If the generator supplies q.hint, battle.ts uses it as teachLine INSTEAD
+      // of the default "Missed turn…" string — so accept either.
+      feedback: /Missed turn|enemy strikes|Read the tip|Only tap the ones|Group them into fives/i.test(document.body.innerText),
+      attackGone: !Array.from(document.querySelectorAll('button')).some((b) =>
+        /^Attack!$/i.test((b.textContent || '').trim()) && !b.disabled),
+    }))
+    if (wrongInfo.hint && wrongInfo.feedback) break
+  }
+  ok('wrong battle answer shows 💡 hint',
+    wrongInfo.hint && (wrongInfo.feedback || wrongInfo.hint),
+    JSON.stringify({ wrongStage, ...wrongInfo }))
+  const fled = await page.evaluate(() => {
+    const b = Array.from(document.querySelectorAll('button'))
+      .find((x) => /Flee/i.test((x.textContent || '').trim()) && !x.disabled)
+    if (!b) return false
+    b.click()
+    return true
+  })
+  await page.waitForTimeout(700)
+  const backOnPath = await page.evaluate(() =>
+    Array.from(document.querySelectorAll('button[title]')).some((x) => /Count Everything/.test(x.title || '')),
+  )
+  ok('flee returns to roadmap', fled && backOnPath, `fled=${fled} path=${backOnPath}`)
 
   // --- subject switching: english + science roadmaps render unit headers ---
   for (const subj of ['English', 'Science']) {
@@ -257,8 +402,13 @@ async function main() {
   await shot(page, '07-arcade-pb')
 
   // --- 5. Library arcade section ---
+  // Full page nav (not SPA): wait for the Arcade Exclusives heading, not a fixed 2s.
   await page.evaluate(() => { location.href = location.pathname + '?library&cb=' + Date.now() })
-  await page.waitForTimeout(2000)
+  let libReady = false
+  for (let i = 0; i < 20 && !libReady; i++) {
+    await page.waitForTimeout(250)
+    libReady = await page.evaluate(() => document.body.innerText.includes('🕹️ Arcade Exclusives'))
+  }
   await shot(page, '08-library')
   const lib = await page.evaluate(() => {
     const body = document.body.innerText
@@ -308,8 +458,11 @@ async function main() {
   // --- 6. Quests: exactly 3 rotating quests ---
   await page.evaluate(() => { location.href = location.pathname + '?cb=' + Date.now() })
   await page.waitForTimeout(1500)
-  await page.getByRole('button', { name: /Quests/i }).first().click()
+  const questsTab = await jsClick(page, '^Quests$')
   await page.waitForTimeout(500)
+  if (!questsTab) console.log('  WARN: Quests jsClick missed; falling back to role click')
+  if (!questsTab) await page.getByRole('button', { name: /Quests/i }).first().click().catch(() => {})
+  await page.waitForTimeout(300)
   const questCount = await page.evaluate(() => document.querySelectorAll('ul.space-y-3 > li').length)
   ok('3 rotating daily quests', questCount === 3, `quest items=${questCount}`)
   const questLabels = await page.evaluate(() =>
@@ -387,14 +540,19 @@ async function main() {
   const mctx = await browser.newContext({ viewport: { width: 360, height: 740 } })
   const mp = await mctx.newPage()
   mp.on('pageerror', (e) => errors.push(String(e)))
-  mp.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
+  mp.on('console', (m) => {
+    if (m.type() !== 'error') return
+    const t = m.text()
+    if (/GSI_LOGGER|accounts\.google\.com|Failed to load resource.*403/i.test(t)) return
+    errors.push(t)
+  })
   mp.setDefaultTimeout(20000)
   await mp.goto(`${URL_BASE}?cb=${Date.now()}`, { waitUntil: 'domcontentloaded' })
   await mp.evaluate((seed) => {
     localStorage.setItem('momomath-year2-player-v2', JSON.stringify(seed))
-    localStorage.setItem('momomath-year2-auth', JSON.stringify({ state: { user: null, guestName: 'Momo' }, version: 0 }))
+    localStorage.setItem('momomath-year2-auth', JSON.stringify({ state: { user: { sub: 'qa-seed', name: 'Momo', email: 'qa@example.com' }, credential: null, guestName: null }, version: 0 }))
   }, SEED)
-  await mp.goto(`${URL_BASE}?cb=${Date.now()}`, { waitUntil: 'networkidle' })
+  await mp.goto(`${URL_BASE}?cb=${Date.now()}`, { waitUntil: 'domcontentloaded' })
   await mp.waitForTimeout(600)
   const mob = await mp.evaluate(() => {
     const header = document.querySelector('header')

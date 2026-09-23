@@ -13,14 +13,15 @@ const OUT = 'C:/Users/momo/screenshot_loop_output'
 mkdirSync(OUT, { recursive: true })
 
 // Common current-shape core; each legacy case drops/reshapes fields per era.
-// Legacy (pre-guestName) seeds must still open the roadmap: the gate treats a
-// missing auth record as a MIGRATED guest, not a stranger (no sign-in loop).
+// Legacy player saves must open under a seeded user (no credential): the gate
+// settles on local onboarded, so a missing/old auth record is never a loop.
 const CORE = {
   name: 'Momo', mascot: 'sonic', onboarded: true, gems: 120, xpTotal: 340,
   streakCurrent: 4, streakLongest: 5, dailyGoal: 30, todayXp: 10, soundOn: false,
   lessonProgress: {}, currentLeague: 'Bronze', shopInventory: {}, achievements: [],
   leagueHistory: [], claimedQuests: { day: '1970-01-01', questIds: [] },
 }
+const AUTH_SEED = { state: { user: { sub: 'qa-seed', name: 'Momo', email: 'qa@example.com' }, credential: null, guestName: null }, version: 0 }
 
 const CASES = [
   { v: 3, state: { ...CORE, cardCollection: ['tails', 'amy'], weeklyXp: 12 } }, // pre-v4: old card field, no streak fields
@@ -44,6 +45,7 @@ const main = async () => {
     await page.goto(url, { waitUntil: 'domcontentloaded' })
     await page.evaluate(([seed, ver]) => {
       localStorage.setItem('momomath-year2-player-v2', JSON.stringify({ state: seed, version: ver }))
+      localStorage.setItem('momomath-year2-auth', JSON.stringify(AUTH_SEED))
     }, [c.state, c.v])
     await page.goto(url, { waitUntil: 'networkidle' })
     await page.waitForTimeout(2000)
@@ -56,7 +58,8 @@ const main = async () => {
         bodyLen: body.length,
       }
     })
-    const pass = rendered.unitVisible && errors.length === 0
+    // Legacy player state must open under the seeded user — gate stays shut.
+    const pass = rendered.unitVisible && !rendered.welcomeGate && errors.length === 0
     results.push({ v: c.v, pass, rendered, errors: errors.slice(0, 3) })
     console.log(`${pass ? 'PASS' : 'FAIL'} legacy-v${c.v} unit=${rendered.unitVisible} dailyGoal=${rendered.dailyGoal} gate=${rendered.welcomeGate} bodyLen=${rendered.bodyLen} errors=${errors.length ? JSON.stringify(errors.slice(0, 2)) : 'none'}`)
     await page.screenshot({ path: `${OUT}/legacy-v${c.v}.png` }).catch(() => {})

@@ -57,13 +57,18 @@ export type SyncStatus = 'signed-out' | 'syncing' | 'synced' | 'expired' | 'erro
 interface SyncUi {
   status: SyncStatus
   detail: string
+  /** True once the initial pull for the current session returned a remote save. */
+  remoteSeen: boolean
   setStatus: (s: SyncStatus, detail?: string) => void
+  setRemoteSeen: (v: boolean) => void
 }
 
 export const useSyncStatus = create<SyncUi>()((set) => ({
   status: 'signed-out',
   detail: '',
+  remoteSeen: false,
   setStatus: (status, detail = '') => set({ status, detail }),
+  setRemoteSeen: (remoteSeen) => set({ remoteSeen }),
 }))
 
 export class CloudAuthError extends Error {
@@ -181,13 +186,22 @@ export function mergeStars(
   return merged
 }
 
-/** Client-side twin of the server merge: progress from either device survives. */
-export function mergeCloudSave(a: CloudSave | null, b: CloudSave | null): CloudSave | null {
-  if (!a) return b
-  if (!b) return a
-  const newest = (b.updatedAt || 0) >= (a.updatedAt || 0) ? b : a
-  const lessonProgress: Record<string, LessonProgress> = { ...a.lessonProgress }
-  for (const [k, v] of Object.entries(b.lessonProgress)) {
+/**
+ * Client-side twin of the server merge: progress from either device survives.
+ *
+ * Call sites always pass `(local, remote)`. Identity fields follow **remote**
+ * when it exists — `snapshotFromPlayer` stamps `updatedAt=Date.now()`, so a
+ * fresh device's local defaults would otherwise always win "newest" and get
+ * pushed back over the account name/mascot. `onboarded` is sticky-OR so a
+ * half-finished local onboarding never un-onboards an account. Counters stay
+ * max/union.
+ */
+export function mergeCloudSave(local: CloudSave | null, remote: CloudSave | null): CloudSave | null {
+  if (!local) return remote
+  if (!remote) return local
+  const newest = (remote.updatedAt || 0) >= (local.updatedAt || 0) ? remote : local
+  const lessonProgress: Record<string, LessonProgress> = { ...local.lessonProgress }
+  for (const [k, v] of Object.entries(remote.lessonProgress)) {
     const prev = lessonProgress[k]
     lessonProgress[k] = prev
       ? {
@@ -203,51 +217,55 @@ export function mergeCloudSave(a: CloudSave | null, b: CloudSave | null): CloudS
     return out
   }
   return {
-    name: newest.name,
-    mascot: newest.mascot,
-    subject: newest.subject,
-    dailyGoal: newest.dailyGoal,
-    onboarded: newest.onboarded,
-    soundOn: newest.soundOn,
+    name: remote.name,
+    mascot: remote.mascot,
+    subject: remote.subject,
+    dailyGoal: remote.dailyGoal,
+    onboarded: local.onboarded || remote.onboarded,
+    soundOn: remote.soundOn,
     lastActiveDay: newest.lastActiveDay,
     lastLoginDay: newest.lastLoginDay,
     loginRewardClaimedDay: newest.loginRewardClaimedDay,
-    dailyLoginStreak: Math.max(a.dailyLoginStreak, b.dailyLoginStreak),
+    dailyLoginStreak: Math.max(local.dailyLoginStreak, remote.dailyLoginStreak),
     weeklyXpWeek: newest.weeklyXpWeek,
     currentLeague:
-      LEAGUES.indexOf(b.currentLeague) >= LEAGUES.indexOf(a.currentLeague) ? b.currentLeague : a.currentLeague,
-    xpTotal: Math.max(a.xpTotal, b.xpTotal),
-    gems: Math.max(a.gems, b.gems),
-    dust: Math.max(a.dust, b.dust),
-    streakCurrent: Math.max(a.streakCurrent, b.streakCurrent),
-    streakLongest: Math.max(a.streakLongest, b.streakLongest),
+      LEAGUES.indexOf(remote.currentLeague) >= LEAGUES.indexOf(local.currentLeague)
+        ? remote.currentLeague
+        : local.currentLeague,
+    xpTotal: Math.max(local.xpTotal, remote.xpTotal),
+    gems: Math.max(local.gems, remote.gems),
+    dust: Math.max(local.dust, remote.dust),
+    streakCurrent: Math.max(local.streakCurrent, remote.streakCurrent),
+    streakLongest: Math.max(local.streakLongest, remote.streakLongest),
     weeklyXp:
-      newest.weeklyXpWeek && a.weeklyXpWeek === b.weeklyXpWeek
-        ? Math.max(a.weeklyXp, b.weeklyXp)
+      newest.weeklyXpWeek && local.weeklyXpWeek === remote.weeklyXpWeek
+        ? Math.max(local.weeklyXp, remote.weeklyXp)
         : (newest.weeklyXp ?? 0),
-    leagueHistory: [...a.leagueHistory, ...b.leagueHistory]
+    leagueHistory: [...local.leagueHistory, ...remote.leagueHistory]
       .filter((h, i, arr) => arr.findIndex((x) => x.weekKey === h.weekKey) === i)
       .sort((x, y) => (x.weekKey < y.weekKey ? -1 : 1))
       .slice(-10),
     pendingLeagueSettle:
-      (b.pendingLeagueSettle && (!a.pendingLeagueSettle || a.pendingLeagueSettle.weekKey <= b.pendingLeagueSettle.weekKey)
-        ? b.pendingLeagueSettle
-        : a.pendingLeagueSettle) ?? null,
+      (remote.pendingLeagueSettle &&
+      (!local.pendingLeagueSettle || local.pendingLeagueSettle.weekKey <= remote.pendingLeagueSettle.weekKey)
+        ? remote.pendingLeagueSettle
+        : local.pendingLeagueSettle) ?? null,
     lessonProgress,
-    achievements: [...new Set([...a.achievements, ...b.achievements])],
-    cardStars: mergeStars(a.cardStars, b.cardStars),
-    cardPity: Math.min(a.cardPity, b.cardPity),
-    shopInventory: maxInventory(a.shopInventory, b.shopInventory),
-    streakSavers: Math.max(a.streakSavers, b.streakSavers),
-    lastStreakReward: Math.max(a.lastStreakReward, b.lastStreakReward),
-    pendingStreakMilestone: a.pendingStreakMilestone ?? b.pendingStreakMilestone,
-    doubleXpLessons: Math.max(a.doubleXpLessons, b.doubleXpLessons),
-    chestBoost: a.chestBoost || b.chestBoost,
-    megaChest: a.megaChest || b.megaChest,
-    luckyTickets: Math.max(a.luckyTickets, b.luckyTickets),
-    claimedQuests: newest.claimedQuests?.questIds?.length ? newest.claimedQuests : a.claimedQuests,
-    arcadeScores: maxInventory(a.arcadeScores, b.arcadeScores),
-    updatedAt: Math.max(a.updatedAt || 0, b.updatedAt || 0, Date.now()),
+    achievements: [...new Set([...local.achievements, ...remote.achievements])],
+    cardStars: mergeStars(local.cardStars, remote.cardStars),
+    cardPity: Math.min(local.cardPity, remote.cardPity),
+    shopInventory: maxInventory(local.shopInventory, remote.shopInventory),
+    streakSavers: Math.max(local.streakSavers, remote.streakSavers),
+    lastStreakReward: Math.max(local.lastStreakReward, remote.lastStreakReward),
+    pendingStreakMilestone: local.pendingStreakMilestone ?? remote.pendingStreakMilestone,
+    doubleXpLessons: Math.max(local.doubleXpLessons, remote.doubleXpLessons),
+    chestBoost: local.chestBoost || remote.chestBoost,
+    megaChest: local.megaChest || remote.megaChest,
+    luckyTickets: Math.max(local.luckyTickets, remote.luckyTickets),
+    claimedQuests:
+      newest.claimedQuests?.questIds?.length ? newest.claimedQuests : local.claimedQuests,
+    arcadeScores: maxInventory(local.arcadeScores, remote.arcadeScores),
+    updatedAt: Math.max(local.updatedAt || 0, remote.updatedAt || 0, Date.now()),
   }
 }
 
@@ -260,6 +278,7 @@ export function startCloudSync() {
   if (started || typeof window === 'undefined') return
   started = true
   const setStatus = useSyncStatus.getState().setStatus
+  const setRemoteSeen = useSyncStatus.getState().setRemoteSeen
 
   let initialPullDoneFor: string | null = null
   let pushTimer: ReturnType<typeof setTimeout> | null = null
@@ -274,9 +293,11 @@ export function startCloudSync() {
     const key = pullKey(userSub, credential)
     if (initialPullDoneFor === key) return
     initialPullDoneFor = key
+    setRemoteSeen(false)
     setStatus('syncing', 'Loading your progress…')
     try {
       const remote = await pullCloudsave(credential)
+      setRemoteSeen(!!remote)
       const local = snapshotFromPlayer(usePlayer.getState())
       const merged = mergeCloudSave(local, remote)
       if (merged && remote) {
@@ -332,6 +353,7 @@ export function startCloudSync() {
       initialPullDoneFor = null
       lastPushedJson = ''
       if (pushTimer) clearTimeout(pushTimer)
+      setRemoteSeen(false)
       setStatus('signed-out', '')
     }
   })

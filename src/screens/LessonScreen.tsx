@@ -5,10 +5,11 @@ import { QUESTIONS_PER_LESSON } from '../content/curriculum'
 import { getCurriculum } from '../content/registry'
 import { isLessonRedo, crownsEarned } from '../engine/path'
 import { usePlayer } from '../engine/store'
-import { rollChest, CARD_BY_ID, cardImageUrl, KICK_UPGRADE, copiesToNextStar, toStar, type ChestContext, type ChestResult, type ChestTier } from '../engine/cards'
+import { rollChest, type ChestContext, type ChestResult } from '../engine/cards'
 import { chestGemMultiplier } from '../engine/shop'
 import { speak, speakSlow, stopSpeaking, ttsAvailable } from '../engine/tts'
 import { Mascot } from '../components/mascots/Mascots'
+import { ChestReveal } from '../components/ui/ChestReveal'
 import { sfx } from '../engine/sfx'
 import { hashString, mulberry32, shuffle } from '../content/rng'
 import { layoutMatchColumns } from '../content/matchLayout'
@@ -182,20 +183,12 @@ export function LessonScreen({ lessonId, onExit }: { lessonId: string; onExit: (
   const [totalFirstAttempts, setTotalFirstAttempts] = useState(0)
   const [xpEarned, setXpEarned] = useState(0)
   const [firstAttemptMistakes, setFirstAttemptMistakes] = useState(0)
-  // 4-kick chest ritual state (drives the new cards.ts chest engine UI)
+  // 4-kick chest ritual state (delegates UI to shared ChestReveal)
   const [chestResult, setChestResult] = useState<ChestResult | null>(null)
   /** true when the finished lesson was a replay — redos earn XP but no stars or chests */
   const [isRedoResult, setIsRedoResult] = useState(false)
   /** streak milestone (7/14/21…) whose bonus high-rarity chest is in chestResult */
   const [streakBonus, setStreakBonus] = useState<number | null>(null)
-  const [kicksLeft, setKicksLeft] = useState(4)
-  const [currentTier, setCurrentTier] = useState<ChestTier>('common')
-  const [revealed, setRevealed] = useState(false)
-  // Per-kick animation state
-  const [kickPulse, setKickPulse] = useState(0)            // increments each tap → forces remount/animation
-  const [flashTier, setFlashTier] = useState<ChestTier | null>(null) // success → flash this color
-  const [floater, setFloater] = useState<{ id: number; tier: ChestTier } | null>(null) // rising "+1 tier" text
-  const [shaking, setShaking] = useState(false)            // brief screen-shake on success
 
   // per-question UI state
   const [choiceIdx, setChoiceIdx] = useState<number | null>(null)
@@ -351,91 +344,14 @@ export function LessonScreen({ lessonId, onExit }: { lessonId: string; onExit: (
       const finalChest: ChestResult = { ...chest, gems: finalGems }
       player.grantChest(finalChest)
       setChestResult(finalChest)
-      setCurrentTier(chest.startTier)
     } else {
       setChestResult(null)
-      setCurrentTier('common')
     }
-    setKicksLeft(4)
-    setRevealed(false)
-    setKickPulse(0)
-    setFlashTier(null)
-    setFloater(null)
-    setShaking(false)
     setXpEarned(gained)
 
     sfx.complete()
     confetti({ particleCount: firstAttemptMistakes === 0 ? 120 : 60, spread: 75, origin: { y: 0.7 }, disableForReducedMotion: true })
     setPhase('done')
-  }
-
-  /* Tier metadata for the kick-upgrade UI */
-  const TIER_META: Record<ChestTier, { color: string; label: string; glow: string }> = {
-    common:    { color: '#94a3b8', label: 'Common',    glow: 'rgba(148,163,184,0.4)' },
-    rare:      { color: '#3b82f6', label: 'Rare',      glow: 'rgba(59,130,247,0.4)' },
-    epic:      { color: '#a855f7', label: 'Epic',      glow: 'rgba(168,85,247,0.45)' },
-    legendary: { color: '#f59e0b', label: 'Legendary', glow: 'rgba(245,158,11,0.5)' },
-    exclusive: { color: '#ec4899', label: 'Exclusive', glow: 'rgba(236,72,153,0.5)' },
-  }
-  const TIER_RANK: ChestTier[] = ['common', 'rare', 'epic', 'legendary', 'exclusive']
-  const tierIdx = (t: ChestTier) => TIER_RANK.indexOf(t)
-
-  function onChestKick() {
-    if (revealed) return
-    if (kicksLeft <= 0) return
-    if (!chestResult) return
-    sfx.tap()
-    setKickPulse((n) => n + 1)            // re-trigger shake/flash animation
-    const kicksDone = 4 - kicksLeft       // 0..3
-    const willUpgrade = chestResult.upgradesAt.includes(kicksDone)
-    const fromTier = TIER_RANK[tierIdx(currentTier)]
-    const toTier: ChestTier = willUpgrade && tierIdx(currentTier) < 4
-      ? TIER_RANK[tierIdx(currentTier) + 1]
-      : currentTier
-
-    if (willUpgrade) {
-      setCurrentTier(toTier)
-      setFlashTier(toTier)
-      setFloater({ id: Date.now(), tier: toTier })
-      setShaking(true)
-      sfx.leagueUp()
-      // confetti in the new tier's color
-      const color = TIER_META[toTier].color
-      confetti({
-        particleCount: 60,
-        spread: 90,
-        origin: { y: 0.55 },
-        colors: [color, TIER_META[fromTier].color, '#ffffff'],
-        disableForReducedMotion: true,
-      })
-      // clear transient state after the animation
-      setTimeout(() => {
-        setFlashTier(null)
-        setFloater(null)
-        setShaking(false)
-      }, 900)
-    } else {
-      // a "miss" still feels punchy: small spark burst in the current tier color
-      const color = TIER_META[currentTier].color
-      confetti({
-        particleCount: 18,
-        spread: 50,
-        origin: { y: 0.6 },
-        colors: [color, '#ffffff'],
-        scalar: 0.6,
-        disableForReducedMotion: true,
-      })
-    }
-
-    const next = kicksLeft - 1
-    if (next <= 0) {
-      setKicksLeft(0)
-      setRevealed(true)
-      sfx.leagueUp()
-      confetti({ particleCount: 100, spread: 100, origin: { y: 0.6 }, disableForReducedMotion: true })
-    } else {
-      setKicksLeft(next)
-    }
   }
 
   /* ------------------------------ INTRO ------------------------------ */
@@ -484,253 +400,13 @@ export function LessonScreen({ lessonId, onExit }: { lessonId: string; onExit: (
             : firstAttemptMistakes === 0 ? 'Flawless run - every answer right!' : `${firstAttemptMistakes} mistake${firstAttemptMistakes === 1 ? '' : 's'} on first try. Practice makes perfect!`}
         </p>
 
-        {/* streak milestone bonus banner */}
-        {streakBonus !== null && (
-          <motion.div
-            initial={{ scale: 0.8, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ type: 'spring', stiffness: 220, damping: 16 }}
-            className="mt-4 rounded-2xl border-2 border-amber-300 bg-amber-50 px-4 py-2 text-center font-display text-sm font-extrabold text-amber-600 shadow-pop"
-          >
-            🔥 {streakBonus}-DAY STREAK! BONUS HIGH-RARITY CHEST! 🎁
-          </motion.div>
-        )}
-
-        {chestResult && (
-          <motion.div
-            className="relative mt-6 flex flex-col items-center"
-            initial={{ scale: 0.8, opacity: 0 }}
-            animate={
-              shaking
-                ? { scale: 1, opacity: 1, x: [0, -10, 10, -8, 8, -4, 4, 0] }
-                : { scale: 1, opacity: 1 }
-            }
-            transition={
-              shaking
-                ? { duration: 0.45, ease: 'easeOut' }
-                : { type: 'spring', stiffness: 220, damping: 18 }
-            }
-            key={revealed ? 'revealed' : 'closed'}
-          >
-            {/* full-screen color flash on successful upgrade */}
-            <AnimatePresence>
-              {flashTier && (
-                <motion.div
-                  key={flashTier + '-' + kickPulse}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 0.45 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.35, ease: 'easeOut' }}
-                  className="pointer-events-none fixed inset-0 z-40"
-                  style={{ background: TIER_META[flashTier].color }}
-                />
-              )}
-            </AnimatePresence>
-            {/* the chest itself - shakes horizontally on every kick */}
-            <motion.button
-              onClick={onChestKick}
-              whileTap={revealed ? {} : { scale: 0.88 }}
-              animate={
-                revealed
-                  ? { rotate: [0, -8, 8, 0], scale: [1, 1.18, 1] }
-                  : { y: [0, -6, 0] }
-              }
-              transition={
-                revealed
-                  ? { duration: 0.6 }
-                  : { repeat: Infinity, duration: 1.6 }
-              }
-              disabled={revealed}
-              className={`relative text-[110px] leading-none ${revealed ? '' : 'cursor-pointer'}`}
-              aria-label={revealed ? 'Chest opened' : 'Tap to kick your chest'}
-            >
-              {/* per-kick shake layer - remounts on each tap via the key */}
-              <motion.div
-                key={'kick-' + kickPulse}
-                initial={{ x: 0, rotate: 0 }}
-                animate={
-                  revealed
-                    ? { x: 0, rotate: 0 }
-                    : { x: [0, -22, 22, -16, 16, -8, 8, 0], rotate: [0, -8, 8, -5, 5, -2, 2, 0] }
-                }
-                transition={{ duration: 0.55, ease: 'easeOut' }}
-                className="drop-shadow-lg"
-              >
-                {/* persistent glow ring (sized to the chest) */}
-                <div
-                  className="absolute inset-0 -m-4 rounded-[2.5rem] pointer-events-none"
-                  style={{
-                    boxShadow: `0 0 60px 10px ${TIER_META[currentTier].glow}, inset 0 0 40px ${TIER_META[currentTier].glow}`,
-                    opacity: 0.85,
-                  }}
-                />
-                {/* the radial-gradient "chest" panel */}
-                <div
-                  className="relative rounded-3xl px-8 py-4"
-                  style={{
-                    background: `radial-gradient(circle, ${TIER_META[currentTier].glow}, transparent 70%)`,
-                  }}
-                >
-                  {revealed ? '🎉' : '🎁'}
-                </div>
-              </motion.div>
-            </motion.button>
-            {/* rising "+1 tier" floater on successful upgrade */}
-            <AnimatePresence>
-              {floater && (
-                <motion.div
-                  key={floater.id}
-                  initial={{ y: 0, opacity: 0, scale: 0.6 }}
-                  animate={{ y: -90, opacity: 1, scale: 1.1 }}
-                  exit={{ y: -130, opacity: 0, scale: 1 }}
-                  transition={{ duration: 0.85, ease: 'easeOut' }}
-                  className="pointer-events-none absolute top-0 left-1/2 -translate-x-1/2 z-10 whitespace-nowrap font-display text-2xl font-extrabold"
-                  style={{ color: TIER_META[floater.tier].color, textShadow: `0 0 14px ${TIER_META[floater.tier].glow}` }}
-                >
-                  +1 {TIER_META[floater.tier].label}!
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {/* tier badge - bounces in when the tier changes */}
-            <motion.div
-              key={'badge-' + currentTier}
-              initial={{ scale: 0.4, y: -8, opacity: 0 }}
-              animate={{ scale: 1, y: 0, opacity: 1 }}
-              transition={{ type: 'spring', stiffness: 320, damping: 14 }}
-              className="mt-3 rounded-full px-3 py-0.5 font-display text-sm font-extrabold uppercase tracking-wider"
-              style={{
-                color: 'white',
-                background: TIER_META[currentTier].color,
-                textShadow: `0 1px 0 rgba(0,0,0,0.25)`,
-                boxShadow: `0 0 18px ${TIER_META[currentTier].glow}`,
-              }}
-            >
-              {TIER_META[currentTier].label}
-            </motion.div>
-
-            {/* probability line: "Next kick: 22% chance to become Rare" */}
-            {!revealed && (() => {
-              const idx = tierIdx(currentTier)
-              const canUpgrade = idx < 3 // not at Legendary/Exclusive
-              if (!canUpgrade) {
-                return (
-                  <p className="mt-2 font-display text-xs font-extrabold uppercase tracking-wider text-yellow-500">
-                    ★ Max tier reached ★
-                  </p>
-                )
-              }
-              const pct = Math.round(KICK_UPGRADE[currentTier] * 100)
-              const nextTier = TIER_RANK[idx + 1]
-              const nextMeta = TIER_META[nextTier]
-              return (
-                <p className="mt-2 font-body text-xs font-bold text-slate-500">
-                  Next kick: <span style={{ color: nextMeta.color, fontWeight: 800 }}>{pct}% → {nextMeta.label}</span>
-                </p>
-              )
-            })()}
-
-            {/* 4-dot kick progress */}
-            {!revealed && (
-              <div className="mt-2 flex gap-1.5" aria-label="Kicks remaining">
-                {Array.from({ length: 4 }).map((_, i) => {
-                  const filled = i < 4 - kicksLeft
-                  return (
-                    <motion.span
-                      key={i}
-                      animate={
-                        filled
-                          ? { scale: [1, 1.4, 1] }
-                          : { scale: 1 }
-                      }
-                      transition={filled ? { duration: 0.4, ease: 'easeOut' } : {}}
-                      className="h-2 w-2 rounded-full"
-                      style={{ background: filled ? TIER_META[currentTier].color : '#cbd5e1' }}
-                    />
-                  )
-                })}
-              </div>
-            )}
-
-            {/* CTA below the progress */}
-            {!revealed && (
-              <span className="mt-2 whitespace-nowrap rounded-full bg-speed-blue px-3 py-1 font-display text-xs font-extrabold text-white">
-                {kicksLeft === 4 ? 'Tap to open!' : `Kick! (${kicksLeft} left)`}
-              </span>
-            )}
-          </motion.div>
-        )}
-
-        {revealed && chestResult && (
-          <motion.div
-            initial={{ scale: 0, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ type: 'spring', stiffness: 260, damping: 16 }}
-            className="mt-6 text-center"
-          >
-            <p className="font-display text-3xl font-extrabold text-orange-500">+{chestResult.gems} 💎</p>
-            <p className="mt-1 font-display font-extrabold text-emerald-500">+{xpEarned} ⚡ XP</p>
-            <p className="mt-2 font-display text-sm font-extrabold text-blue-600">
-              {chestResult.isNew
-                ? `✨ NEW CARD! +${chestResult.copies} ${chestResult.copies === 1 ? 'copy' : 'copies'}!`
-                : `+${chestResult.copies} ${chestResult.copies === 1 ? 'copy' : 'copies'} unlocked`}
-            </p>
-            <div className="mt-4 flex justify-center">
-              {(() => {
-                const card = chestResult.cards[0]
-                const def = CARD_BY_ID[card.cardId]
-                if (!def) return null
-                const count = player.cardStars[card.cardId] ?? 0
-                const stars = toStar(count)
-                return (
-                  <motion.div
-                    key={card.cardId}
-                    initial={{ rotateY: 180, opacity: 0 }}
-                    animate={{ rotateY: 0, opacity: 1 }}
-                    transition={{ type: 'spring', stiffness: 200, damping: 18 }}
-                    className="card-white w-44 overflow-hidden"
-                    style={{ borderColor: TIER_META[def.tier].color }}
-                  >
-                    <div className="h-28 bg-gradient-to-b from-white/40 to-transparent flex items-center justify-center px-1 pt-1">
-                      <img
-                        src={cardImageUrl(def)}
-                        alt={def.name}
-                        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
-                        className="h-full w-full object-contain drop-shadow"
-                      />
-                    </div>
-                    <div className="px-1.5 pb-1.5">
-                      <p className="font-display text-[10px] font-extrabold text-blue-600 leading-tight">
-                        {card.isNew ? '✨ NEW!' : `×${card.copies}`}
-                      </p>
-                      <p className="font-display text-sm font-extrabold text-slate-800 leading-tight">{def.name}</p>
-                      <div className="flex gap-0.5 mt-0.5 justify-center" aria-label={`${stars} out of 5 stars`}>
-                        {[1,2,3,4,5].map(s => (
-                          <span key={s} className="text-[10px]" style={{ color: s <= stars ? '#f59e0b' : '#e2e8f0' }}>★</span>
-                        ))}
-                      </div>
-                      <p className="font-display text-[9px] font-extrabold text-slate-400 leading-tight">
-                        ★{stars}/5 · ×{count} {copiesToNextStar(count) > 0 ? `· +${copiesToNextStar(count)} → ${stars + 1}★` : '· MAX ★'}
-                      </p>
-                    </div>
-                  </motion.div>
-                )
-              })()}
-            </div>
-          </motion.div>
-        )}
-
-        <div className="mt-8 w-full max-w-xs">
-          {revealed || isRedoResult ? (
-            <button onClick={onExit} className="btn3d btn-green w-full gpu">
-              Continue to roadmap ▶
-            </button>
-          ) : (
-            <p className="text-center font-body text-xs font-bold text-slate-300">
-              Kick your chest 4 times to reveal the loot!
-            </p>
-          )}
-        </div>
+        <ChestReveal
+          chestResult={chestResult}
+          xpEarned={xpEarned}
+          streakBonus={streakBonus}
+          isRedo={isRedoResult}
+          onContinue={onExit}
+        />
       </div>
     )
   }

@@ -89,8 +89,8 @@ async function main() {
           version: 0,
         }),
       )
-      // guest session: the sign-in gate requires a session before the roadmap
-      localStorage.setItem('momomath-year2-auth', JSON.stringify({ state: { user: null, guestName: 'Momo' }, version: 0 }))
+      // Seeded user (no credential): the gate settles on local onboarded.
+      localStorage.setItem('momomath-year2-auth', JSON.stringify({ state: { user: { sub: 'qa-seed', name: 'Momo', email: 'qa@example.com' }, credential: null, guestName: null }, version: 0 }))
     })
     await page.goto(BASE + '/', { waitUntil: 'networkidle' })
     await page.waitForTimeout(1500)
@@ -101,12 +101,14 @@ async function main() {
       if (await start.isVisible({ timeout: 4000 })) {
         await start.click()
         await page.waitForTimeout(1200)
+        // Path node opens BattleScreen directly (no LessonScreen intro).
         await resilientShot(page, 'shots/r1-lesson-intro.png')
-        const go = page.getByRole('button', { name: /Let's go/i }).first()
-        if (await go.isVisible().catch(() => false)) {
-          await go.click()
-          await page.waitForTimeout(1200)
+        const battle = await page.evaluate(() => /⚔ Battle/.test(document.body.innerText))
+        if (battle) {
           await resilientShot(page, 'shots/r1-lesson-q.png')
+          log('battle opened from START')
+        } else {
+          log('battle chrome not found after START')
         }
       }
     } catch (e) {

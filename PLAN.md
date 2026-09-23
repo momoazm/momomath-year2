@@ -43,3 +43,45 @@
 - [x] 18. `src/components/arcade/PixelRun.tsx`: auto-run left→right, tap/Space jump, spike obstacles (−1 life + i-frames), coin arcs, math question gates every 800px (pause + MCQ; correct = +20 score/+30 coins, wrong = −1 life), finish flag at 6400px (+100), 60s/3 lives, pure `computeRunScore`/`gateX` helpers exported for tests; pixel SVG runner/spike/coin sprites (no assets). `ArcadeScreen` routes `pixel-run` → PixelRun; subtitle → "Retro games · earn ⚡ XP and set high scores".
 - [x] 19. Bean unlock counts DISTINCT SUBJECTS among current `ARCADE_GAMES` (still goal 3 — Pixel Run shares the maths badge; label/flavor "all 3 subject games" unchanged); `verify-gamification.mjs` → 4 games + new subtitle.
 - [x] 20. Tests `tests/pixelRun.test.ts` (registration, gate layout, score math, gate question shape, Bean subject-count); `npx tsc --noEmit` + `npx vitest run` (32 files / 1017 tests) + `node scripts/precommit.mjs` green; local `npm run dev` smoke 9/9 (4-game list, ready screen, stage render, jump, live score, spike hit, gate overlay, zero page errors) — no deploy.
+
+---
+
+## Routes / navigation map (App.tsx state machine — no router)
+
+| From | Trigger | To | Notes |
+|---|---|---|---|
+| App load, no `user` or pull not settled or `!onboarded` | gate condition | **WelcomeGate** (fixed overlay) | `?gate=2\|3` forces picker steps for QA |
+| WelcomeGate step 1 | Google sign-in (**credential passed**) | sync wait → step 2/3 if new, roadmap if old | guest path **deleted**; GIS fail → error + Retry only |
+| WelcomeGate step 2→3 | name → character → `finish()` | roadmap (`tab='path'`) | new user only; prefills Google first name |
+| Roadmap, **lesson node** tap | `onStartLesson(id)` | **BattleScreen** (kind=`lesson`) | badnik cycle art, HP = `qCount×10`, 7-hit, `REFILL_BATCH=5` |
+| Roadmap, **boss node** tap (`id` ends `boss`) | `onStartLesson(id)` | **BattleScreen** (kind=`boss`) | Eggman/Metal art, ~150 HP / 11 hits, boss intro anim |
+| BattleScreen win | HP→0 | shared **chest reveal/kick** → `completeLesson` → back to roadmap | same rewards as old LessonScreen |
+| BattleScreen loss / ✕ | retry (`key` remount) / exit | BattleScreen again / roadmap | |
+| `?library` or `showLibrary` | direct | **LessonScreen** (plain quiz) | review-only, unchanged |
+| BottomNav | tab tap | `path` / `arcade` / `profile` | Arcade routes unchanged (Boss Rush → `ArcadeGame`) |
+| TopBar AuthBadge ✕ | sign out | **WelcomeGate** returns | |
+| Assets | runtime | `BASE_URL + 'images/...'` | GH Pages `/momomath-year2/` safe |
+| Sync | GET/PUT | `https://momolearn-ai.vercel.app/api/year2/cloudsave` | Google-sub keyed, no server changes |
+| Deploy | `node scripts/deploy.mjs` | `momoazm.github.io/momomath-year2` | gates: tsc / vitest / `npm run verify` |
+
+## Phase 7 — Mandatory Google sign-in + cross-device progress (medium)
+- [x] 22. `WelcomeGate.tsx`: pass **credential** to `signIn(u, credential)` (bug at line 69 — gate sign-ins never sync today); delete guest path entirely (both "Continue without signing in" buttons, `continueAsGuest`, `setGuestName` in `finish()`, `guestName` in `hasSession`); GIS missing/failed → error + Retry only, no guest fallback. (Done.)
+- [x] 23. Gate close redesign: close ONLY when `user && sync settled && onboarded` (today any session closes it, so Google users skip name/character and new devices never load the save). Flow: sign in → "Loading your progress…" → remote save exists = **old user** → apply name/mascot/progress → roadmap, no picker; no remote = **new user** → step 2 name (Google first name prefilled) + step 3 character → `finish()` pushes save. QA seeds (user, no credential) and `expired`/`error` settle on local `onboarded`. Extract pure `resolveGatePhase()` → `tests/gatePhase.test.ts`; keep `?gate=2|3`. (Done: `src/engine/gatePhase.ts`, `remoteSeen` on `useSyncStatus`, 8 tests.)
+- [x] 24. `cloudsave.ts` identity-merge fix: `snapshotFromPlayer` stamps `updatedAt=Date.now()` so fresh-device local defaults always win "newest" → account name/mascot/onboarded get clobbered and pushed back. When remote exists: `name/mascot/subject/dailyGoal/soundOn` follow **remote**; `onboarded = local || remote`; counters stay max/union. Unit tests: fresh-device pull keeps remote identity + unions progress. (Done: `tests/cloudsaveMerge.test.ts`, 4 tests.)
+- [x] 25. Migrate seed scripts from `guestName` → seeded user (no credential → gate settles locally): `verify-live.mjs`, `verify-gamification.mjs`, `snap.mjs`, `visual-shots.mjs`, `big-shot.mjs`, `probe-legacy.mjs`; sign-out check clears `user`; `probe-legacy` asserts legacy player state opens under a seeded user. (Done.)
+- [x] 26. Gates: `npx tsc --noEmit` + `npx vitest run` + `npm run verify`. **Zero touch `ProfileScreen.tsx`** (dirty from another session; guest branch becomes dead code). (Green: tsc clean, vitest 34 files / 1034 tests, precommit OK; ProfileScreen untouched.)
+
+## Phase 8 — Roadmap battle system — port from sonic-world (large)
+- [x] 27. Port `battle.ts` → `src/engine/battle.ts`: kinds `lesson|boss`, no zones/elements; boss ~150 HP / 11 hits vs lesson `qCount×10` HP / 7 hits; `REFILL_BATCH=5`; buddy passives keyed by `player.mascot` (fallback `none`). (Done: `createBattle`/`answerBattle`/`battleAccuracy`; boss HP 150 / hit 11, lesson qCount×10 / hit 7; `BUDDY_PASSIVES` by mascot id.)
+- [x] 28. Copy `public/images/enemies/*` + `public/images/players/sonic.webp`, `enemyArt.ts`, `ATTRIBUTION.md` — **BASE_URL-safe paths** (GH Pages `/momomath-year2/`); boss nodes → Eggman/Metal art, lesson nodes → badnik cycle; emoji fallback kept. (Done: 33 enemy webps + sonic.webp + manifests; `enemyArt.ts` uses `import.meta.env.BASE_URL`.)
+- [x] 29. Port `QuestionView.tsx` (incl. visual / `gradeSpeak`). (Done: `src/components/QuestionView.tsx` + `src/engine/speakGrade.ts` + `src/engine/questionText.ts`.)
+- [x] 30. Port `BattleScreen.tsx`: §18 Pokémon animations (bob/lunge/shake/faint), boss-only intro, no adaptive engine → wrong answer shows `q.hint`, DEV hook `window.__mbBattle`. (Done: `src/screens/BattleScreen.tsx`.)
+- [x] 31. Extract LessonScreen chest reveal/kick ritual → shared component used by battle win + LessonScreen. (Done: `src/components/ui/ChestReveal.tsx`; LessonScreen done-phase now delegates.)
+- [x] 32. App routing (see Routes map above): `PathScreen` node tap → `BattleScreen` for **all lesson nodes** (boss ids = tougher opponent + intro); `LessonScreen` only for `?library` review; win → `completeLesson` + chest; retry via key remount. (Done: `App.tsx` activeBattle state with epoch key remount; `?lesson=<id>` still opens plain LessonScreen for review; `?library` stays LibraryScreen.)
+- [x] 33. Port `tests/battle.test.ts` (adapt unit ids). (Done: 11 tests, u1l1/u1boss.)
+- [x] 34. Gates: `npx tsc --noEmit` + `npx vitest run` + `npm run verify`; **no store version bump** (no new persisted fields — battle rides `lessonProgress`), `CARDS` untouched at 19, no server changes. (Green: tsc clean, vitest **35 files / 1045 tests**, precommit OK; store version still v10, CARDS still 19.)
+
+## Phase 9 — Verify + ship
+- [x] 35. Update `verify-live.mjs` + `verify-gamification.mjs`: battle flow (node tap → fight → refill → win → chest) **and** Phase 7 auth seeds / new-vs-returning gate checks. (Done: evaluate destructuring, className tap-select, HP-split guard, singleCard regex, Attack poll + 💡 poll, Library content-wait.)
+- [x] 36. Local smoke on `:3200`: lesson battle, tougher boss battle, refill, hint-on-wrong, chest, new-user picker, returning-user straight-to-roadmap, sign-out → gate, zero console errors. (Green on :3200 — verify-live **23/23**, verify-gamification **49/49**; tsc 0, vitest 35 files / 1045 tests, precommit OK.)
+- [ ] 37. Commit **only own hunks** (shared `PLAN.md` via `git apply --cached` hunk — never stage `PixelRun.tsx` / `ProfileScreen.tsx` / `pixelRun.test.ts`) → `node scripts/deploy.mjs` → live `verify-live` + `verify-gamification` → report.

@@ -26,8 +26,8 @@ async function seedPlayer() {
       version: 0,
     }
     localStorage.setItem('momomath-year2-player-v2', JSON.stringify(state))
-    // guest session: the sign-in gate requires a session before the roadmap
-    localStorage.setItem('momomath-year2-auth', JSON.stringify({ state: { user: null, guestName: 'Momo' }, version: 0 }))
+    // Seeded user (no credential): the gate settles on local onboarded.
+    localStorage.setItem('momomath-year2-auth', JSON.stringify({ state: { user: { sub: 'qa-seed', name: 'Momo', email: 'qa@example.com' }, credential: null, guestName: null }, version: 0 }))
   })
 }
 
