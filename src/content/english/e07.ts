@@ -128,6 +128,12 @@ const QUANT_TRUE: { prompt: string; statement: string; answer: boolean }[] = [
   { prompt: 'Does “some” mean all of them?', statement: 'Some means all of them.', answer: false },
   { prompt: 'Does “most” mean every one?', statement: 'Most means every single one.', answer: false },
   { prompt: 'What does “some” mean?', statement: 'Some means more than one, but not all.', answer: true },
+  { prompt: 'Does “all” mean not one of them?', statement: 'All means none of them.', answer: false },
+  { prompt: 'What does “most” mean?', statement: 'Most means nearly all of them.', answer: true },
+  { prompt: 'Can “some” mean just three out of ten?', statement: 'Yes - some can mean a small number, not all.', answer: true },
+  { prompt: 'Does “some” mean zero?', statement: 'Some means none at all.', answer: false },
+  { prompt: 'Does “all” include every single one?', statement: 'All includes every single one.', answer: true },
+  { prompt: 'Is “most” the same as “all”?', statement: 'Most is exactly the same as all.', answer: false },
 ]
 
 function gQuantifierTrue(rand: Rand) {

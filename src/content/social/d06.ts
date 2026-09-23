@@ -4,7 +4,6 @@ import {
   makeLesson,
   matchQ,
   mcqE,
-  mcqFixed,
   orderQ,
   pick,
   say,
@@ -23,6 +22,9 @@ const COMMUNITY_MATCH = [
   { left: 'الحي', right: '🏠 جيراني وأصدقائي' },
   { left: 'المستشفى', right: '🏥 نعالج فيها' },
   { left: 'السوق', right: '🏪 نشتري منه' },
+  { left: 'المسجد', right: '🕌 نصلي ونتجمع فيه' },
+  { left: 'المكتبة', right: '📖 نقرأ ونستعين بالكتب' },
+  { left: 'الحديقة', right: '🏡 نلعب ونستريح' },
 ]
 
 function d6CommunityMatch(rand: Rand): Question {
@@ -35,6 +37,12 @@ const COMMUNITY_TF: Array<[string, boolean]> = [
   ['أحافظ على نظافة مدرستي وحيي', true],
   ['ألعب الكرة في الشارع وأزعج الجيران', false],
   ['أشارك في تنظيف الحي', true],
+  ['أساعد جارًا كبيرًا في حمل حقائبه', true],
+  ['أتحدث بصوت هادئ عند زيارة المستشفى', true],
+  ['أنظف باب منزلي وأزرع زهرة أمامه', true],
+  ['لا أحب مساعدة جيراني', false],
+  ['أحترم عامل النظافة وأشكره على عمله', true],
+  ['ألقي أوراق الشجر المتساقطة في سلة المهملات', true],
 ]
 
 function d6CommunityTF(rand: Rand): Question {
@@ -60,6 +68,9 @@ const TRANSPORT_MATCH = [
   { left: 'القطار', right: PICTURE_BANK.قطار },
   { left: 'المترو', right: PICTURE_BANK.مترو },
   { left: 'الطائرة', right: PICTURE_BANK.طائرة },
+  { left: 'الحافلة', right: '🚌 تنقل الركاب في الشوارع' },
+  { left: 'الدراجة', right: '🚲 نركبها قرب البيت' },
+  { left: 'القارب', right: '🛶 يعبر مياه النيل' },
 ]
 
 function d6TransportMatch(rand: Rand): Question {
@@ -67,11 +78,22 @@ function d6TransportMatch(rand: Rand): Question {
   return matchQ(rand, 'صل كل وسيلة مواصلات بما يناسبها', pairs)
 }
 
+const TRANSPORT_MCQ: { q: string; a: string; others: string[] }[] = [
+  { q: 'أي وسيلة أسرع: الجمل أم الطائرة؟', a: 'الطائرة', others: ['الجمل'] },
+  { q: 'أي وسيلة تسير على القضبان؟', a: 'القطار', others: ['السيارة', 'الجمل', 'الدراجة'] },
+  { q: 'أي وسيلة تطير في السماء؟', a: 'الطائرة', others: ['القارب', 'الحافلة', 'القطار'] },
+  { q: 'أي وسيلة تعبر مياه النيل؟', a: 'القارب', others: ['الدراجة', 'الحافلة', 'القطار'] },
+  { q: 'أي وسيلة كنا نستخدمها قديما في الصحراء؟', a: 'الجمل', others: ['السيارة', 'الطائرة', 'المترو'] },
+  { q: 'أي وسيلة تسير تحت الأرض في المدن الكبيرة؟', a: 'المترو', others: ['الدراجة', 'الحافلة', 'القارب'] },
+  { q: 'أي وسيلة تناسب الطريق القصير قرب البيت؟', a: 'الدراجة', others: ['القطار', 'الطائرة', 'القارب'] },
+  { q: 'أي وسيلة تنقل كثيرًا من الركاب في الشوارع؟', a: 'الحافلة', others: ['الدراجة', 'القارب', 'الجمل'] },
+  { q: 'أي وسيلة يستخدمها الصياد ليعبر الماء؟', a: 'القارب', others: ['الدراجة', 'الطائرة', 'القطار'] },
+  { q: 'أي وسيلة يقودها السائق لتنقل أسرتي؟', a: 'السيارة', others: ['القطار', 'الطائرة', 'القارب'] },
+]
+
 function d6TransportPick(rand: Rand): Question {
-  const choices = shuffle(rand, ['الجمل', 'الطائرة'])
-  return mcqFixed('أي وسيلة أسرع: الجمل أم الطائرة؟', choices, choices.indexOf('الطائرة'), {
-    hint: 'الطائرة تطير في السماء',
-  })
+  const item = pick(rand, TRANSPORT_MCQ)
+  return mcqE(rand, item.q, item.a, item.others, { hint: 'فكّر في مكان كل وسيلة' })
 }
 
 const d6l2 = makeLesson(
@@ -86,16 +108,33 @@ const d6l2 = makeLesson(
 
 /* ---------- d6l3: بيئتي مسؤوليتي ---------- */
 
+const GREEN_LINES = [
+  'أحافظ على بيئتي نظيفة',
+  'أزرع شجرة في حيي',
+  'أطفئ الأنوار عند الخروج',
+  'أرشد استهلاك الماء والكهرباء',
+  'أعيد تدوير الورق والكرتون',
+  'أمشي في الحديقة وأحافظ على نظافتها',
+  'أقول لا للتلوث دائما',
+]
+
 function d6GreenSpeak(rand: Rand): Question {
-  const line = pick(rand, ['أحافظ على بيئتي نظيفة', 'أزرع شجرة في حيي'])
+  const line = pick(rand, GREEN_LINES)
   return speakQ('تحدث عن حمايتك للبيئة', line, { hint: 'قل بحماس!' })
 }
 
+const GREEN_ORDERS: string[][] = [
+  ['أجمع', 'القمامة', 'في', 'السلة'],
+  ['أزرع', 'زهرة', 'أمام', 'بيتي'],
+  ['أطفئ', 'الضوء', 'عند', 'الخروج'],
+  ['أغلق', 'الصنبور', 'بعد', 'الوضوء'],
+  ['أحفظ', 'الماء', 'والكهرباء', 'في', 'بيتي'],
+  ['أعيد', 'تدوير', 'الورق', 'والكرتون'],
+  ['أنظف', 'شوارع', 'حيي', 'كل', 'يوم'],
+]
+
 function d6GreenOrder(rand: Rand): Question {
-  const item = pick(rand, [
-    ['أجمع', 'القمامة', 'في', 'السلة'],
-    ['أزرع', 'زهرة', 'أمام', 'بيتي'],
-  ])
+  const item = pick(rand, GREEN_ORDERS)
   return orderQ('رتب كلمات الجملة الخضراء', item, say(item.join(' ')))
 }
 
@@ -104,6 +143,9 @@ const GREEN_TF: Array<[string, boolean]> = [
   ['أوفر الماء والكهرباء', true],
   ['أقطف أزهار الحديقة العامة', false],
   ['أزرع شجرة وأسقيها', true],
+  ['ألقي النفايات في النهر', false],
+  ['أركب الدراجة للمسافات القريبة', true],
+  ['أفتح الصنبور طوال تنظيف أسناني', false],
 ]
 
 function d6GreenTF(rand: Rand): Question {

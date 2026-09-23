@@ -140,33 +140,7 @@ export type Gen = (rand: Rand) => Question
 
 export const Q_PER_LESSON = 10
 
-/** Same generator contract as the math curriculum: deterministic per (lessonId, seed),
- *  last question uses the challenge generator. */
-export function makeLesson(
-  id: string,
-  title: string,
-  objectiveCodes: string[],
-  mascotId: LessonDef['intro']['mascotId'],
-  introTitle: string,
-  introBody: string,
-  gens: Gen[],
-  challenge?: Gen,
-): LessonDef {
-  return {
-    id,
-    title,
-    objectiveCodes,
-    intro: { mascotId, title: introTitle, body: introBody },
-    generate(n, seed) {
-      const rand = mulberry32(hashString(id) ^ (seed * 2654435761))
-      const out: Question[] = []
-      for (let i = 0; i < n - 1; i++) out.push(gens[i % gens.length](rand))
-      const finalGen = challenge ?? gens[(n - 1) % gens.length]
-      out.push(finalGen(rand))
-      return out
-    },
-  }
-}
+export { makeLesson } from '../makeLesson'
 
 export function unitDef(
   id: string,

@@ -24,6 +24,19 @@ const SPORT_MATCH = [
   { left: 'ركوب الدراجة', right: '🚲 عجلات' },
   { left: 'كرة السلة', right: '🏀 سلة' },
   { left: 'القفز', right: '🤸 حركة' },
+  { left: 'التنس', right: '🎾 مضرب' },
+  { left: 'الكرة الطائرة', right: '🏐 شبكة' },
+]
+
+const SPORT_NAMES = [
+  'كرة القدم',
+  'السباحة',
+  'الجري',
+  'ركوب الدراجة',
+  'كرة السلة',
+  'القفز',
+  'التنس',
+  'الكرة الطائرة',
 ]
 
 function a6SportMatch(rand: Rand): Question {
@@ -32,9 +45,8 @@ function a6SportMatch(rand: Rand): Question {
 }
 
 function a6SportHear(rand: Rand): Question {
-  const item = pick(rand, ['كرة القدم', 'السباحة', 'الجري', 'ركوب الدراجة'])
-  const others = ['كرة القدم', 'السباحة', 'الجري', 'ركوب الدراجة'].filter((s) => s !== item)
-  return mcqE(rand, 'استمع واضغط على الرياضة التي سمعتها', item, others, say(item))
+  const item = pick(rand, SPORT_NAMES)
+  return mcqE(rand, 'استمع واضغط على الرياضة التي سمعتها', item, SPORT_NAMES.filter((s) => s !== item), say(item))
 }
 
 const a6l1 = makeLesson(
@@ -44,7 +56,7 @@ const a6l1 = makeLesson(
   'sonic',
   'هيا نلعب رياضة!',
   'قصة استماع: الرياضة لنا جميعا. الرياضة تقوي الجسم وتسعد القلب.',
-  [a6SportMatch, a6SportHear],
+  [a6SportMatch, a6SportHear, a6TechTF, a6StylePick],
 )
 
 /* ---------- a6l2: حسام والكمبيوتر ---------- */

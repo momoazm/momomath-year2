@@ -177,6 +177,36 @@ const PERFORM_LINES: { prompt: string; target: string; hint?: string }[] = [
     target: '"Come and play!" called Mia.',
     hint: 'Sound like Mia calling her friends.',
   },
+  {
+    prompt: 'Roar this fierce line like a dragon!',
+    target: '"Stand back - I breathe golden fire!"',
+    hint: 'Low, rumbling and dramatic!',
+  },
+  {
+    prompt: 'Say this sad line with a soft sigh.',
+    target: 'The last petal floated to the ground.',
+    hint: 'Let your voice fall gently.',
+  },
+  {
+    prompt: 'Read this surprised line with a gasp!',
+    target: '"No way - you found the treasure!"',
+    hint: 'Eyes wide, voice bright with shock.',
+  },
+  {
+    prompt: 'Chant this rhythmic line like a poem!',
+    target: 'Hop, hop, hop past the green field.',
+    hint: 'Keep a steady beat with your feet.',
+  },
+  {
+    prompt: 'Read this mysterious line in a hush.',
+    target: 'Something stirred behind the wardrobe.',
+    hint: 'Leave a tiny pause after "something".',
+  },
+  {
+    prompt: 'Deliver this proud line with a big smile.',
+    target: '"I finished the whole puzzle by myself!"',
+    hint: 'Stand tall and proud as you say it.',
+  },
 ]
 
 const EXPRESSIONS: McqItem[] = [

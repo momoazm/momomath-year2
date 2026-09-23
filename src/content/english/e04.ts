@@ -104,7 +104,7 @@ const HOMOPHONE_FILLS_2 = [
   { q: 'Did you ___ that bang?', answer: 'hear', wrong: ['here', 'hare', 'hair', 'herd', 'heard'] },
   { q: 'Mia brushed her long ___.', answer: 'hair', wrong: ['hare', 'hairy', 'haring', 'hared', 'brush'] },
   { q: 'The ___ raced the tortoise.', answer: 'hare', wrong: ['hair', 'hares', 'hairy', 'haring', 'hared'] },
-  { q: 'My feet are bare on the sand.', answer: 'bare', wrong: ['bear', 'bears', 'baring', 'barley', 'baired'] },
+  { q: 'My feet are ___ on the sand.', answer: 'bare', wrong: ['bear', 'bears', 'baring', 'barley', 'baired'] },
   { q: 'My teddy ___ is soft.', answer: 'bear', wrong: ['bare', 'bears', 'baring', 'teddily', 'bearish'] },
   { q: 'I lost one glove from my ___.', answer: 'pair', wrong: ['pear', 'paring', 'apples', 'paired', 'peare'] },
   { q: 'This juicy ___ tastes sweet.', answer: 'pear', wrong: ['pair', 'pare', 'paring', 'pears', 'pared'] },

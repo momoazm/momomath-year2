@@ -40,41 +40,44 @@ const SOCIAL_EXTRA: { id: Subject; icon: string; label: string; activeBg: string
   activeBg: 'bg-[#b3541e] text-white',
 }
 
+const ALL_SUBJECTS: { id: Subject; icon: string; label: string; activeBg: string; short: string }[] = [
+  ...CORE_SUBJECTS.map((s) => ({ ...s, short: s.label })),
+  { ...GERMAN_EXTRA, short: 'DE' },
+  { ...ARABIC_EXTRA, short: 'ع' },
+  { ...RELIGION_EXTRA, short: 'دين' },
+  { ...SOCIAL_EXTRA, short: 'دراسات' },
+]
+
 function SubjectSwitch() {
   const subject = usePlayer((s) => s.subject)
   const setSubject = usePlayer((s) => s.setSubject)
-  // Optional extras: German / Arabic / Religion / Social only appear after
-  // opt-in (Profile → Extra adventures) or ?subject=. Core never changes.
-  const germanEnabled = usePlayer((s) => s.germanEnabled)
-  const arabicEnabled = usePlayer((s) => s.arabicEnabled)
-  const religionEnabled = usePlayer((s) => s.religionEnabled)
-  const socialEnabled = usePlayer((s) => s.socialEnabled)
-  const visible = [
-    ...CORE_SUBJECTS,
-    ...(germanEnabled ? [GERMAN_EXTRA] : []),
-    ...(arabicEnabled ? [ARABIC_EXTRA] : []),
-    ...(religionEnabled ? [RELIGION_EXTRA] : []),
-    ...(socialEnabled ? [SOCIAL_EXTRA] : []),
-  ]
+  // Full-width capsule: fills leftover navbar space, scrolls horizontally when needed.
   return (
-    <div className="flex items-center gap-0.5 rounded-full border border-white bg-white/90 p-0.5 shadow-sm" title="Switch subject">
-      {visible.map((s) => (
+    <div
+      className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto overflow-y-hidden overscroll-x-contain rounded-full border border-white bg-white/90 p-0.5 shadow-sm [scrollbar-width:none] [-webkit-overflow-scrolling:touch] [&::-webkit-scrollbar]:hidden"
+      role="tablist"
+      aria-label="Choose roadmap"
+      title="Slide to switch roadmap"
+    >
+      {ALL_SUBJECTS.map((s) => (
         <button
           key={s.id}
+          role="tab"
+          aria-selected={subject === s.id}
           onClick={() => {
             if (subject !== s.id) {
               sfx.whoosh()
               setSubject(s.id)
             }
           }}
-          className={`grid h-7 w-7 place-items-center rounded-full text-sm font-display transition-colors ${
-            subject === s.id ? `${s.activeBg} shadow-sm` : 'hover:bg-slate-100'
+          className={`flex h-7 shrink-0 items-center gap-1 rounded-full px-1.5 font-display text-sm font-extrabold transition-colors ${
+            subject === s.id ? `${s.activeBg} shadow-sm` : 'hover:bg-slate-100 text-slate-500'
           }`}
-          aria-pressed={subject === s.id}
           aria-label={s.label}
           title={s.label}
         >
-          {s.icon}
+          <span aria-hidden>{s.icon}</span>
+          <span className="hidden text-xs min-[480px]:inline">{s.short}</span>
         </button>
       ))}
     </div>
@@ -103,35 +106,41 @@ export function TopBar({ onLeagueClick, onLibraryClick }: { onLeagueClick?: () =
     ? 'Daily streak'
     : 'Streak lights up when you complete a lesson today'
   return (
-    <header className="sticky top-0 z-30 mx-auto flex w-full max-w-xl items-center justify-between gap-2 border-b-2 border-white/60 bg-white/70 px-3 py-2 backdrop-blur-md">
-      <div className="flex items-center gap-2">
+    <header className="sticky top-0 z-30 mx-auto flex w-full max-w-xl items-center justify-between gap-1.5 overflow-hidden border-b-2 border-white/60 bg-white/70 px-2 py-2 backdrop-blur-md sm:gap-2 sm:px-3">
+      <div className="flex min-w-0 flex-1 items-center gap-1.5 sm:gap-2">
+        {/* Horizontal roadmap slider — all 7 subjects, fills available width */}
         <SubjectSwitch />
-        <Pill
-          icon="🔥"
-          iconBg={streakOn ? 'bg-orange-100' : 'bg-slate-100'}
-          value={streakOn ? streakValue : '—'}
-          title={streakTitle}
-          valueClass={streakOn ? 'text-orange-500' : 'text-slate-400'}
-        />
-        <Pill icon="💎" iconBg="bg-yellow-100" value={s.gems} title="Gems" valueClass="text-yellow-500" />
+        <div className="hidden shrink-0 items-center gap-1.5 min-[420px]:flex sm:gap-2">
+          <Pill
+            icon="🔥"
+            iconBg={streakOn ? 'bg-orange-100' : 'bg-slate-100'}
+            value={streakOn ? streakValue : '—'}
+            title={streakTitle}
+            valueClass={streakOn ? 'text-orange-500' : 'text-slate-400'}
+          />
+          <Pill icon="💎" iconBg="bg-yellow-100" value={s.gems} title="Gems" valueClass="text-yellow-500" />
+        </div>
       </div>
 
       <button
         onClick={onLeagueClick}
-        className="flex items-center gap-1.5 rounded-full border border-white bg-white/90 px-2.5 py-1 shadow-sm transition-colors hover:bg-white"
+        className="flex min-w-0 shrink-0 items-center gap-1.5 rounded-full border border-white bg-white/90 px-2 py-1 shadow-sm transition-colors hover:bg-white sm:gap-1.5 sm:px-2.5"
         title={`Weekly league: ${s.currentLeague}`}
       >
-        <span>{league.icon}</span>
-        <span className="font-display text-sm font-extrabold" style={{ color: league.color }}>
+        <span className="shrink-0">{league.icon}</span>
+        <span
+          className="max-w-[4.5rem] truncate font-display text-sm font-extrabold sm:max-w-[7rem]"
+          style={{ color: league.color }}
+        >
           {s.currentLeague}
         </span>
       </button>
 
-      <div className="flex items-center gap-2">
+      <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
         {user && <AuthBadge />}
         {ENERGY_IS_UNLIMITED && (
           <div
-            className="rounded-full bg-gradient-to-r from-emerald-400 to-teal-400 px-2.5 py-0.5 font-display text-xs font-extrabold text-white shadow-sm"
+            className="rounded-full bg-gradient-to-r from-emerald-400 to-teal-400 px-2 py-0.5 font-display text-xs font-extrabold text-white shadow-sm sm:px-2.5"
             title="Energy is unlimited for everyone!"
           >
             ∞
@@ -139,7 +148,7 @@ export function TopBar({ onLeagueClick, onLibraryClick }: { onLeagueClick?: () =
         )}
         <button
           onClick={onLibraryClick}
-          className="grid h-9 w-9 place-items-center rounded-full border border-white bg-white/90 text-xl shadow-sm transition-colors hover:bg-white hover:scale-105"
+          className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white bg-white/90 text-xl shadow-sm transition-colors hover:bg-white hover:scale-105"
           title="Card Library"
           aria-label="Card Library"
         >

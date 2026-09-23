@@ -48,7 +48,7 @@ export const SHOP_ITEMS: ShopItem[] = [
   {
     id: 'lucky-ticket',
     name: 'Lucky Ticket',
-    description: 'Boosts your next chest: way better odds of a Rare, Epic or Legendary card!',
+    description: 'Boosts your next chest: better odds of a Rare, Epic or Legendary chest start + card drops.',
     price: 120,
     icon: '🎟️',
     category: 'boost',

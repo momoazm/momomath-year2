@@ -73,9 +73,10 @@ new material introduced on an intro card with audio+picture before first practic
 
 ---
 
-## 3. The roadmap — 13 units, 61 lessons + 13 bosses = 74 nodes
+## 3. The roadmap — 13 units, 61 lessons + 13 bosses + 3 Term Challenges = 77 nodes
 
-Parity with math's 69-node path. Objective codes = official 0058 Stage 2.
+Parity with math's 69-node path (term challenges add 3 checkpoint nodes).
+Objective codes = official 0058 Stage 2.
 
 ### Unit E1 · Sound Detectives — phonics: alternative pronunciations (2Rw.01, 2Rw.05)
 
@@ -216,12 +217,18 @@ Parity with math's 69-node path. Objective codes = official 0058 Stage 2.
 | 5 | Check It! | 2Wp.05/.06 | **Error Hunt** tap-the-mistake proofreading + read-aloud finish |
 | B | Author Boss | 2Wc.01 | guided mini-composition: plan → build → check |
 
-### Term Challenges (checkpoint nodes, not new units)
+### Term Challenges (checkpoint nodes, not new units) ✅ shipped 2026-09-23
 
 After E4/E5 (≈ term 1), E9/E10 (term 2), E13 (end of year): 30-item cumulative
 challenge, no hints, exam-flavoured items only (tick-box MCQ, number the events,
 match heading, find-and-copy word) — mirrors Stage 3 progression-paper formats,
 Gold/Silver/Bronze result like Cambridge reporting.
+
+**Implemented** as `e5term` / `e10term` / `e13term` in
+`src/content/english/terms.ts`, each sitting immediately before its unit boss
+(`…lN → *term → *boss`). `LessonScreen` draws 30 items for `*term` ids and
+shows a 🥇/🥈/🥉 medal (Gold ≥90%, Silver ≥75%, else Bronze) on the done
+screen. Tests: `tests/english/terms.test.ts`.
 
 ---
 

@@ -2,12 +2,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import confetti from 'canvas-confetti'
 import { QUESTIONS_PER_LESSON } from '../content/curriculum'
+import { questionsForLesson, termMedal } from '../content/english/terms'
 import { getCurriculum } from '../content/registry'
 import { isLessonRedo, crownsEarned } from '../engine/path'
 import { usePlayer } from '../engine/store'
-import { rollChest, CARD_BY_ID, cardImageUrl, KICK_UPGRADE, copiesToNextStar, toStar, type ChestContext, type ChestResult, type ChestTier } from '../engine/cards'
+import { rollChest, CARD_BY_ID, cardImageUrl, KICK_UPGRADE, copiesToNextStar, toStar, KICKS, TIER_META, TIER_ORDER, kickTierSequence, chestCopyVariant, chestTileCount, chestPayout, type ChestContext, type ChestResult, type ChestTier } from '../engine/cards'
 import { chestGemMultiplier } from '../engine/shop'
 import { speak, speakSlow, stopSpeaking, ttsAvailable } from '../engine/tts'
+import { gradeSpeak } from '../engine/speakGrade'
 import { Mascot } from '../components/mascots/Mascots'
 import { sfx } from '../engine/sfx'
 import { hashString, mulberry32, shuffle } from '../content/rng'
@@ -211,14 +213,26 @@ export function LessonScreen({ lessonId, onExit, retryItems }: {
   const [isRedoResult, setIsRedoResult] = useState(false)
   /** streak milestone (7/14/21…) whose bonus high-rarity chest is in chestResult */
   const [streakBonus, setStreakBonus] = useState<number | null>(null)
-  const [kicksLeft, setKicksLeft] = useState(4)
-  const [currentTier, setCurrentTier] = useState<ChestTier>('common')
+  const [kicksLeft, setKicksLeft] = useState(KICKS)
   const [revealed, setRevealed] = useState(false)
   // Per-kick animation state
   const [kickPulse, setKickPulse] = useState(0)            // increments each tap → forces remount/animation
   const [flashTier, setFlashTier] = useState<ChestTier | null>(null) // success → flash this color
   const [floater, setFloater] = useState<{ id: number; tier: ChestTier } | null>(null) // rising "+1 tier" text
   const [shaking, setShaking] = useState(false)            // brief screen-shake on success
+
+  // Live tier for the kick ritual — DERIVED from the rolled result (single
+  // source of truth), so chest/rays/glow/badge can never disagree with the
+  // outcome: it changes on exactly the upgrade kicks and settles on
+  // finalTier the moment the chest reveals (invariant A).
+  const kicksDone = KICKS - kicksLeft
+  const kickSeq = chestResult ? kickTierSequence(chestResult) : null
+  const currentTier: ChestTier =
+    revealed && chestResult
+      ? chestResult.finalTier
+      : kickSeq
+        ? kickSeq[Math.min(kicksDone, kickSeq.length - 1)]
+        : 'common'
 
   // per-question UI state
   const [choiceIdx, setChoiceIdx] = useState<number | null>(null)
@@ -230,8 +244,9 @@ export function LessonScreen({ lessonId, onExit, retryItems }: {
   const [orderPick, setOrderPick] = useState<number[]>([])
   // letter tiles
   const [tilePicks, setTilePicks] = useState<number[]>([])
-  // speak
-  const [speakPhase, setSpeakPhase] = useState<'idle' | 'listening' | 'heard'>('idle')
+  // speak — heard = ASR matched target; missed = heard something that didn't match
+  const [speakPhase, setSpeakPhase] = useState<'idle' | 'listening' | 'heard' | 'missed'>('idle')
+  const [speakTranscript, setSpeakTranscript] = useState('')
   // track first-attempt state per question INSTANCE (requeued retries are
   // the same object, so retries never count as new first attempts — no
   // flawless-bonus leak and no double BKT updates)
@@ -256,7 +271,7 @@ export function LessonScreen({ lessonId, onExit, retryItems }: {
     const active = items?.length ? items : null
     const qs = active
       ? active.map((r) => r.question)
-      : entry!.lesson.generate(QUESTIONS_PER_LESSON, attempt)
+      : entry!.lesson.generate(questionsForLesson(lessonId, QUESTIONS_PER_LESSON), attempt)
     const meta = active
       ? active.map((r) => ({ lessonId: r.lessonId, objectiveCode: r.objectiveCode }))
       : qs.map(() => ({ lessonId, objectiveCode: lessonCode }))
@@ -295,7 +310,7 @@ export function LessonScreen({ lessonId, onExit, retryItems }: {
   function resetQState() {
     setChoiceIdx(null); setTyped(''); setTapped(new Set())
     setPendingLeft(null); setMatched(new Set()); setMatchErrors(0); setOrderPick([])
-    setTilePicks([]); setSpeakPhase('idle')
+    setTilePicks([]); setSpeakPhase('idle'); setSpeakTranscript('')
   }
 
   // auto-play audio prompts once per question; stop any speech on unmount
@@ -314,9 +329,9 @@ export function LessonScreen({ lessonId, onExit, retryItems }: {
       case 'order': return orderPick.length === q.items.length
       case 'letter-tiles': return tilePicks.length === q.targetWord.length
       case 'truefalse': return true
-      case 'speak': return true
+      case 'speak': return speakPhase === 'heard' || speakPhase === 'missed'
     }
-  }, [q, choiceIdx, typed, tapped, matched, orderPick, tilePicks])
+  }, [q, choiceIdx, typed, tapped, matched, orderPick, tilePicks, speakPhase])
 
   const isCorrectNow = useCallback((): boolean => {
     if (!q) return false
@@ -337,7 +352,7 @@ export function LessonScreen({ lessonId, onExit, retryItems }: {
         return saidTrue === q.answer
       }
       case 'speak':
-        return speakPhase !== 'idle' // self-affirmed or recognised - forgiving by design
+        return speakPhase === 'heard' // graded against targetText (ASR or no-ASR self-check)
     }
   }, [q, choiceIdx, typed, tapped, matched.size, matchErrors, orderPick, tilePicks, speakPhase])
 
@@ -351,7 +366,7 @@ export function LessonScreen({ lessonId, onExit, retryItems }: {
       case 'order': return orderPick.map((i) => q.items[i] ?? '').join(',')
       case 'letter-tiles': return tilePicks.map((i) => q.targetWord[i] ?? '').join('')
       case 'truefalse': return choiceIdx === 0 ? 'true' : choiceIdx === 1 ? 'false' : ''
-      case 'speak': return speakPhase === 'idle' ? '' : 'said-something'
+      case 'speak': return speakTranscript || (speakPhase === 'heard' ? 'self-confirmed' : '')
     }
   }
   function correctAnswerString(): string {
@@ -418,8 +433,9 @@ export function LessonScreen({ lessonId, onExit, retryItems }: {
 
   function finishLesson() {
     const isBoss = entry!.lesson.id.endsWith('boss')
-    const base = isBoss ? 20 : 10
-    const bonus = firstAttemptCorrect === QUESTIONS_PER_LESSON ? 5 : 0
+    const base = isBoss ? 20 : entry!.lesson.id.endsWith('term') ? 20 : 10
+    const expectedCount = questionsForLesson(lessonId, QUESTIONS_PER_LESSON)
+    const bonus = firstAttemptCorrect === expectedCount ? 5 : 0
     let gained = base + bonus
 
     // Apply double XP boost
@@ -491,12 +507,10 @@ export function LessonScreen({ lessonId, onExit, retryItems }: {
       const finalChest: ChestResult = { ...chest, gems: finalGems }
       player.grantChest(finalChest)
       setChestResult(finalChest)
-      setCurrentTier(chest.startTier)
     } else {
       setChestResult(null)
-      setCurrentTier('common')
     }
-    setKicksLeft(4)
+    setKicksLeft(KICKS)
     setRevealed(false)
     setKickPulse(0)
     setFlashTier(null)
@@ -509,32 +523,21 @@ export function LessonScreen({ lessonId, onExit, retryItems }: {
     setPhase('done')
   }
 
-  /* Tier metadata for the kick-upgrade UI */
-  const TIER_META: Record<ChestTier, { color: string; label: string; glow: string }> = {
-    common:    { color: '#94a3b8', label: 'Common',    glow: 'rgba(148,163,184,0.4)' },
-    rare:      { color: '#3b82f6', label: 'Rare',      glow: 'rgba(59,130,247,0.4)' },
-    epic:      { color: '#a855f7', label: 'Epic',      glow: 'rgba(168,85,247,0.45)' },
-    legendary: { color: '#f59e0b', label: 'Legendary', glow: 'rgba(245,158,11,0.5)' },
-    exclusive: { color: '#ec4899', label: 'Exclusive', glow: 'rgba(236,72,153,0.5)' },
-  }
-  const TIER_RANK: ChestTier[] = ['common', 'rare', 'epic', 'legendary', 'exclusive']
-  const tierIdx = (t: ChestTier) => TIER_RANK.indexOf(t)
+  /* Tier index helper — colors/labels come from the ONE shared TIER_META in cards.ts */
+  const tierIdx = (t: ChestTier) => TIER_ORDER.indexOf(t)
 
   function onChestKick() {
     if (revealed) return
     if (kicksLeft <= 0) return
-    if (!chestResult) return
+    if (!chestResult || !kickSeq) return
     sfx.tap()
     setKickPulse((n) => n + 1)            // re-trigger shake/flash animation
-    const kicksDone = 4 - kicksLeft       // 0..3
-    const willUpgrade = chestResult.upgradesAt.includes(kicksDone)
-    const fromTier = TIER_RANK[tierIdx(currentTier)]
-    const toTier: ChestTier = willUpgrade && tierIdx(currentTier) < 4
-      ? TIER_RANK[tierIdx(currentTier) + 1]
-      : currentTier
+    const fromTier = currentTier
+    // tier AFTER this kick, straight from the rolled upgradesAt chain
+    const toTier = kickSeq[Math.min(kicksDone + 1, kickSeq.length - 1)]
+    const willUpgrade = toTier !== fromTier
 
     if (willUpgrade) {
-      setCurrentTier(toTier)
       setFlashTier(toTier)
       setFloater({ id: Date.now(), tier: toTier })
       setShaking(true)
@@ -556,7 +559,7 @@ export function LessonScreen({ lessonId, onExit, retryItems }: {
       }, 900)
     } else {
       // a "miss" still feels punchy: small spark burst in the current tier color
-      const color = TIER_META[currentTier].color
+      const color = TIER_META[fromTier].color
       confetti({
         particleCount: 18,
         spread: 50,
@@ -663,21 +666,60 @@ export function LessonScreen({ lessonId, onExit, retryItems }: {
       )
     }
     return (
-      <div className="mx-auto flex h-[100dvh] max-w-xl flex-col items-center justify-center px-6 pb-24">
+      <div className="relative mx-auto flex h-[100dvh] max-w-xl flex-col items-center justify-center overflow-hidden px-6 pb-24">
         <motion.div initial={{ scale: 0.5, rotate: -8, opacity: 0 }} animate={{ scale: 1, rotate: 0, opacity: 1 }}
           transition={{ type: 'spring', stiffness: 220, damping: 14 }}
           className="h-40 w-40 gpu">
           <Mascot id={player.mascot} expression="cheer" />
         </motion.div>
         <motion.h1 initial={{ y: 12, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.15 }}
-          className="mt-3 text-center font-display text-4xl font-extrabold text-yellow-500 drop-shadow">
+          className="relative z-10 mt-3 text-center font-display text-4xl font-extrabold text-yellow-500 drop-shadow">
           {isRedoResult ? 'Nice practice!' : firstAttemptMistakes === 0 ? 'PERFECT!' : 'Lesson complete!'}
         </motion.h1>
-        <p className="mt-1 text-center font-body text-sm font-bold text-slate-400">
+        {!isRedoResult && (() => {
+          const acc = totalFirstAttempts > 0
+            ? Math.round((firstAttemptCorrect / totalFirstAttempts) * 100)
+            : 100
+          const medal = termMedal(lessonId, acc)
+          if (!medal) return null
+          const meta = medal === 'gold'
+            ? { icon: '🥇', label: 'GOLD', cls: 'text-yellow-300 border-yellow-400 bg-yellow-500/10' }
+            : medal === 'silver'
+              ? { icon: '🥈', label: 'SILVER', cls: 'text-slate-200 border-slate-300 bg-slate-400/10' }
+              : { icon: '🥉', label: 'BRONZE', cls: 'text-amber-600 border-amber-700 bg-amber-700/10' }
+          return (
+            <motion.p
+              initial={{ scale: 0.7, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ delay: 0.25, type: 'spring', stiffness: 260, damping: 14 }}
+              className={`relative z-10 mt-2 rounded-full border-2 px-5 py-1 font-display text-xl font-extrabold shadow-pop ${meta.cls}`}
+            >
+              {meta.icon} {meta.label} · {acc}%
+            </motion.p>
+          )
+        })()}
+        <p className="relative z-10 mt-1 text-center font-body text-sm font-bold text-slate-400">
           {isRedoResult
             ? 'Replays earn XP — clear a fresh lesson for stars and chests!'
             : firstAttemptMistakes === 0 ? 'Flawless run - every answer right!' : `${firstAttemptMistakes} mistake${firstAttemptMistakes === 1 ? '' : 's'} on first try. Practice makes perfect!`}
         </p>
+
+        {/* Brawl-Stars rarity rays + twinkles behind the chest show */}
+        {chestResult && (
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center" aria-hidden="true">
+            <div
+              className="rays animate-spin-slower h-[560px] w-[560px] shrink-0"
+              style={{
+                '--ray': `${TIER_META[currentTier].color}99`,
+                backgroundColor: `${TIER_META[currentTier].color}1f`,
+              } as React.CSSProperties}
+            />
+            <span className="twinkle absolute left-[16%] top-[28%] text-2xl" style={{ animationDelay: '0s' }}>✨</span>
+            <span className="twinkle absolute right-[14%] top-[40%] text-xl" style={{ animationDelay: '0.5s' }}>⭐</span>
+            <span className="twinkle absolute bottom-[28%] left-[22%] text-xl" style={{ animationDelay: '1s' }}>💫</span>
+            <span className="twinkle absolute bottom-[22%] right-[20%] text-2xl" style={{ animationDelay: '1.4s' }}>✨</span>
+          </div>
+        )}
 
         {/* streak milestone bonus banner */}
         {streakBonus !== null && (
@@ -807,7 +849,7 @@ export function LessonScreen({ lessonId, onExit, retryItems }: {
             {/* probability line: "Next kick: 22% chance to become Rare" */}
             {!revealed && (() => {
               const idx = tierIdx(currentTier)
-              const canUpgrade = idx < 3 // not at Legendary/Exclusive
+              const canUpgrade = KICK_UPGRADE[currentTier] > 0 && idx < TIER_ORDER.length - 1
               if (!canUpgrade) {
                 return (
                   <p className="mt-2 font-display text-xs font-extrabold uppercase tracking-wider text-yellow-500">
@@ -816,7 +858,7 @@ export function LessonScreen({ lessonId, onExit, retryItems }: {
                 )
               }
               const pct = Math.round(KICK_UPGRADE[currentTier] * 100)
-              const nextTier = TIER_RANK[idx + 1]
+              const nextTier = TIER_ORDER[idx + 1]
               const nextMeta = TIER_META[nextTier]
               return (
                 <p className="mt-2 font-body text-xs font-bold text-slate-500">
@@ -828,8 +870,8 @@ export function LessonScreen({ lessonId, onExit, retryItems }: {
             {/* 4-dot kick progress */}
             {!revealed && (
               <div className="mt-2 flex gap-1.5" aria-label="Kicks remaining">
-                {Array.from({ length: 4 }).map((_, i) => {
-                  const filled = i < 4 - kicksLeft
+                {Array.from({ length: KICKS }).map((_, i) => {
+                  const filled = i < kicksDone
                   return (
                     <motion.span
                       key={i}
@@ -850,67 +892,87 @@ export function LessonScreen({ lessonId, onExit, retryItems }: {
             {/* CTA below the progress */}
             {!revealed && (
               <span className="mt-2 whitespace-nowrap rounded-full bg-speed-blue px-3 py-1 font-display text-xs font-extrabold text-white">
-                {kicksLeft === 4 ? 'Tap to open!' : `Kick! (${kicksLeft} left)`}
+                {kicksLeft === KICKS ? 'Tap to open!' : `Kick! (${kicksLeft} left)`}
               </span>
             )}
           </motion.div>
         )}
 
-        {revealed && chestResult && (
-          <motion.div
-            initial={{ scale: 0, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ type: 'spring', stiffness: 260, damping: 16 }}
-            className="mt-6 text-center"
-          >
-            <p className="font-display text-3xl font-extrabold text-orange-500">+{chestResult.gems} 💎</p>
-            <p className="mt-1 font-display font-extrabold text-emerald-500">+{xpEarned} ⚡ XP</p>
-            <p className="mt-2 font-display text-sm font-extrabold text-blue-600">
-              {chestResult.cards.some(c => c.isNew) ? '✨ NEW CARD(S)!' : '3 cards unlocked'}
-            </p>
-            <div className="mt-4 grid grid-cols-3 gap-2">
-              {chestResult.cards.map((card, idx) => {
-                const def = CARD_BY_ID[card.cardId]
-                if (!def) return null
-                const count = player.cardStars[card.cardId] ?? 0
-                const stars = toStar(count)
-                return (
-                  <motion.div
-                    key={card.cardId + idx}
-                    initial={{ rotateY: 180, opacity: 0 }}
-                    animate={{ rotateY: 0, opacity: 1 }}
-                    transition={{ type: 'spring', stiffness: 200, damping: 18, delay: idx * 0.15 }}
-                    className="card-white overflow-hidden"
-                    style={{ borderColor: TIER_META[def.tier].color }}
-                  >
-                    <div className="h-20 bg-gradient-to-b from-white/40 to-transparent flex items-center justify-center px-1 pt-1">
-                      <img
-                        src={cardImageUrl(def)}
-                        alt={def.name}
-                        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
-                        className="h-full w-full object-contain drop-shadow"
-                      />
-                    </div>
-                    <div className="px-1.5 pb-1.5">
-                      <p className="font-display text-[9px] font-extrabold text-blue-600 leading-tight">
-                        {card.isNew ? '✨ NEW!' : '×1'}
-                      </p>
-                      <p className="font-display text-xs font-extrabold text-slate-800 leading-tight">{def.name}</p>
-                      <div className="flex gap-0.5 mt-0.5 justify-center">
-                        {[1,2,3,4,5].map(s => (
-                          <span key={s} className="text-[8px]" style={{ color: s <= stars ? '#f59e0b' : '#e2e8f0' }}>★</span>
-                        ))}
-                      </div>
-                      <p className="font-display text-[8px] font-extrabold text-slate-400 leading-tight">
-                        ×{count} {copiesToNextStar(count) > 0 ? `· +${copiesToNextStar(count)} → ${stars + 1}★` : '· MAX ★'}
-                      </p>
-                    </div>
-                  </motion.div>
-                )
-              })}
-            </div>
-          </motion.div>
-        )}
+        {revealed && chestResult && (() => {
+          // totals + headline + grid are pure functions of the rolled result
+          const payout = chestPayout(chestResult, player.cardStars)
+          const headline = (() => {
+            switch (chestCopyVariant(chestResult)) {
+              case 'jackpot': return '🎰 JACKPOT! Collection maxed!'
+              case 'pity': return 'No cards this time — pity is building!'
+              case 'new': return '✨ NEW CARD(S)!'
+              case 'starUp': return '⭐ STAR UP!'
+              default: return '💫 duplicates! stars growing!'
+            }
+          })()
+          const tileCount = chestTileCount(chestResult)
+          return (
+            <motion.div
+              initial={{ scale: 0, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ type: 'spring', stiffness: 260, damping: 16 }}
+              className="mt-6 text-center"
+            >
+              <p className="font-display text-3xl font-extrabold text-orange-500">+{payout.gems} 💎</p>
+              {payout.dust > 0 && (
+                <p className="mt-1 font-display text-lg font-extrabold text-amber-500">+{payout.dust} ⭐ star power!</p>
+              )}
+              <p className="mt-1 font-display font-extrabold text-emerald-500">+{xpEarned} ⚡ XP</p>
+              <p className="mt-2 font-display text-sm font-extrabold text-blue-600">
+                {headline}
+              </p>
+              {tileCount > 0 && (
+                <div className="mt-4 grid grid-cols-3 gap-2">
+                  {chestResult.cards.map((card, idx) => {
+                    const def = CARD_BY_ID[card.cardId]
+                    const count = player.cardStars[card.cardId] ?? 0
+                    const stars = toStar(count)
+                    return (
+                      <motion.div
+                        key={card.cardId + idx}
+                        initial={{ rotateY: 180, opacity: 0 }}
+                        animate={{ rotateY: 0, opacity: 1 }}
+                        transition={{ type: 'spring', stiffness: 200, damping: 18, delay: idx * 0.15 }}
+                        className="card-white overflow-hidden"
+                        style={{ borderColor: TIER_META[card.tier].color }}
+                      >
+                        <div className="h-20 bg-gradient-to-b from-white/40 to-transparent flex items-center justify-center px-1 pt-1">
+                          {def && (
+                            <img
+                              src={cardImageUrl(def)}
+                              alt={def.name}
+                              onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
+                              className="h-full w-full object-contain drop-shadow"
+                            />
+                          )}
+                        </div>
+                        <div className="px-1.5 pb-1.5">
+                          <p className="font-display text-[9px] font-extrabold text-blue-600 leading-tight">
+                            {card.isNew ? '✨ NEW!' : card.leveledUp ? '⭐ STAR UP!' : `×${card.copiesAfter}`}
+                          </p>
+                          <p className="font-display text-xs font-extrabold text-slate-800 leading-tight">{def?.name ?? card.cardId}</p>
+                          <div className="flex gap-0.5 mt-0.5 justify-center">
+                            {[1,2,3,4,5].map(s => (
+                              <span key={s} className="text-[8px]" style={{ color: s <= stars ? '#f59e0b' : '#e2e8f0' }}>★</span>
+                            ))}
+                          </div>
+                          <p className="font-display text-[8px] font-extrabold text-slate-400 leading-tight">
+                            ×{count} {copiesToNextStar(count) > 0 ? `· +${copiesToNextStar(count)} → ${stars + 1}★` : '· MAX ★'}
+                          </p>
+                        </div>
+                      </motion.div>
+                    )
+                  })}
+                </div>
+              )}
+            </motion.div>
+          )
+        })()}
 
         <div className="mt-8 w-full max-w-xs space-y-3">
           {revealed || isRedoResult ? (
@@ -926,7 +988,7 @@ export function LessonScreen({ lessonId, onExit, retryItems }: {
             </>
           ) : (
             <p className="text-center font-body text-xs font-bold text-slate-300">
-              Kick your chest 4 times to reveal the loot!
+              Kick your chest {KICKS} times to reveal the loot!
             </p>
           )}
         </div>
@@ -978,7 +1040,17 @@ export function LessonScreen({ lessonId, onExit, retryItems }: {
               <TrueFalseView q={q} choice={choiceIdx} onChoice={(c) => { sfx.tap(c === 0 ? 'true' : 'false'); setChoiceIdx(c) }} />
             ) :
             q.kind === 'speak' ? (
-              <SpeakView q={q} phase={speakPhase} onPhase={setSpeakPhase} onHeard={() => { sfx.correct(); setSpeakPhase('heard') }} />
+              <SpeakView
+                q={q}
+                phase={speakPhase}
+                transcript={speakTranscript}
+                lang="en-GB"
+                onPhase={setSpeakPhase}
+                onGrade={(ok, heard) => {
+                  setSpeakTranscript(heard)
+                  setSpeakPhase(ok ? 'heard' : 'missed')
+                }}
+              />
             ) :
             <OrderView q={q} picks={orderPick} onPick={(i) => {
               sfx.tap(String(i))
@@ -1183,47 +1255,61 @@ function TrueFalseView({ q, choice, onChoice }: {
   )
 }
 
-/** Normalises words so forgiving ASR comparison works ("dog." ~ "dog"). */
-const normWords = (s: string): string[] =>
-  s.toLowerCase().replace(/[^a-z' ]/g, ' ').split(/\s+/).filter(Boolean)
-
-function wordMatchScore(said: string[], target: string[]): number {
-  if (!target.length) return 0
-  let hits = 0
-  for (const w of target) if (said.includes(w)) hits++
-  return hits / target.length
+function asrSupported(): boolean {
+  if (typeof window === 'undefined') return false
+  const w = window as unknown as Record<string, unknown>
+  return typeof (w.webkitSpeechRecognition ?? w.SpeechRecognition) === 'function'
 }
 
-function SpeakView({ q, phase, onPhase, onHeard }: {
+function SpeakView({ q, phase, transcript, lang, onPhase, onGrade }: {
   q: SpeakQuestion
-  phase: 'idle' | 'listening' | 'heard'
-  onPhase: (p: 'idle' | 'listening' | 'heard') => void
-  onHeard: () => void
+  phase: 'idle' | 'listening' | 'heard' | 'missed'
+  transcript: string
+  lang: string
+  onPhase: (p: 'idle' | 'listening' | 'heard' | 'missed') => void
+  onGrade: (ok: boolean, heard: string) => void
 }) {
+  const gradedRef = useRef(false)
+  const canUseAsr = asrSupported()
+
   function startListening() {
+    gradedRef.current = false
     onPhase('listening')
-    const SR = (window as unknown as Record<string, unknown>).webkitSpeechRecognition ??
-      (window as unknown as Record<string, unknown>).SpeechRecognition
-    if (typeof SR !== 'function') return // no ASR: self-check path stays available
+    if (!canUseAsr) return
     try {
+      const SR = (window as unknown as Record<string, unknown>).webkitSpeechRecognition ??
+        (window as unknown as Record<string, unknown>).SpeechRecognition
       const rec = new (SR as new () => {
         lang: string; interimResults: boolean; maxAlternatives: number
         start: () => void; stop: () => void
         onresult: ((e: { results: { transcript: string }[][] }) => void) | null
         onend: (() => void) | null
+        onerror: (() => void) | null
       })()
-      rec.lang = 'en-GB'; rec.interimResults = false; rec.maxAlternatives = 3
+      rec.lang = lang || 'en-GB'
+      rec.interimResults = false
+      rec.maxAlternatives = 3
       rec.onresult = (e) => {
-        const said = normWords(String(e.results[0]?.[0]?.transcript ?? ''))
-        if (wordMatchScore(said, normWords(q.targetText)) >= 0.6) {
-          sfx.correct()
-          onHeard()
+        const alts = e.results[0] ?? []
+        let best = { ok: false, transcript: '' }
+        for (const alt of alts) {
+          const g = gradeSpeak(String(alt?.transcript ?? ''), q.targetText)
+          if (!best.transcript || g.score > gradeSpeak(best.transcript, q.targetText).score) {
+            best = g
+          }
         }
+        gradedRef.current = true
+        onGrade(best.ok, best.transcript)
       }
-      rec.onend = () => onPhase(phase === 'heard' ? 'heard' : 'idle')
+      rec.onend = () => {
+        if (!gradedRef.current) onPhase('idle')
+      }
+      rec.onerror = () => {
+        if (!gradedRef.current) onPhase('idle')
+      }
       rec.start()
     } catch {
-      /* fall back to self-check */
+      onPhase('idle')
     }
   }
 
@@ -1236,13 +1322,29 @@ function SpeakView({ q, phase, onPhase, onHeard }: {
         <AudioBar audioText={q.targetText} />
       </div>
       <div className="mt-5 flex flex-col items-center gap-3">
-        {phase !== 'heard' && (
+        {phase !== 'heard' && phase !== 'missed' && (
           <button onClick={startListening} className="btn3d btn-green !px-8 !py-4 text-xl gpu">
-            🎤 Read it aloud!
+            {phase === 'listening' && canUseAsr ? '🎤 Listening…' : '🎤 Read it aloud!'}
           </button>
         )}
-        {phase !== 'heard' && (
-          <button onClick={() => onHeard()}
+        {phase === 'missed' && (
+          <div className="mx-auto w-full max-w-md rounded-2xl border-2 border-rose-200 bg-rose-50 px-4 py-3 text-center">
+            <p className="font-display text-sm font-extrabold uppercase tracking-wide text-rose-500">
+              Almost — try again
+            </p>
+            <p className="mt-1 font-body text-sm font-semibold text-slate-600">
+              I heard: <span className="font-bold text-slate-800">“{transcript || '…'}”</span>
+            </p>
+            <p className="font-body text-sm font-semibold text-slate-600">
+              Should sound like: <span className="font-bold text-emerald-700">“{q.targetText}”</span>
+            </p>
+            <button onClick={startListening} className="btn3d btn-green mt-3 !px-6 !py-2.5 text-base gpu">
+              🎤 Try again
+            </button>
+          </div>
+        )}
+        {phase !== 'heard' && phase !== 'missed' && !canUseAsr && (
+          <button onClick={() => onGrade(true, '')}
             className="font-display text-sm font-bold text-sky-400 hover:text-sky-500">
             I read it out loud ✅
           </button>

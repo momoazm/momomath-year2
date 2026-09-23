@@ -24,6 +24,10 @@ const ABSENT_PRONOUN = [
   { s: '.... يكتب الدرس', ans: 'هو' },
   { s: '.... تساعد أمها', ans: 'هي' },
   { s: '.... يغنون النشيد', ans: 'هم' },
+  { s: '.... يحفظ الدرس', ans: 'هو' },
+  { s: '.... ترتدي فستانها', ans: 'هي' },
+  { s: '.... يلعبون في الحديقة', ans: 'هم' },
+  { s: '.... تكتب رسالة', ans: 'هي' },
 ]
 
 function a8PronounPick(rand: Rand): Question {
@@ -35,13 +39,17 @@ function a8PronounPick(rand: Rand): Question {
   })
 }
 
+const PRONOUN_PAIRS = [
+  { left: 'هو', right: '👦 ولد' },
+  { left: 'هي', right: '👧 بنت' },
+  { left: 'هم', right: '👥 أولاد' },
+  { left: 'أنا', right: '🙋 نفسي' },
+  { left: 'نحن', right: '👨‍👩‍👧 عائلة' },
+  { left: 'هما', right: '👫 اثنان' },
+]
+
 function a8PronounMatch(rand: Rand): Question {
-  const pairs = shuffle(rand, [
-    { left: 'هو', right: '👦 ولد' },
-    { left: 'هي', right: '👧 بنت' },
-    { left: 'هم', right: '👥 أولاد' },
-    { left: 'أنا', right: '🙋 نفسي' },
-  ])
+  const pairs = shuffle(rand, PRONOUN_PAIRS).slice(0, 4)
   return matchQ(rand, 'صل كل ضمير بما يناسبه', pairs)
 }
 
@@ -52,7 +60,7 @@ const a8l1 = makeLesson(
   'sonic',
   'هو وهي وهم!',
   'الترم الثاني مع سلاح التلميذ: ضمائر الغائب. هو للمذكر وهي للمؤنث وهم للجمع.',
-  [a8PronounPick, a8PronounMatch],
+  [a8PronounPick, a8PronounMatch, a8CallTF, a8TaaClassify],
 )
 
 /* ---------- a8l2: أسلوب النداء ---------- */
@@ -64,6 +72,10 @@ const CALL_STYLE = [
   { s: 'أحمد يلعب بالكرة', is: false },
   { s: 'مريم تقرأ القصة', is: false },
   { s: 'نلعب مع أصدقائنا', is: false },
+  { s: 'يا أخي، تعال تلعب معنا', is: true },
+  { s: 'يا أبي، أحبك كثيرا', is: true },
+  { s: 'نحب مدرستنا', is: false },
+  { s: 'المعلمة تشرح الدرس', is: false },
 ]
 
 function a8CallTF(rand: Rand): Question {
@@ -76,6 +88,9 @@ function a8CallOrder(rand: Rand): Question {
     ['يا', 'صديقي', 'هيا', 'نلعب'],
     ['يا', 'معلمي', 'شكرا', 'لك'],
     ['يا', 'أمي', 'أحبك', 'كثيرا'],
+    ['يا', 'أختي', 'تعالي', 'هنا'],
+    ['يا', 'أصدقائي', 'نحب', 'بلادي'],
+    ['يا', 'طالبي', 'أنجزوا', 'دروسك'],
   ])
   return orderQ('رتب كلمات جملة النداء', item, say(item.join(' ')))
 }
@@ -87,7 +102,7 @@ const a8l2 = makeLesson(
   'amy',
   'يا أصدقائي!',
   'أسلوب النداء يبدأ بـ يا: يا أحمد ويا مريم. رتب وتعرف عليه.',
-  [a8CallTF, a8CallOrder],
+  [a8CallTF, a8CallOrder, a8PronounPick, a8TaaTiles],
 )
 
 /* ---------- a8l3: التاء المربوطة والمفتوحة ---------- */

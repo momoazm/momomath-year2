@@ -360,6 +360,8 @@ export interface QuestSnapshot {
   xpToday: number
   lessonsToday: number
   correctToday: number
+  /** Distinct subjects finished today (lesson prefixes resolved to Subject). */
+  subjectsToday: string[]
 }
 
 export const DAILY_QUESTS: QuestDef[] = [
@@ -384,6 +386,20 @@ export const DAILY_QUESTS: QuestDef[] = [
     reward: 15,
     progress: (s) => s.correctToday,
   },
+  {
+    id: 'subjects2',
+    label: (g) => `Play ${g} different subjects`,
+    goal: 2,
+    reward: 20,
+    progress: (s) => s.subjectsToday.length,
+  },
+  {
+    id: 'subjects3',
+    label: (g) => `Explore ${g} subjects today`,
+    goal: 3,
+    reward: 30,
+    progress: (s) => s.subjectsToday.length,
+  },
 ]
 
 /* ---------------- Achievements ---------------- */
@@ -400,6 +416,10 @@ export interface AchievementSnapshot {
   streakCurrent: number
   lessonsCompleted: number
   crowns: number
+  /** Distinct subjects ever finished (from lessonProgress ids). */
+  subjectCount: number
+  /** Card album size (owned count) — for album achievements. */
+  cardsOwned: number
 }
 
 /**
@@ -434,4 +454,8 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   { id: 'xp-250', title: 'XP Collector', desc: 'Earn 250 XP total', icon: '🌟', test: (s) => s.xpTotal >= 250 },
   { id: 'lessons-10', title: 'Marathon Mind', desc: 'Complete 10 lessons', icon: '🏃', test: (s) => s.lessonsCompleted >= 10 },
   { id: 'crowns-5', title: 'Crown Club', desc: 'Win 5 crown levels', icon: '👑', test: (s) => s.crowns >= 5 },
+  { id: 'subjects-3', title: 'World Explorer', desc: 'Finish lessons in 3 subjects', icon: '🌍', test: (s) => s.subjectCount >= 3 },
+  { id: 'subjects-5', title: 'Curriculum Tourist', desc: 'Finish lessons in 5 subjects', icon: '🧭', test: (s) => s.subjectCount >= 5 },
+  { id: 'cards-10', title: 'Album Starter', desc: 'Collect 10 cards', icon: '🃏', test: (s) => s.cardsOwned >= 10 },
+  { id: 'cards-40', title: 'Album Keeper', desc: 'Collect 40 cards', icon: '📚', test: (s) => s.cardsOwned >= 40 },
 ]

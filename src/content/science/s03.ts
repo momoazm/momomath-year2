@@ -28,19 +28,32 @@ function gLocalCompare(rand: Rand): Question {
   const cold = shuffle(rand, ["arctic", "snowy forest", "high mountain"])[0]
   return mcqE(rand, `Which place is hotter and drier?`, hot, [cold, "a quiet library", "a busy road"], { visual: { type: "emoji-group", emojis: ["☀️", "❄️"] } })
 }
+const NOT_NEEDS = ['toy', 'TV remote', 'a bicycle bell', 'a game console']
 function gNeeds(rand: Rand): Question {
   const a = pick(rand, NEEDS)
-  return matchQ(rand, "What do living things need to stay alive?",
-    [{ left: a, right: "a need of all living things" }, { left: "toy", right: "nice but not needed" }],
-    { visual: { type: "emoji-group", emojis: ["💧", "🍎", "🌞", "🏠"] } },
+  const notNeed = pick(rand, NOT_NEEDS)
+  return matchQ(rand, 'What do living things need to stay alive?',
+    [
+      { left: a, right: 'a need of all living things' },
+      { left: notNeed, right: 'nice but not needed' },
+      ...pickOthers(rand, NEEDS, a, 1).map((n) => ({ left: n, right: 'a need of all living things' })),
+    ],
+    { visual: { type: 'emoji-group', emojis: ['💧', '🍎', '🌞', '🏠'] } },
   )
 }
 function gNeedsTF(rand: Rand): Question {
   const a = pick(rand, NEEDS)
-  return tfQ("Science check", `All animals, including humans, need ${a} to survive.`, true, { visual: { type: "emoji-group", emojis: ["💧", "🍎", "🌞", "🏠"] } })
+  return tfQ('Science check', `All animals, including humans, need ${a} to survive.`, true, { visual: { type: 'emoji-group', emojis: ['💧', '🍎', '🌞', '🏠'] } })
 }
+const PLANT_NEEDS: { answer: string; wrong: string[] }[] = [
+  { answer: 'sunlight', wrong: ['snowfall', 'cement', 'melted chocolate'] },
+  { answer: 'light from the Sun', wrong: ['strong wind', 'a television', 'a loud radio'] },
+  { answer: 'warmth to grow', wrong: ['freezing ice', 'a metal fork', 'a plastic bag'] },
+  { answer: 'space for roots', wrong: ['a jam jar lid', 'a sticky sweet', 'a paper kite'] },
+]
 function gPlantsNeed(rand: Rand): Question {
-  return mcqE(rand, "What do plants need to grow (besides air and water)?", "sunlight", ["snowfall", "cement", "melted chocolate"], { visual: { type: "emoji-group", emojis: ["🌱", "☀️"] } })
+  const p = pick(rand, PLANT_NEEDS)
+  return mcqE(rand, 'What do plants need to grow (besides air and water)?', p.answer, p.wrong, { visual: { type: 'emoji-group', emojis: ['🌱', '☀️'] } })
 }
 function gAdaptation(rand: Rand): Question {
   const a = pick(rand, ADAPTATION_PAIRS)
@@ -50,8 +63,17 @@ function gCycle(rand: Rand): Question {
   const key = pick(rand, CYCLE_KEYS)
   return orderQ(`Put the ${key}'s life cycle in order, from start to end.`, ANIMAL_LIFE_CYCLES[key], { visual: { type: "emoji-group", emojis: ["🦋"] } })
 }
+const HABITAT_TF: { text: string; ok: boolean }[] = [
+  { text: 'The place a plant or animal naturally lives is its habitat.', ok: true },
+  { text: 'A pond can be a habitat for a frog or a fish.', ok: true },
+  { text: 'A habitat always has the food and water its animals need.', ok: true },
+  { text: 'A habitat must be indoors, like a classroom.', ok: false },
+  { text: 'Deserts and oceans are both habitats.', ok: true },
+  { text: 'If you move an animal away from its habitat it may struggle to survive.', ok: true },
+]
 function gHabitatIsHome(rand: Rand): Question {
-  return tfQ("Science check", "The place a plant or animal naturally lives is its habitat.", true, { visual: { type: "emoji-group", emojis: ["🏡", "🌳"] } })
+  const line = pick(rand, HABITAT_TF)
+  return tfQ('Science check', line.text, line.ok, { visual: { type: 'emoji-group', emojis: ['🏡', '🌳'] } })
 }
 
 const S3 = [gHabitat, gLocalCompare, gNeeds, gNeedsTF, gPlantsNeed, gAdaptation, gCycle, gHabitatIsHome]
@@ -59,8 +81,8 @@ const S3 = [gHabitat, gLocalCompare, gNeeds, gNeedsTF, gPlantsNeed, gAdaptation,
 const lessons = [
   makeLesson("s3l1", "What is a Habitat?", ["2Be.01", "2Be.02"], "tails", "Welcome home!", "A habitat is the natural place where a plant or animal lives with the food, water and shelter it needs.", [gHabitatIsHome, gHabitat], gHabitat),
   makeLesson("s3l2", "Hot, Cold, Wet, Dry", ["2Be.03"], "cream", "Around the world!", "Habitats are different: some are hot and dry like a desert, others cold and icy. Compare them!", [gLocalCompare, gAdaptation], gLocalCompare),
-  makeLesson("s3l3", "What Living Things Need", ["2Be.02"], "sonic", "Stay alive!", "All living things need water, food and air. Most also need shelter.", [gNeeds, gNeedsTF], gNeeds),
-  makeLesson("s3l4", "Plants Need", ["2Be.02"], "amy", "Sun is the secret!", "Plants need water, air AND sunlight to grow tall and strong.", [gPlantsNeed, gNeedsTF], gPlantsNeed),
+  makeLesson("s3l3", "What Living Things Need", ["2Be.02"], "sonic", "Stay alive!", "All living things need water, food and air. Most also need shelter.", [gNeeds, gNeedsTF, gHabitatIsHome, gPlantsNeed, gAdaptation, gCycle], gNeeds),
+  makeLesson("s3l4", "Plants Need", ["2Be.02"], "amy", "Sun is the secret!", "Plants need water, air AND sunlight to grow tall and strong.", [gPlantsNeed, gNeedsTF, gNeeds, gHabitatIsHome, gAdaptation, gCycle], gPlantsNeed),
   makeLesson("s3l5", "Match the Animal", ["2Be.01", "2Be.02"], "knuckles", "Right place!", "Each animal has a body that fits where it lives: fur in the cold, webbed feet in water!", [gAdaptation, gCycle, gHabitat], gAdaptation),
 ]
 

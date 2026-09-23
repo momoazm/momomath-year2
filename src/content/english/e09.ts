@@ -99,6 +99,24 @@ const gJoinedPick: Gen = (rand) => {
       correct: 'Ben has a dog, and Mia has a cat.',
       wrong: ['Ben has a dog, or Mia has a cat.', 'Ben has a dog Mia has a cat.'],
     },
+    {
+      a: 'It was raining.',
+      b: 'We took our umbrellas.',
+      correct: 'It was raining, so we took our umbrellas.',
+      wrong: ['It was raining we took our umbrellas.', 'We took our umbrellas, so it was raining.'],
+    },
+    {
+      a: 'I love Maths.',
+      b: 'I love Art too.',
+      correct: 'I love Maths, and I love Art too.',
+      wrong: ['I love Maths, but I love Art too.', 'I love Maths I love Art too.'],
+    },
+    {
+      a: 'Put on your coat.',
+      b: 'Or stay at home.',
+      correct: 'Put on your coat, or stay at home.',
+      wrong: ['Put on your coat, and stay at home.', 'Put on your coat stay at home.'],
+    },
   ]
   const item = pick(rand, items)
   return mcqE(rand, `${item.a} ${item.b}`, item.correct, item.wrong, {
@@ -112,6 +130,9 @@ const gClauseOrder: Gen = (rand) => {
     ['We built a sandcastle', 'and dug a deep moat'],
     ['When it snows,', 'we sledge down the hill'],
     ['After the film,', 'we shared popcorn at home'],
+    ['If you practise daily,', 'you will get much better'],
+    ['The puppy yipped', 'because it found a ball'],
+    ['Before the show,', 'we painted the backdrop'],
   ]
   return orderQ('Order the clauses!', pick(rand, sets), {
     hint: 'Which clause comes first?',
@@ -139,6 +160,21 @@ const gOpenerVariety: Gen = (rand) => {
       q: 'Which opener puts a step in order?',
       answer: 'First,',
       wrong: ['Long ago,', 'Suddenly,', 'All of a sudden,'],
+    },
+    {
+      q: 'Which opener tells us a scary moment arrived?',
+      answer: 'Out of the blue,',
+      wrong: ['Finally,', 'One evening,', 'Next,'],
+    },
+    {
+      q: 'Which opener sets a very long-ago tale?',
+      answer: 'Once upon a time,',
+      wrong: ['Yesterday,', 'In a second,', 'Just then,'],
+    },
+    {
+      q: 'Which opener shows something quick and shocking?',
+      answer: 'Whizz! Bang!',
+      wrong: ['Slowly,', 'At last,', 'First,'],
     },
   ]
   const item = pick(rand, items)
@@ -171,6 +207,24 @@ const gStoryFlow: Gen = (rand) => {
       'By Friday, it towered like a beanstalk!',
       'At last, he showed the whole class.',
     ],
+    [
+      'One dark evening, the power went out.',
+      'First, Dad lit the camping lanterns.',
+      'Next, we built a blanket fort.',
+      'In the end, we told ghost stories.',
+    ],
+    [
+      'Last summer, we visited the aquarium.',
+      'Soon, a penguin zoomed past the glass.',
+      'After that, we fed the slimy fish.',
+      'Finally, we bought tiny shark toys.',
+    ],
+    [
+      'At break time, Nia discovered a note.',
+      'Then she followed the glittery trail.',
+      'Suddenly, her friends jumped out shouting surprise!',
+      'At last, everyone shared the cake.',
+    ],
   ]
   return orderQ('Put the story straight!', pick(rand, flows), {
     hint: 'The openers show the order',
@@ -178,7 +232,7 @@ const gStoryFlow: Gen = (rand) => {
 }
 
 const lessons = [
-  makeLesson('e9l1', 'And, But, Or Joiners', ['2Wg.05'], 'sonic', 'Join it up!', 'And adds ideas, but flips them, and or offers a choice!', [gJoinerFill, gJoinMatch]),
+  makeLesson('e9l1', 'And, But, Or Joiners', ['2Wg.05'], 'sonic', 'Join it up!', '"And" adds ideas, "but" flips them, and "or" offers a choice!', [gJoinerFill, gJoinMatch]),
   makeLesson('e9l2', 'Because, If, When Bridges', ['2Wg.06', '2Rg.03'], 'tails', 'Bridge the gap!', 'Because tells why, if pretends, and when tells time!', [gBecauseFill, gBridgeBuild]),
   makeLesson('e9l3', 'Two Ideas, One Sentence', ['2Wg.05', '2Wg.06'], 'amy', 'Two become one!', 'Squash two short sentences into one super sentence!', [gJoinedPick, gClauseOrder]),
   makeLesson('e9l4', 'Sentence Opener Showcase', ['2Wv.03'], 'cream', 'Sparkle first!', 'A cracking opener hooks your reader straight away!', [gOpenerVariety, gStoryFlow]),

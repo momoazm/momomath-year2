@@ -133,6 +133,10 @@ const DIALOGUES = [
   { a: 'Time for bed!', sa: 'called Mum', b: 'Not yet!', sb: 'pleaded Sam' },
   { a: 'Dinner is ready!', sa: 'called Dad', b: 'Coming!', sb: 'shouted Mia' },
   { a: 'Look at this bug!', sa: 'gasped Ben', b: 'Wow, it is huge!', sb: 'said Alfie' },
+  { a: 'Race you to the gate!', sa: 'yelled Poppy', b: 'You are on!', sb: 'cheered Zoe' },
+  { a: 'Pass the paint, please.', sa: 'asked Miss Grey', b: 'Here you go!', sb: 'smiled Jay' },
+  { a: 'I found a fossil!', sa: 'cried Rafi', b: 'No way - let me see!', sb: 'gasped Nia' },
+  { a: 'Close the gate, please.', sa: 'called Gran', b: 'Got it!', sb: 'answered Ben' },
 ]
 
 function gFixTheSentence(rand: Rand): Question {

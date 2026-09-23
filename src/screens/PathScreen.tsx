@@ -137,17 +137,16 @@ export function PathScreen({ onStartLesson }: { onStartLesson: (lessonId: string
         </div>
       </div>
 
-      {/* Science is a stub for now — friendly empty state instead of a blank page */}
+      {/* Empty curriculum (should never happen for a registered subject) */}
       {units.length === 0 && (
         <div className="card-white mb-5 p-6 text-center">
-          <div className="text-5xl">🔬</div>
+          <div className="text-5xl">🗺️</div>
           <h2 className="mt-2 font-display text-lg font-extrabold text-slate-600">
-            Science is coming soon!
+            No roadmap here yet
           </h2>
           <p className="mt-1 text-sm font-bold text-slate-400">
-            Cambridge Year 2 Science (plants, animals, materials, seasons and more)
-            is being built right now. Switch to Maths or English to keep playing
-            while we finish it!
+            Switch subject in the top bar (Maths, English, or Science) to keep
+            playing.
           </p>
         </div>
       )}

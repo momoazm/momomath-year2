@@ -13,6 +13,7 @@ import {
   type Gen,
   type Rand,
 } from './helpers'
+import { TERM1 } from './terms'
 
 const WORD_MEANINGS = [
   {
@@ -101,7 +102,7 @@ const OPPOSITE_PAIRS = [
 const TIME_OPENERS = [
   {
     prompt:
-      'First, I put on my socks. Then, I put on my shoes. After that, I tied the laces. Finally, I ran outside.',
+      'First, I put on my socks. ___, I put on my shoes. After that, I tied the laces. Finally, I ran outside.',
     answer: 'Then',
     wrong: ['Finally', 'At last', 'In the end'],
   },
@@ -123,6 +124,30 @@ const TIME_OPENERS = [
     answer: 'Then',
     wrong: ['Finally', 'At last', 'In the end'],
   },
+  {
+    prompt:
+      'Suddenly, the lights went out! ___, Mum found a torch. After that, we told spooky stories until bedtime.',
+    answer: 'Next',
+    wrong: ['First of all', 'In the beginning', 'Long ago'],
+  },
+  {
+    prompt:
+      'To begin with, we dug a deep hole. ___, we planted the tiny seed. Last of all, we watered it carefully.',
+    answer: 'Next',
+    wrong: ['Suddenly', 'At last', 'In the end'],
+  },
+  {
+    prompt:
+      'After school, Sam fed the cat. Then he did his homework. ___, he practised his trumpet for the concert.',
+    answer: 'Finally',
+    wrong: ['First', 'To start', 'Once upon a time'],
+  },
+  {
+    prompt:
+      'One morning, Gran baked bread. Soon, the kitchen smelled warm and cosy. ___, we sliced it and ate every crumb.',
+    answer: 'At last',
+    wrong: ['First', 'Before that', 'Way back when'],
+  },
 ]
 
 const OPENER_STORIES: string[][] = [
@@ -143,6 +168,30 @@ const OPENER_STORIES: string[][] = [
     'Next, she watered them every day.',
     'Then, tiny green shoots appeared.',
     'In the end, tall sunflowers smiled.',
+  ],
+  [
+    'First, the team warmed up on the field.',
+    'Then the whistle blew for kick-off.',
+    'After that, Zoe scored a clever goal.',
+    'At last, everyone cheered the 1-0 win.',
+  ],
+  [
+    'One chilly evening, we made hot chocolate.',
+    'First, we warmed the milk on the hob.',
+    'Next, we stirred in the chocolate squares.',
+    'Finally, we topped them with marshmallows.',
+  ],
+  [
+    'Early one spring day, Dad fixed the bike.',
+    'Soon, he pumped up both tyres.',
+    'After that, we rode all the way to the park.',
+    'In the end, we shared a rainbow ice lolly.',
+  ],
+  [
+    'Last half-term, Mia learned to swim.',
+    'At first, she held the float tightly.',
+    'Then she paddled across the shallow end.',
+    'Finally, she swam a whole width alone.',
   ],
 ]
 
@@ -167,6 +216,26 @@ const WOW_WORDS = [
     answer: 'delicious',
     dull: ['nice', 'good', 'fine', 'plain', 'normal'],
   },
+  {
+    prompt: 'The spider ___ across the bath.',
+    answer: 'scuttled',
+    dull: ['went', 'moved', 'came', 'fell', 'sat'],
+  },
+  {
+    prompt: 'Sunlight ___ over the hills.',
+    answer: 'poured',
+    dull: ['came', 'went', 'fell', 'sat', 'got'],
+  },
+  {
+    prompt: 'The baby ___ in her cot all night.',
+    answer: 'snored',
+    dull: ['slept', 'lay', 'rested', 'napped', 'stayed'],
+  },
+  {
+    prompt: 'We ___ the muddy path home.',
+    answer: 'squelched',
+    dull: ['walked', 'went', 'moved', 'ran', 'came'],
+  },
 ]
 
 const EXCITING_SENTENCES = [
@@ -181,6 +250,18 @@ const EXCITING_SENTENCES = [
   {
     exciting: 'Zap! The cheeky wizard zapped the grumpy troll!',
     flat: ['He ran fast.', 'The bell rang.', 'She read a book.'],
+  },
+  {
+    exciting: 'Bang! The fireworks burst into sparkling dragons!',
+    flat: ['It was night.', 'We sat down.', 'The shop closed.'],
+  },
+  {
+    exciting: 'Splash! The bold otter dived into the icy river!',
+    flat: ['The bus stopped.', 'He has a hat.', 'They walked back.'],
+  },
+  {
+    exciting: 'Snap! The hungry crocodile clamped its mighty jaws!',
+    flat: ['She tied her shoe.', 'The milk is cold.', 'I like toast.'],
   },
 ]
 
@@ -305,6 +386,7 @@ export const UNIT_E5: UnitDef = unitDef(
       'Swap boring words for wow words and hoard the best ones you find!',
       [gInterestingWord, gExcitingSentence],
     ),
+    TERM1,
     makeLesson(
       'e5boss',
       'Vocabulary Boss',

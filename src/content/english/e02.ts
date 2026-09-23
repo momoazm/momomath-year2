@@ -194,7 +194,7 @@ const CHUNK_CLOZE_ITEMS = [
   { s: 'ti·___', ans: 'ger', opts: ['ger', 'ter', 'per', 'ver', 'ner'], m: 'a big striped cat' },
   { s: 'gar·___', ans: 'den', opts: ['den', 'don', 'dan', 'din', 'dun'], m: 'where flowers grow' },
   { s: 'pop·___', ans: 'corn', opts: ['corn', 'cone', 'cart', 'core', 'cord'], m: 'a crunchy snack' },
-  { s: 'mon·___', ans: 'ster', opts: ['ster', 'star', 'stor', 'stir', 'step'], m: 'a spooky costume' },
+  { s: 'mon·___', ans: 'ster', opts: ['ster', 'star', 'stor', 'stir', 'step'], m: 'a scary creature' },
   { s: 'pen·___', ans: 'cil', opts: ['cil', 'cal', 'sil', 'col', 'cul'], m: 'you write with it' },
   { s: 'but·ter·___', ans: 'fly', opts: ['fly', 'fry', 'sly', 'flu', 'flow'], m: 'it flutters to flowers' },
   { s: 'din·o·___', ans: 'saur', opts: ['saur', 'door', 'sore', 'sour', 'store'], m: 'a beast from long ago' },

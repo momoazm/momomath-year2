@@ -45,6 +45,26 @@ const FEATURES: McqItem[] = [
     answer: 'subheading',
     wrong: ['glossary', 'label', 'contents page', 'caption', 'index'],
   },
+  {
+    q: 'It sits under a photo and tells you extra information about it.',
+    answer: 'caption',
+    wrong: ['index', 'glossary', 'contents page', 'label', 'title'],
+  },
+  {
+    q: 'It is an alphabetical list of topics and the pages they are on.',
+    answer: 'index',
+    wrong: ['caption', 'label', 'subheading', 'blurb', 'spine'],
+  },
+  {
+    q: 'It names the book on the very front cover.',
+    answer: 'title',
+    wrong: ['glossary', 'index', 'caption', 'label', 'blurb'],
+  },
+  {
+    q: 'It is the short description on the back that sells the book.',
+    answer: 'blurb',
+    wrong: ['index', 'caption', 'subheading', 'label', 'contents page'],
+  },
 ]
 
 const FEATURE_JOBS = [
@@ -53,6 +73,8 @@ const FEATURE_JOBS = [
   { left: 'label', right: 'names a part of a picture' },
   { left: 'subheading', right: 'tells what a section is about' },
   { left: 'caption', right: 'tells you more about a picture' },
+  { left: 'index', right: 'finds topics in alphabetical order' },
+  { left: 'title', right: 'names the whole book' },
 ]
 
 function gFeatureSpot(rand: Rand): Question {
@@ -282,12 +304,61 @@ const MAIN_POINTS: { prompt: string; panel: StoryPanel; items: string[] }[] = [
     ]),
     items: ['Wash your hands.', 'Spread jam on the bread.', 'Put the slices together.'],
   },
+  {
+    prompt: 'Put the main points in order.',
+    panel: story('All About Penguins', ['🐧', '❄️'], [
+      'Penguins are birds that cannot fly.',
+      'They swim brilliantly under the ice.',
+      'Parents take turns guarding the eggs.',
+    ]),
+    items: ['Penguins cannot fly.', 'They swim under the ice.', 'Parents guard the eggs.'],
+  },
+  {
+    prompt: 'Put the steps in order.',
+    panel: story('How to Plant a Seed', ['🌱', '🪴'], [
+      'First, fill the pot with soil.',
+      'Next, push the seed inside.',
+      'Last, water it and wait.',
+    ]),
+    items: ['Fill the pot with soil.', 'Push the seed inside.', 'Water it and wait.'],
+  },
+  {
+    prompt: 'Put the main points in order.',
+    panel: story('All About Volcanoes', ['🌋', '🔥'], [
+      'Hot melted rock sits below the crust.',
+      'Pressure forces lava up the vent.',
+      'The lava cools into new rock.',
+    ]),
+    items: ['Melted rock builds below ground.', 'Lava bursts up the vent.', 'It cools into new rock.'],
+  },
+  {
+    prompt: 'Put the steps in order.',
+    panel: story('Getting Dressed for Snow', ['🧥', '🧤'], [
+      'First, put on thermal leggings.',
+      'Next, pull on jumper and coat.',
+      'Last, zip up gloves and boots.',
+    ]),
+    items: ['Put on thermal leggings.', 'Pull on jumper and coat.', 'Zip up gloves and boots.'],
+  },
 ]
 
 const SAY_FACTS: { panel: StoryPanel; target: string }[] = [
   { panel: FIND_FACTS[0].panel, target: 'Bees make sweet honey in a hive.' },
   { panel: FIND_FACTS[1].panel, target: 'Penguins love to slide on the ice.' },
   { panel: FIND_FACTS[3].panel, target: 'Hedgehogs hunt for food at night.' },
+  { panel: FIND_FACTS[2].panel, target: 'Sunflowers turn their faces to the sun.' },
+  { panel: story('All About Otters', ['🦦', '🌊'], [
+      'Otters nap in cosy dens called holts.',
+      'They crack shellfish on their tummies.',
+    ]), target: 'Otters rest in dens called holts.' },
+  { panel: story('All About Camels', ['🐫', '🏜️'], [
+      'Camels store fat in their humps.',
+      'They can walk for days without water.',
+    ]), target: 'Camels keep fat inside their humps.' },
+  { panel: story('All About Bats', ['🦇', '🌙'], [
+      'Bats sleep upside down by day.',
+      'They find their way using echolocation.',
+    ]), target: 'Bats navigate using echolocation.' },
 ]
 
 function gOrderPoints(rand: Rand): Question {

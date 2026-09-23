@@ -24,6 +24,9 @@ const FRIEND_MATCH = [
   { left: 'يرسم', right: '🎨 ألوان' },
   { left: 'يغني', right: '🎵 أغنية' },
   { left: 'يساعد', right: '🤲 مساعدة' },
+  { left: 'يحب', right: '❤️ حب' },
+  { left: 'يشارك', right: '🤝 مشاركة' },
+  { left: 'يضحك', right: '😄 فرح' },
 ]
 
 function a3FriendMatch(rand: Rand): Question {
@@ -38,6 +41,10 @@ const FRIEND_TF: Array<[string, boolean]> = [
   ['آخذ ألوان صديقي دون أن أستأذن', false],
   ['أفرح عندما ينجح صديقي', true],
   ['أغضب عندما يفوز صديقي باللعبة', false],
+  ['أقول شكرا عندما يساعدني صديقي', true],
+  ['أسمع كلام صديقي وأحترم رأيه', true],
+  ['أشمت بصديقي عندما يخطئ', false],
+  ['أطلب الاعتذار إذا أخطأت نحو صديقي', true],
 ]
 
 function a3FriendTF(rand: Rand): Question {
@@ -52,7 +59,7 @@ const a3l1 = makeLesson(
   'knuckles',
   'أصدقائي أحبابي!',
   'درس القراءة: أحب أصدقائي. اقرأ وافهم ثم أجب عن الأسئلة.',
-  [a3FriendMatch, a3FriendTF],
+  [a3FriendMatch, a3FriendTF, a3DemonPick, a3NewFriend],
 )
 
 /* ---------- a3l2: أسماء الإشارة ---------- */
@@ -111,13 +118,30 @@ function a3AnthemHear(rand: Rand): Question {
     'أحب أصدقائي',
     'أساعد أمي وأبي',
     'أحترم معلمي',
+    'أتحدث بلطف مع الجميع',
+    'أحفظ نظافة مدرستي',
+    'أكون صادقا مع أصدقائي',
   ])
-  const others = ['أنا طفل مهذب', 'أحب أصدقائي', 'أساعد أمي وأبي', 'أحترم معلمي'].filter((l) => l !== line)
+  const others = [
+    'أنا طفل مهذب',
+    'أحب أصدقائي',
+    'أساعد أمي وأبي',
+    'أحترم معلمي',
+    'أتحدث بلطف مع الجميع',
+    'أحفظ نظافة مدرستي',
+    'أكون صادقا مع أصدقائي',
+  ].filter((l) => l !== line)
   return mcqE(rand, 'استمع واضغط على سطر النشيد الذي سمعته', line, others, say(line))
 }
 
 function a3AnthemSpeak(rand: Rand): Question {
-  const line = pick(rand, ['أنا طفل مهذب أحب أصدقائي', 'أساعد أمي وأحترم معلمي'])
+  const line = pick(rand, [
+    'أنا طفل مهذب أحب أصدقائي',
+    'أساعد أمي وأحترم معلمي',
+    'أحترم معلمي وأستمع إليه',
+    'أنا طفل مهذب أساعد من حولي',
+    'أحب بلادي وأرتب غرفتي',
+  ])
   return speakQ('غِنِّ سطر النشيد بصوت جميل', line, { hint: 'غِنِّ بفرح!' })
 }
 
@@ -128,7 +152,7 @@ const a3l3 = makeLesson(
   'amy',
   'غِنِّ معنا!',
   'نشيد: الطفل المهذب. استمع للسطور ثم غنها بصوت جميل مثل صديقنا الجديد.',
-  [a3AnthemHear, a3AnthemSpeak],
+  [a3AnthemHear, a3AnthemSpeak, a3FriendTF, a3NewFriend],
 )
 
 /* ---------- a3boss ---------- */

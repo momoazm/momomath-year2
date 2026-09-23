@@ -77,6 +77,9 @@ const MIXED_TENSE: { text: string; answer: string; wrong: string[] }[] = [
   { text: 'Last week it ___ all week.', answer: 'rained', wrong: ['rains', 'rain', 'raining', 'is raining', 'will rain'] },
   { text: 'Yesterday we ___ in the yard.', answer: 'skipped', wrong: ['skip', 'skips', 'skipping', 'are skipping', 'will skip'] },
   { text: 'On Mondays she ___ the piano.', answer: 'plays', wrong: ['play', 'played', 'playing', 'will played', 'have played'] },
+  { text: 'This morning he ___ his toast.', answer: 'ate', wrong: ['eats', 'eat', 'eating', 'is eating', 'will eat'] },
+  { text: 'Every Friday we ___ the class hamster.', answer: 'feed', wrong: ['fed', 'feeds', 'feeding', 'are feeding', 'will fed'] },
+  { text: 'Last night they ___ a brilliant film.', answer: 'watched', wrong: ['watch', 'watches', 'watching', 'are watching', 'will watch'] },
 ]
 
 function gMixedTense(rand: Rand) {
@@ -111,6 +114,21 @@ const HEAR_ITEMS: { heard: string; correct: string; wrong: [string, string] }[] 
     heard: 'Last night it rained hard.',
     correct: 'Last night it rained hard.',
     wrong: ['Last night it rains hard.', 'Last night it raining hard.'],
+  },
+  {
+    heard: 'Now she is painting a rainbow.',
+    correct: 'Now she is painting a rainbow.',
+    wrong: ['Now she paint a rainbow.', 'Now she paints a rainbow yesterday.'],
+  },
+  {
+    heard: 'On Fridays we bake bread.',
+    correct: 'On Fridays we bake bread.',
+    wrong: ['On Fridays we baked bread.', 'On Fridays we baking bread.'],
+  },
+  {
+    heard: 'This morning they watched the ducks.',
+    correct: 'This morning they watched the ducks.',
+    wrong: ['This morning they watch the ducks.', 'This morning they watching the ducks.'],
   },
 ]
 

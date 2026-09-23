@@ -1,18 +1,22 @@
-import type { MascotId } from '../content/types'
-
 /* ============================================================================
  * Collectible Sonic card + chest PACK economy (Asphalt 9-style duplication).
- * EVERY chest = a card pack of 3 DIFFERENT characters + scaled gem band.
+ * EVERY chest holds 1-3 card slots (PACK_SIZE by chest tier). Each slot
+ * independently rolls a per-tier CARD_CHANCE that SHRINKS as rarity rises, so
+ * the joint odds (chest rarity x card drop) get strictly rarer together.
  * cardStars[id] tracks TOTAL copies received (uncapped); star LEVEL (0-5) is
- * derived via starLevel()/toStar() using STAR_THRESHOLDS [3,6,10,15,21].
- * See PITFALLS.md / s167 for design history.
+ * derived via starLevel()/toStar() using STAR_THRESHOLDS [3,6,10,15,21], so
+ * each next star costs MORE duplicates than the last. First copy unlocks the
+ * card immediately (NEW). See PITFALLS.md / s167 for design history.
  * ========================================================================== */
 
 export type ChestTier = 'common' | 'rare' | 'epic' | 'legendary' | 'exclusive'
 export const TIER_ORDER: ChestTier[] = ['common', 'rare', 'epic', 'legendary', 'exclusive']
 
 export interface CardDef {
-  id: MascotId
+  /** Card key. The 19 playable mascots reuse their MascotId; roster-only
+   *  cards (e.g. movie-*, hyper-*) are plain strings disjoint from MascotId.
+   *  Consumers (Library/chest) treat it as an opaque Record key. */
+  id: string
   tier: ChestTier
   name: string
   flavor: string
@@ -20,32 +24,114 @@ export interface CardDef {
 }
 
 
-/** The full 19-card collection (one card per playable character). */
+/** The full shipped card collection (100 cards; roster in PLAN.md §7).
+ *  Every `image` below exists on disk under public/ as a real .webp. */
 export const CARDS: CardDef[] = [
-  // Common (5)
+  // Common (41)
   { id: 'tails', tier: 'common', name: 'Tails', flavor: 'Two tails are faster than one!', image: 'cards/tails.webp' },
   { id: 'amy', tier: 'common', name: 'Amy', flavor: 'A friend with a big heart!', image: 'cards/amy.webp' },
   { id: 'cream', tier: 'common', name: 'Cream', flavor: 'Sweet as honey and cakes!', image: 'cards/cream.webp' },
-  { id: 'charmy', tier: 'common', name: 'Charmy Bee', flavor: 'A tiny bee with a giant heart!', image: 'cards/charmy.svg' },
-  { id: 'big', tier: 'common', name: 'Big the Cat', flavor: "Froggy's best buddy!", image: 'cards/big.svg' },
-  // Rare (5)
+  { id: 'charmy', tier: 'common', name: 'Charmy Bee', flavor: 'A tiny bee with a giant heart!', image: 'cards/charmy.webp' },
+  { id: 'big', tier: 'common', name: 'Big the Cat', flavor: "Froggy's best buddy!", image: 'cards/big.webp' },
+  { id: 'movie-tails', tier: 'common', name: 'Movie Tails', flavor: 'Two tails, double the flight power!', image: 'cards/movie-tails.webp' },
+  { id: 'cheese', tier: 'common', name: 'Cheese', flavor: "Cream's tiny chao buddy!", image: 'cards/cheese.webp' },
+  { id: 'vanilla', tier: 'common', name: 'Vanilla', flavor: 'The gentlest rabbit mom!', image: 'cards/vanilla.webp' },
+  { id: 'froggy', tier: 'common', name: 'Froggy', flavor: 'Always hiding, always loved!', image: 'cards/froggy.webp' },
+  { id: 'omochao', tier: 'common', name: 'Omochao', flavor: 'Your helpful chao guide!', image: 'cards/omochao.webp' },
+  { id: 'marine', tier: 'common', name: 'Marine Raccoon', flavor: 'Splash into adventure!', image: 'cards/marine.webp' },
+  { id: 'sticks', tier: 'common', name: 'Sticks the Badger', flavor: 'Wild, brave, and paranoid!', image: 'cards/sticks.webp' },
+  { id: 'tangle', tier: 'common', name: 'Tangle', flavor: 'Tail-swinging into action!', image: 'cards/tangle.webp' },
+  { id: 'jewel', tier: 'common', name: 'Jewel', flavor: 'Cool, calm, and crystal-bright!', image: 'cards/jewel.webp' },
+  { id: 'bean', tier: 'common', name: 'Bean the Dynamite', flavor: 'Bombs away!', image: 'cards/bean.webp' },
+  { id: 'bark', tier: 'common', name: 'Bark the Polar Bear', flavor: 'Small polar bear, huge punch!', image: 'cards/bark.webp' },
+  { id: 'trip', tier: 'common', name: 'Trip the Cat', flavor: 'The cat with goggles!', image: 'cards/trip.webp' },
+  { id: 'movie-stone', tier: 'common', name: 'Agent Stone', flavor: 'Loyal to the last mustache!', image: 'cards/movie-stone.webp' },
+  { id: 'classic-tails', tier: 'common', name: 'Classic Tails', flavor: 'The 1992 sidekick!', image: 'cards/classic-tails.webp' },
+  { id: 'classic-knuckles', tier: 'common', name: 'Classic Knuckles', flavor: 'Punch first, guard later!', image: 'cards/classic-knuckles.webp' },
+  { id: 'classic-amy', tier: 'common', name: 'Classic Amy', flavor: 'Pigtail-powered hammer!', image: 'cards/classic-amy.webp' },
+  { id: 'classic-eggman', tier: 'common', name: 'Classic Eggman', flavor: 'The original mustache!', image: 'cards/classic-eggman.webp' },
+  { id: 'boom-sonic', tier: 'common', name: 'Boom Sonic', flavor: 'Bigger attitude, bigger banter!', image: 'cards/boom-sonic.webp' },
+  { id: 'boom-tails', tier: 'common', name: 'Boom Tails', flavor: 'DIY gadgets and sarcasm!', image: 'cards/boom-tails.webp' },
+  { id: 'boom-knuckles', tier: 'common', name: 'Boom Knuckles', flavor: 'Strong, proud, easily tricked!', image: 'cards/boom-knuckles.webp' },
+  { id: 'boom-amy', tier: 'common', name: 'Boom Amy', flavor: 'Nerf-charging hammer time!', image: 'cards/boom-amy.webp' },
+  { id: 'boom-eggman', tier: 'common', name: 'Boom Eggman', flavor: 'Trapped in his own sitcom!', image: 'cards/boom-eggman.webp' },
+  { id: 'orbot', tier: 'common', name: 'Orbot', flavor: 'The smart red sphere!', image: 'cards/orbot.webp' },
+  { id: 'cubot', tier: 'common', name: 'Cubot', flavor: 'The (mostly) working cube!', image: 'cards/cubot.webp' },
+  { id: 'egg-robo', tier: 'common', name: 'Egg-Robo', flavor: 'Clockwork helper gone rogue!', image: 'cards/egg-robo.webp' },
+  { id: 'motobug', tier: 'common', name: 'Motobug', flavor: 'Vroom vroom — watch out!', image: 'cards/motobug.webp' },
+  { id: 'crabmeat', tier: 'common', name: 'Crabmeat', flavor: 'Sideways snapper!', image: 'cards/crabmeat.webp' },
+  { id: 'buzz-bomber', tier: 'common', name: 'Buzz Bomber', flavor: 'Sting in a jetpack!', image: 'cards/buzz-bomber.webp' },
+  { id: 'chopper', tier: 'common', name: 'Chopper', flavor: 'Jumping fish alert!', image: 'cards/chopper.webp' },
+  { id: 'egg-pawn', tier: 'common', name: 'Egg Pawn', flavor: "Eggman's foot soldier!", image: 'cards/egg-pawn.webp' },
+  { id: 'zazz', tier: 'common', name: 'Zazz the Zeti', flavor: 'Zeti of pure chaos!', image: 'cards/zazz.webp' },
+  { id: 'zomom', tier: 'common', name: 'Zomom the Zeti', flavor: 'Hungry for trouble!', image: 'cards/zomom.webp' },
+  { id: 'zor', tier: 'common', name: 'Zor the Zeti', flavor: 'Lazy but lethal!', image: 'cards/zor.webp' },
+  { id: 'zeena', tier: 'common', name: 'Zeena the Zeti', flavor: 'Queen of attitude!', image: 'cards/zeena.webp' },
+  { id: 'master-zik', tier: 'common', name: 'Master Zik', flavor: 'Old master, new mischief!', image: 'cards/master-zik.webp' },
+  { id: 'maria', tier: 'common', name: 'Maria', flavor: 'A gentle friend from the ark!', image: 'cards/maria.webp' },
+  // Rare (26)
   { id: 'knuckles', tier: 'rare', name: 'Knuckles', flavor: 'The master of the fist!', image: 'cards/knuckles.webp' },
   { id: 'blaze', tier: 'rare', name: 'Blaze', flavor: 'Faster than the fire!', image: 'cards/blaze.webp' },
   { id: 'rouge', tier: 'rare', name: 'Rouge', flavor: 'A jewel thief with style!', image: 'cards/rouge.webp' },
-  { id: 'ray', tier: 'rare', name: 'Ray the Flying Squirrel', flavor: 'Glide through the sky!', image: 'cards/ray.svg' },
-  { id: 'vector', tier: 'rare', name: 'Vector the Crocodile', flavor: 'A loud, loveable leader!', image: 'cards/vector.svg' },
-  // Epic (5)
+  { id: 'ray', tier: 'rare', name: 'Ray the Flying Squirrel', flavor: 'Glide through the sky!', image: 'cards/ray.webp' },
+  { id: 'vector', tier: 'rare', name: 'Vector the Crocodile', flavor: 'A loud, loveable leader!', image: 'cards/vector.webp' },
+  { id: 'classic-sonic', tier: 'rare', name: 'Classic Sonic', flavor: 'The original 1991 hedgehog!', image: 'cards/classic-sonic.webp' },
+  { id: 'werehog-sonic', tier: 'rare', name: 'Werehog Sonic', flavor: 'Big fists when the sun goes down!', image: 'cards/werehog-sonic.webp' },
+  { id: 'movie-knuckles', tier: 'rare', name: 'Movie Knuckles', flavor: 'Honorable fists, movie punch!', image: 'cards/movie-knuckles.webp' },
+  { id: 'wave', tier: 'rare', name: 'Wave the Swallow', flavor: 'Gearhead of the Babylon Rogues!', image: 'cards/wave.webp' },
+  { id: 'storm', tier: 'rare', name: 'Storm the Albatross', flavor: "The sky's heavy hitter!", image: 'cards/storm.webp' },
+  { id: 'fang', tier: 'rare', name: 'Fang the Sniper', flavor: 'Corkscrew-wielding rival!', image: 'cards/fang.webp' },
+  { id: 'mighty', tier: 'rare', name: 'Mighty the Armadillo', flavor: 'Shell-shocked and sturdy!', image: 'cards/mighty.webp' },
+  { id: 'faker', tier: 'rare', name: 'Faker Sonic', flavor: 'A fake blue imposter!', image: 'cards/faker.webp' },
+  { id: 'metal-knuckles', tier: 'rare', name: 'Metal Knuckles', flavor: 'Chrome-plated puncher!', image: 'cards/metal-knuckles.webp' },
+  { id: 'tails-doll', tier: 'rare', name: 'Tails Doll', flavor: 'Not as cute as he looks!', image: 'cards/tails-doll.webp' },
+  { id: 'tikal', tier: 'rare', name: 'Tikal', flavor: "Keeper of the emeralds' peace!", image: 'cards/tikal.webp' },
+  { id: 'whisper', tier: 'rare', name: 'Whisper the Wolf', flavor: 'Quiet, precise, deadly!', image: 'cards/whisper.webp' },
+  { id: 'surge', tier: 'rare', name: 'Surge the Tenrec', flavor: 'Electric troublemaker!', image: 'cards/surge.webp' },
+  { id: 'kit', tier: 'rare', name: 'Kit the Fennec', flavor: 'Loyal to a fault!', image: 'cards/kit.webp' },
+  { id: 'sally', tier: 'rare', name: 'Sally Acorn', flavor: 'Team leader with a plan!', image: 'cards/sally.webp' },
+  { id: 'movie-amy', tier: 'rare', name: 'Movie Amy', flavor: 'Hammer swing, big entrance!', image: 'cards/movie-amy.webp' },
+  { id: 'movie-eggman', tier: 'rare', name: 'Movie Eggman', flavor: 'Showman villain, big goggles!', image: 'cards/movie-eggman.webp' },
+  { id: 'gamma', tier: 'rare', name: 'E-102 Gamma', flavor: 'Robot with a heart of gold!', image: 'cards/gamma.webp' },
+  { id: 'heavy-king', tier: 'rare', name: 'Heavy King', flavor: 'The Mania kingpin!', image: 'cards/heavy-king.webp' },
+  { id: 'heavy-magician', tier: 'rare', name: 'Heavy Magician', flavor: 'Tricks up every sleeve!', image: 'cards/heavy-magician.webp' },
+  { id: 'chao', tier: 'rare', name: 'Chao', flavor: 'A tiny friend with a big heart!', image: 'cards/chao.webp' },
+  // Epic (18)
   { id: 'shadow', tier: 'epic', name: 'Shadow', flavor: 'The ultimate lifeform!', image: 'cards/shadow.webp' },
   { id: 'silver', tier: 'epic', name: 'Silver', flavor: 'Psychic power of the future!', image: 'cards/silver.webp' },
   { id: 'metal', tier: 'epic', name: 'Metal Sonic', flavor: 'A copy built to win!', image: 'cards/metal.webp' },
-  { id: 'espio', tier: 'epic', name: 'Espio the Chameleon', flavor: 'Master of disguise!', image: 'cards/espio.svg' },
-  { id: 'omega', tier: 'epic', name: 'Omega', flavor: 'The ultimate E-Series robot!', image: 'cards/omega.svg' },
-  // Legendary (2)
+  { id: 'espio', tier: 'epic', name: 'Espio the Chameleon', flavor: 'Master of disguise!', image: 'cards/espio.webp' },
+  { id: 'omega', tier: 'epic', name: 'Omega', flavor: 'The ultimate E-Series robot!', image: 'cards/omega.webp' },
+  { id: 'movie-sonic', tier: 'epic', name: 'Movie Sonic', flavor: 'Gotta go fast on the big screen!', image: 'cards/movie-sonic.webp' },
+  { id: 'movie-shadow', tier: 'epic', name: 'Movie Shadow', flavor: 'Shadow hits the silver screen!', image: 'cards/movie-shadow.webp' },
+  { id: 'neo-metal', tier: 'epic', name: 'Neo Metal Sonic', flavor: 'Metal evolved — now with attitude!', image: 'cards/neo-metal.webp' },
+  { id: 'dark-sonic', tier: 'epic', name: 'Dark Sonic', flavor: 'Anger made him faster!', image: 'cards/dark-sonic.webp' },
+  { id: 'mephiles', tier: 'epic', name: 'Mephiles the Dark', flavor: "Shadow's darkest reflection!", image: 'cards/mephiles.webp' },
+  { id: 'infinite', tier: 'epic', name: 'Infinite', flavor: 'Fear is his weapon!', image: 'cards/infinite.webp' },
+  { id: 'zavok', tier: 'epic', name: 'Zavok the Zeti', flavor: 'Leader of the Deadly Six!', image: 'cards/zavok.webp' },
+  { id: 'sage', tier: 'epic', name: 'Sage', flavor: 'The digital daughter of Eggman!', image: 'cards/sage.webp' },
+  { id: 'chaos', tier: 'epic', name: 'Chaos', flavor: 'Guardian of the chao, uncontrollable!', image: 'cards/chaos.webp' },
+  { id: 'eggman-nega', tier: 'epic', name: 'Eggman Nega', flavor: 'From a future of endless schemes!', image: 'cards/eggman-nega.webp' },
+  { id: 'black-doom', tier: 'epic', name: 'Black Doom', flavor: "The black arm's warlord!", image: 'cards/black-doom.webp' },
+  { id: 'erazor-djinn', tier: 'epic', name: 'Erazor Djinn', flavor: 'A lamp thief with a grudge!', image: 'cards/erazor-djinn.webp' },
+  { id: 'king-arthur', tier: 'epic', name: 'King Arthur', flavor: 'Ruler of the foggy realm!', image: 'cards/king-arthur.webp' },
+  // Legendary (10)
   { id: 'sonic', tier: 'legendary', name: 'Sonic', flavor: 'The fastest thing alive!', image: 'cards/sonic.webp' },
-  { id: 'jet', tier: 'legendary', name: 'Jet the Hawk', flavor: 'King of the Babylon Rogues!', image: 'cards/jet.svg' },
-  // Exclusive (2)
+  { id: 'jet', tier: 'legendary', name: 'Jet the Hawk', flavor: 'King of the Babylon Rogues!', image: 'cards/jet.webp' },
+  { id: 'super-shadow', tier: 'legendary', name: 'Super Shadow', flavor: 'Chaos energy, golden glow!', image: 'cards/super-shadow.webp' },
+  { id: 'hyper-sonic', tier: 'legendary', name: 'Hyper Sonic', flavor: 'Super power plus all seven emeralds!', image: 'cards/hyper-sonic.webp' },
+  { id: 'hyper-shadow', tier: 'legendary', name: 'Hyper Shadow', flavor: 'Ultimate power, ultimate glow!', image: 'cards/hyper-shadow.webp' },
+  { id: 'excalibur-sonic', tier: 'legendary', name: 'Excalibur Sonic', flavor: 'Knight of the golden sword!', image: 'cards/excalibur-sonic.webp' },
+  { id: 'super-knuckles', tier: 'legendary', name: 'Super Knuckles', flavor: 'Glowing fists, tunnel vision!', image: 'cards/super-knuckles.webp' },
+  { id: 'super-blaze', tier: 'legendary', name: 'Super Blaze', flavor: 'Burning brighter than before!', image: 'cards/super-blaze.webp' },
+  { id: 'devil-doom', tier: 'legendary', name: 'Devil Doom', flavor: "The black arm's final form!", image: 'cards/devil-doom.webp' },
+  { id: 'time-eater', tier: 'legendary', name: 'Time Eater', flavor: 'Eats history for breakfast!', image: 'cards/time-eater.webp' },
+  // Exclusive (5)
   { id: 'eggman', tier: 'exclusive', name: 'Dr. Eggman', flavor: 'The mad scientist of mayhem!', image: 'cards/eggman.webp' },
-  { id: 'super', tier: 'exclusive', name: 'Super Sonic', flavor: 'The legendary golden form!', image: 'cards/super.svg' },
+  { id: 'super', tier: 'exclusive', name: 'Super Sonic', flavor: 'The legendary golden form!', image: 'cards/super-sonic.webp' },
+  { id: 'metal-overlord', tier: 'exclusive', name: 'Metal Overlord', flavor: "Metal Sonic's ultimate evolution!", image: 'cards/metal-overlord.webp' },
+  { id: 'perfect-chaos', tier: 'exclusive', name: 'Perfect Chaos', flavor: 'A tsunami with a grudge!', image: 'cards/perfect-chaos.webp' },
+  { id: 'dark-gaia', tier: 'exclusive', name: 'Dark Gaia', flavor: 'The night itself awakened!', image: 'cards/dark-gaia.webp' },
 ]
 
 export const CARD_BY_ID: Record<string, CardDef> = Object.fromEntries(CARDS.map((c) => [c.id, c]))
@@ -111,29 +197,31 @@ const GEM_RANGE: Record<ChestTier, [number, number]> = {
 
 export type ChestContext = 'normal' | 'boss' | 'lucky' | 'streak'
 export const START_TABLES: Record<ChestContext, [ChestTier, number][]> = {
+  // Harder high tiers (user 2026-09-23): rare→exclusive start odds cut so
+  // top chests feel special; still non-zero so a normal chest can hit them.
   normal: [
-    ['common', 95],
-    ['rare', 3.5],
-    ['epic', 1],
-    ['legendary', 0.4],
-    ['exclusive', 0.1],
+    ['common', 96.5],
+    ['rare', 2.5],
+    ['epic', 0.7],
+    ['legendary', 0.25],
+    ['exclusive', 0.05],
   ],
   boss: [
-    ['rare', 62],
-    ['epic', 26],
-    ['legendary', 10],
+    ['rare', 68],
+    ['epic', 22],
+    ['legendary', 8],
     ['exclusive', 2],
   ],
   lucky: [
-    ['common', 55],
-    ['rare', 27],
-    ['epic', 12],
-    ['legendary', 5],
-    ['exclusive', 1],
+    ['common', 65],
+    ['rare', 22],
+    ['epic', 9],
+    ['legendary', 3.5],
+    ['exclusive', 0.5],
   ],
   streak: [
-    ['legendary', 75],
-    ['exclusive', 25],
+    ['legendary', 80],
+    ['exclusive', 20],
   ],
 }
 
@@ -171,24 +259,23 @@ export const PACK_SIZE: Record<ChestTier, [number, number]> = {
   exclusive: [3, 3],
 }
 
-/* -------------------- pity + novelty curve -------------------- */
+/* -------------------- pity + per-slot card odds -------------------- */
 
-/** Locked-pity: this many chests in a row without a still-locked character drop
- *  forces the next pack to include a still-locked character (if any remain). */
-export const LOCKED_PITY = 12
+/** Cardless-pity: this many chests in a row with ZERO card drops forces the
+ *  next chest's first slot to drop a card. */
+export const PITY_LIMIT = 15
 
 /**
- * Chance a chest contains a NEW (never-seen, 0-copy) character.
- * Starts at 100% and falls as the collection fills: (total - owned) / total
- * (e.g. 2 of 19 owned -> ~90%). Hits 0% only when everything is seen.
- *
- * This gates WHETHER one slot is novel — rarity odds (START_TABLES, kick
- * upgrades, gem bands) are untouched, and at most ONE card per chest is new.
+ * Per-slot card-drop chance by FINAL chest tier. Decoupled from the chest
+ * roll and strictly decreasing with rarity: rarer chest x rarer card =
+ * rarest event (e.g. exclusive chest 0.1% x 10% per slot).
  */
-export function noveltyChance(ownedDistinct: number, total: number = CARDS.length): number {
-  if (total <= 0) return 0
-  const remaining = Math.max(0, total - Math.max(0, ownedDistinct))
-  return remaining / total
+export const CARD_CHANCE: Record<ChestTier, number> = {
+  common: 0.35,
+  rare: 0.22,
+  epic: 0.14,
+  legendary: 0.08,
+  exclusive: 0.04,
 }
 
 /* -------------------- visual metadata + kick-upgrade table -------------------- */
@@ -199,15 +286,15 @@ export const TIER_META: Record<ChestTier, { label: string; color: string; glow: 
   rare: { label: 'Rare', color: '#3b82f6', glow: 'rgba(59,130,246,0.45)', icon: '🔵' },
   epic: { label: 'Epic', color: '#a855f7', glow: 'rgba(168,85,247,0.5)', icon: '🟣' },
   legendary: { label: 'Legendary', color: '#f59e0b', glow: 'rgba(245,158,11,0.55)', icon: '🟡' },
-  exclusive: { label: 'EXCLUSIVE', color: '#e0b3ff', glow: 'rgba(255,215,140,0.65)', icon: '💠' },
+  exclusive: { label: 'EXCLUSIVE', color: '#c026d3', glow: 'rgba(192,38,211,0.6)', icon: '💠' },
 }
 
 /** 4-kick ritual - each kick's chance to upgrade to the NEXT tier (capped at Legendary). */
 export const KICKS = 4
 export const KICK_UPGRADE: Record<ChestTier, number> = {
-  common: 0.22,
-  rare: 0.30,
-  epic: 0.40,
+  common: 0.15,
+  rare: 0.22,
+  epic: 0.28,
   legendary: 0,
   exclusive: 0,
 }
@@ -229,56 +316,33 @@ function weightedPick<T>(rand: () => number, table: readonly [T, number][]): T {
   return table[table.length - 1][0]
 }
 
-/** A character is considered "owned" (unlocked) once it has at least STAR_THRESHOLDS[0] copies. */
-function isOwned(counts: Readonly<Record<string, number>>, id: string): boolean {
-  return (counts[id] ?? 0) >= STAR_THRESHOLDS[0]
-}
-
-/** Return ids of all still-LOCKED characters (count < 3). */
-function lockedIds(counts: Readonly<Record<string, number>>): string[] {
-  return CARDS.map((c) => c.id).filter((id) => !isOwned(counts, id))
-}
-
-/** Pick a card id from the given pool, preferring still-LOCKED characters when
- *  `forceLocked` is true. Falls back to any character of the right tier if the
- *  pool is exhausted. Returns null if NO card of that tier exists. */
-function pickCardForTier(
-  rand: () => number,
-  counts: Readonly<Record<string, number>>,
-  cardTier: ChestTier,
-  forceLocked: boolean,
-): string | null {
-  const allOfTier = CARDS.filter((c) => c.tier === cardTier).map((c) => c.id)
-  if (allOfTier.length === 0) return null
-  // 1) if forcing-locked, prefer a still-locked character of THIS tier
-  if (forceLocked) {
-    const lockedInTier = allOfTier.filter((id) => !isOwned(counts, id))
-    if (lockedInTier.length > 0) {
-      return lockedInTier[Math.floor(rand() * lockedInTier.length)]
-    }
-    // 2) any still-locked character (any tier) - drop the tier filter so the
-    //    pity guarantee always unlocks someone new if anyone remains
-    const anyLocked = lockedIds(counts)
-    if (anyLocked.length > 0) return anyLocked[Math.floor(rand() * anyLocked.length)]
-  }
-  // 3) normal pick - any character of the requested tier (locked or not)
-  return allOfTier[Math.floor(rand() * allOfTier.length)]
+/** Draw a card id uniformly from one tier, WITH replacement: repeats are
+ *  allowed on purpose (they feed the escalating star curve). */
+function drawCardId(rand: () => number, cardTier: ChestTier): string | null {
+  const pool = CARDS.filter((c) => c.tier === cardTier).map((c) => c.id)
+  if (pool.length === 0) return null
+  return pool[Math.floor(rand() * pool.length)]
 }
 
 
-/* -------------------- pack: multiple cards per chest -------------------- */
+/* -------------------- pack: 1-3 cards per chest -------------------- */
 
 /**
  * Individual card inside a chest result.
- * Every chest gives 3 DIFFERENT cards (one copy each).
+ * The FIRST copy ever unlocks the card (isNew); later copies climb the
+ * escalating star curve (3/6/10/15/21 total copies -> 1-5 stars).
  */
 export interface ChestCard {
   cardId: string
   tier: ChestTier
   /** first copy of this character ever received (prev count was 0) */
   isNew: boolean
-  /** this character already had >= STAR_THRESHOLDS[0] copies (unlocked) */
-  isOwned: boolean
+  /** total copies AFTER this event (includes this card) */
+  copiesAfter: number
+  /** this card crossed a star threshold (celebrate a STAR UP) */
+  leveledUp: boolean
+  /** gem bonus paid for this duplicate (0 for NEW cards) */
+  starBonus: number
 }
 
 /* -------------------- public ChestResult + rollChest -------------------- */
@@ -288,15 +352,18 @@ export interface ChestResult {
   finalTier: ChestTier
   upgradesAt: number[]
   gems: number
+  /** total gem bonus from duplicate star-ups (store adds gems + dust) */
   dust: number
-  /** the 3 DIFFERENT cards in this chest pack (at most one is new) */
+  /** 0-3 card events; repeats feed stars, never vanish */
   cards: ChestCard[]
+  /** every card fully maxed (21+ copies): jackpot gems instead of cards */
+  jackpot: boolean
 }
 
 /** Roll a full chest for one lesson.
  *  - `ctx`     : 'normal' | 'boss' | 'lucky' | 'streak'
  *  - `counts`  : the player's per-character copy counts
- *  - `pity`    : consecutive chests without a still-locked drop
+ *  - `pity`    : consecutive chests with ZERO card drops
  */
 export function rollChest(
   rand: () => number,
@@ -320,54 +387,51 @@ export function rollChest(
   const [gMin, gMax] = GEM_RANGE[tier]
   const gems = randInt(rand, gMin, gMax)
 
-  // 3) roll 3 DISTINCT cards with AT MOST ONE new (unseen) character.
-  //    - The novelty slot is won with noveltyChance() (100% on the first
-  //      chest, decaying as the collection fills) or forced by locked-pity.
-  //    - The other slots are duplicates from the already-seen pool, so the
-  //      max-1-new invariant holds whenever the seen pool can fill the pack
-  //      (only the first chest or two top up from unseen — unavoidable while
-  //      fewer than 3 distinct characters exist at all).
-  const unseen = CARDS.filter((c) => (counts[c.id] ?? 0) === 0)
-  const seen = CARDS.filter((c) => (counts[c.id] ?? 0) > 0)
-  const ownedDistinct = CARDS.length - unseen.length
-  const forcePity = pity >= LOCKED_PITY
-  const winNovelty =
-    unseen.length > 0 && (forcePity || rand() < noveltyChance(ownedDistinct))
+  // 3) endgame: every character maxed (21+ copies) -> gem jackpot instead.
+  const maxedCopies = STAR_THRESHOLDS[STAR_THRESHOLDS.length - 1]
+  const mastered = CARDS.every((c) => (counts[c.id] ?? 0) >= maxedCopies)
+  if (mastered) {
+    const jackpotBase = randInt(rand, GEM_RANGE.exclusive[0], GEM_RANGE.exclusive[1])
+    return {
+      startTier,
+      finalTier: tier,
+      upgradesAt,
+      gems: jackpotBase + COLLECTION_JACKPOT,
+      dust: 0,
+      cards: [],
+      jackpot: true,
+    }
+  }
+
+  // 4) 1-3 card slots (PACK_SIZE by final tier). Each slot independently
+  //    rolls the per-tier CARD_CHANCE, so rarer chest x rarer card is the
+  //    rarest event. Repeats (even inside one chest) climb the star curve.
+  const [sMin, sMax] = PACK_SIZE[tier]
+  const slots = randInt(rand, sMin, sMax)
+  const forced = pity >= PITY_LIMIT
   const cards: ChestCard[] = []
-  const usedIds = new Set<string>()
+  let dust = 0
+  // Local counts INCLUDE cards dropped earlier in this same chest, so a
+  // repeat inside one pack STARs UP instead of vanishing (Sonic x2 counts!).
+  const local: Record<string, number> = { ...counts }
 
-  const takeRandom = (pool: CardDef[]): CardDef | null => {
-    const avail = pool.filter((c) => !usedIds.has(c.id))
-    if (avail.length === 0) return null
-    return avail[Math.floor(rand() * avail.length)]
-  }
-  const pushCard = (chosen: CardDef) => {
-    usedIds.add(chosen.id)
-    const prevCount = counts[chosen.id] ?? 0
-    cards.push({
-      cardId: chosen.id,
-      tier: chosen.tier,
-      isNew: prevCount === 0,
-      isOwned: prevCount >= STAR_THRESHOLDS[0],
-    })
-  }
-
-  // slot 1: the single novelty slot (when won or pity-forced)
-  if (winNovelty) {
-    const novel = takeRandom(unseen)
-    if (novel) pushCard(novel)
-  }
-  // remaining slots: duplicates from the seen pool
-  while (cards.length < 3) {
-    const dup = takeRandom(seen)
-    if (!dup) break
-    pushCard(dup)
-  }
-  // top-up from unseen only while the collection is too small to fill the pack
-  while (cards.length < 3) {
-    const extra = takeRandom(unseen)
-    if (!extra) break
-    pushCard(extra)
+  for (let s = 0; s < slots; s++) {
+    const drops = (forced && s === 0) || rand() < CARD_CHANCE[tier]
+    if (!drops) continue
+    const id = drawCardId(rand, tier)
+    if (!id) continue
+    const prev = local[id] ?? 0
+    const copiesAfter = prev + 1
+    local[id] = copiesAfter
+    if (prev === 0) {
+      cards.push({ cardId: id, tier, isNew: true, copiesAfter, leveledUp: false, starBonus: 0 })
+    } else {
+      const before = starLevel(prev)
+      const after = starLevel(copiesAfter)
+      const bonus = DUST_PER_CARD[tier] * Math.max(1, after)
+      dust += bonus
+      cards.push({ cardId: id, tier, isNew: false, copiesAfter, leveledUp: after > before, starBonus: bonus })
+    }
   }
 
   return {
@@ -375,8 +439,9 @@ export function rollChest(
     finalTier: tier,
     upgradesAt,
     gems,
-    dust: 0,
+    dust,
     cards,
+    jackpot: false,
   }
 }
 
@@ -393,7 +458,52 @@ export function upgradeStep(t: ChestTier): ChestTier {
 }
 
 
-// Legacy compatibility exports (tests reference these constants)
-export const CARD_CHANCE = 0.1
-export const PITY_LIMIT = 15
+// Jackpot constant (tests reference it).
 export const COLLECTION_JACKPOT = 300
+
+/* -------------------- WS2: pure ChestResult -> reveal mappings -------------------- */
+
+/** Headline copy variant, by plan priority:
+ *  jackpot -> pity (0 cards) -> any NEW -> any STAR UP -> duplicates. */
+export type ChestCopyVariant = 'jackpot' | 'pity' | 'new' | 'starUp' | 'duplicates'
+
+export function chestCopyVariant(chest: ChestResult): ChestCopyVariant {
+  if (chest.jackpot) return 'jackpot'
+  if (chest.cards.length === 0) return 'pity'
+  if (chest.cards.some((c) => c.isNew)) return 'new'
+  if (chest.cards.some((c) => c.leveledUp)) return 'starUp'
+  return 'duplicates'
+}
+
+/** Grid tiles to render: exactly one per card event (0 -> no grid). */
+export function chestTileCount(chest: ChestResult): number {
+  return chest.cards.length
+}
+
+/** Tier after each of the KICKS kicks: [startTier, ...upgradesAt chain].
+ *  Index k = the tier shown once k kicks are done; the last entry always
+ *  equals finalTier, so the live chest/rays/glow color tracks the roll. */
+export function kickTierSequence(chest: Pick<ChestResult, 'startTier' | 'upgradesAt'>): ChestTier[] {
+  const seq: ChestTier[] = [chest.startTier]
+  let tier = chest.startTier
+  for (let k = 0; k < KICKS; k++) {
+    if (chest.upgradesAt.includes(k)) tier = upgradeStep(tier)
+    seq.push(tier)
+  }
+  return seq
+}
+
+/** What grantChest actually persists for this chest, given cardStars AFTER
+ *  the +1 copies were banked: x2 when every card in the pack was already at
+ *  5*, else x1. The reveal totals MUST equal this (invariant D). */
+export function chestPayout(
+  chest: ChestResult,
+  cardStarsAfter: Readonly<Record<string, number>>,
+): { gems: number; dust: number } {
+  const maxed = STAR_THRESHOLDS[STAR_THRESHOLDS.length - 1]
+  const allMaxed =
+    chest.cards.length > 0 &&
+    chest.cards.every((c) => (cardStarsAfter[c.cardId] ?? 0) >= maxed)
+  const mult = allMaxed ? 2 : 1
+  return { gems: (chest.gems ?? 0) * mult, dust: (chest.dust ?? 0) * mult }
+}

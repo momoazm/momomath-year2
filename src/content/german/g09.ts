@@ -48,8 +48,15 @@ function gHearDay(rand: Rand): Question {
 }
 
 function gOrderDays(rand: Rand): Question {
-  void rand
-  return orderQ('Montag first! Order the week', ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag'])
+  const variants: { prompt: string; items: string[] }[] = [
+    { prompt: 'Montag first! Order the week', items: ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag'] },
+    { prompt: 'Order the whole week: Montag to Sonntag', items: ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'] },
+    { prompt: 'Order the school week: Montag to Freitag', items: ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag'] },
+    { prompt: 'Order the weekend week-days after Freitag', items: ['Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'] },
+    { prompt: 'Count back: Sonntag first down to Montag', items: ['Sonntag', 'Samstag', 'Freitag', 'Donnerstag', 'Mittwoch', 'Dienstag', 'Montag'] },
+  ]
+  const v = pick(rand, variants)
+  return orderQ(v.prompt, v.items)
 }
 
 function gSeasonPicture(rand: Rand): Question {
@@ -67,19 +74,24 @@ function gSubjectMatch(rand: Rand): Question {
 }
 
 function gSubjectTiles(rand: Rand): Question {
-  const w = pick(rand, ['mathe', 'sport', 'musik', 'kunst', 'deutsch'])
+  const w = pick(rand, ['mathe', 'sport', 'musik', 'kunst', 'deutsch', 'englisch'])
   return tilesQ(`Spell the subject: ${w}`, w, 'Mein Lieblingsfach ist…')
 }
 
 function gDreamWeird(rand: Rand): Question {
-  const answer = 'Ich habe Sport am Montag.'
-  const choices = shuffle(rand, [
-    answer,
-    'Ich habe Sport am Sonntag.',
-    'Ich habe Mathe am Montag.',
-    'Ich habe Musik am Freitag.',
-  ])
-  return mcqFixed('Felix dreamed it! Which line fits?', choices, choices.indexOf(answer), {
+  const items = [
+    { answer: 'Ich habe Sport am Montag.', wrong: ['Ich habe Sport am Sonntag.', 'Ich habe Mathe am Montag.', 'Ich habe Musik am Freitag.'] },
+    { answer: 'Ich habe Mathe am Dienstag.', wrong: ['Ich habe Mathe am Sonntag.', 'Ich habe Sport am Dienstag.', 'Ich habe Kunst am Donnerstag.'] },
+    { answer: 'Ich habe Musik am Mittwoch.', wrong: ['Ich habe Musik am Samstag.', 'Ich habe Deutsch am Mittwoch.', 'Ich habe Sport am Freitag.'] },
+    { answer: 'Ich habe Kunst am Donnerstag.', wrong: ['Ich habe Kunst am Sonntag.', 'Ich habe Musik am Donnerstag.', 'Ich habe Mathe am Montag.'] },
+    { answer: 'Ich habe Deutsch am Freitag.', wrong: ['Ich habe Deutsch am Sonntag.', 'Ich habe Englisch am Freitag.', 'Ich habe Sport am Dienstag.'] },
+    { answer: 'Ich habe Sport am Samstag.', wrong: ['Ich habe Sport am Montag.', 'Ich habe Mathe am Samstag.', 'Ich habe Musik am Mittwoch.'] },
+    { answer: 'Ich habe Englisch am Montag.', wrong: ['Ich habe Englisch am Sonntag.', 'Ich habe Sport am Montag.', 'Ich habe Kunst am Freitag.'] },
+    { answer: 'Ich habe Mathe am Freitag.', wrong: ['Ich habe Mathe am Sonntag.', 'Ich habe Musik am Freitag.', 'Ich habe Deutsch am Dienstag.'] },
+  ]
+  const item = pick(rand, items)
+  const choices = shuffle(rand, [item.answer, ...item.wrong])
+  return mcqFixed('Felix dreamed it! Which line fits?', choices, choices.indexOf(item.answer), {
     hint: 'Sunday = family day, no school shopping — Montag is school!',
   })
 }

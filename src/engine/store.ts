@@ -16,7 +16,7 @@ import {
 } from './gamification'
 import { SHOP_ITEMS } from './shop'
 import { setMuted, sfx } from './sfx'
-import { STAR_THRESHOLDS } from './cards'
+import { chestPayout } from './cards'
 import type { ChestResult } from './cards'
 import type { AdaptiveStore } from './adaptive/types'
 import type { SkillState } from './adaptive/types'
@@ -81,6 +81,9 @@ interface PlayerState {
   lessonsToday: number
   correctTodayDay: string
   correctToday: number
+  /** day-rolled list of distinct subjects finished today (multi-subject quests) */
+  subjectsTodayDay: string
+  subjectsToday: string[]
   weeklyXpWeek: string
   weeklyXp: number
   lessonProgress: Record<string, LessonProgress>
@@ -110,8 +113,8 @@ interface PlayerState {
   cardStars: Record<string, number>
   /** DEPRECATED - use cardStars instead. */
   cardCounts: Record<string, number>
-  /** consecutive chests without a still-LOCKED character drop - drives the
-   *  locked-pity guarantee (see cards.ts LOCKED_PITY) */
+  /** consecutive chests with ZERO card drops - drives the
+   *  cardless-pity guarantee (see cards.ts PITY_LIMIT) */
   cardPity: number
   /** shop Lucky Ticket stack; consumed on the next chest */
   luckyTickets: number
@@ -192,6 +195,22 @@ function rollDay(s: PlayerState) {
     s.correctTodayDay = today
     s.correctToday = 0
   }
+  if (s.subjectsTodayDay !== today) {
+    s.subjectsTodayDay = today
+    s.subjectsToday = []
+  }
+}
+
+/** Lesson-id prefix → subject (fast path for daily subject quests). */
+function subjectOfLesson(lessonId: string): Subject | null {
+  if (lessonId.startsWith('e')) return 'english'
+  if (lessonId.startsWith('s')) return 'science'
+  if (lessonId.startsWith('g')) return 'german'
+  if (lessonId.startsWith('a')) return 'arabic'
+  if (lessonId.startsWith('r')) return 'religion'
+  if (lessonId.startsWith('d')) return 'social'
+  if (lessonId.startsWith('u')) return 'math'
+  return null
 }
 
 /** Fields of PlayerState that weekly league settlement reads/writes. */
@@ -419,11 +438,19 @@ function checkAchievements(s: PlayerState) {
     0,
   )
   const crowns = Object.values(s.lessonProgress).reduce((a, p) => a + p.crown, 0)
+  const subjectCount = new Set(
+    Object.keys(s.lessonProgress)
+      .map((id) => subjectOfLesson(id))
+      .filter((x): x is Subject => x !== null),
+  ).size
+  const cardsOwned = Object.values(s.cardStars).filter((n) => n > 0).length
   const snap = {
     xpTotal: s.xpTotal,
     streakCurrent: s.streakCurrent,
     lessonsCompleted,
     crowns,
+    subjectCount,
+    cardsOwned,
   }
   let gained = false
   for (const a of ACHIEVEMENTS) {
@@ -484,6 +511,8 @@ export const usePlayer = create<PlayerState>()(
       lessonsToday: 0,
       correctTodayDay: firstDay,
       correctToday: 0,
+      subjectsTodayDay: firstDay,
+      subjectsToday: [],
       weeklyXpWeek: todayISO(), // league week anchored at 12:00 AM today
       weeklyXp: 0,
       lessonProgress: {},
@@ -537,6 +566,12 @@ export const usePlayer = create<PlayerState>()(
           s.lessonsToday += 1
           s.correctToday += correct
           s.weeklyXp += xp
+          {
+            const subj = subjectOfLesson(lessonId)
+            if (subj && !s.subjectsToday.includes(subj)) {
+              s.subjectsToday = [...s.subjectsToday, subj]
+            }
+          }
 
           const wasStreakActive = state.lastActiveDay === todayISO()
           updateStreak(s)
@@ -757,27 +792,25 @@ export const usePlayer = create<PlayerState>()(
         set((state) => {
           let cardStars = { ...state.cardStars }
           let pity = state.cardPity
-          let anyNew = false
 
           // Award +1 copy for each card in the chest (uncapped — cardStars
           // tracks total copies received; star LEVEL is derived via toStar())
           for (const card of chest.cards) {
             const prev = cardStars[card.cardId] ?? 0
             cardStars[card.cardId] = prev + 1
-            if (card.isNew) anyNew = true
           }
 
-          // Pity resets when a new character is unlocked
-          if (anyNew) pity = 0
+          // Pity resets on ANY card drop (a cardless chest builds toward the
+          // PITY_LIMIT guarantee); a new unlock is just the happiest case.
+          if (chest.cards.length > 0) pity = 0
           else pity = pity + 1
 
           // Double gems if ALL cards in this chest were already at 5★
-          // (5★ means cardStars[id] >= STAR_THRESHOLDS[4] = 21 copies)
-          const allMaxed = chest.cards.every((c) => (cardStars[c.cardId] ?? 0) >= STAR_THRESHOLDS[STAR_THRESHOLDS.length - 1])
-          const gemMultiplier = allMaxed ? 2 : 1
-          const bonusGems = ((chest.gems ?? 0) + (chest.dust ?? 0)) * gemMultiplier
-
-          return { gems: state.gems + bonusGems, cardStars, cardPity: pity }
+          // (payout lives in cards.ts so the reveal UI displays exactly
+          // what is persisted here — invariant D); a cardless chest never
+          // doubles (no cards = no maxed cards).
+          const payout = chestPayout(chest, cardStars)
+          return { gems: state.gems + payout.gems + payout.dust, cardStars, cardPity: pity }
         }),
       addLuckyTickets: (n) => set((state) => ({ luckyTickets: state.luckyTickets + n })),
       consumeStreakChest: () => {
@@ -1062,6 +1095,7 @@ export function questProgressSnapshot(s: PlayerState) {
     xpToday: s.todayXp,
     lessonsToday: s.lessonsToday,
     correctToday: s.correctToday,
+    subjectsToday: s.subjectsToday ?? [],
   }
 }
 

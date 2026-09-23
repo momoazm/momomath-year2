@@ -87,33 +87,62 @@ const a7l2 = makeLesson(
 
 /* ---------- a7l3: نشيد رياضتي + أنشطتي المميزة ---------- */
 
+const ANTHEM_LINES = [
+  'رياضتي تقويني',
+  'أجري وألعب كل صباح',
+  'الفوز حلو باللعب النظيف',
+  'أحب رياضتي وأتمرن كل يوم',
+  'ألعب مع أصدقائي في النادي',
+  'أجري بسرعة مثل العاصفة',
+  'اللعب النظيف أجمل فوز',
+]
+
 function a7AnthemHear(rand: Rand): Question {
-  const line = pick(rand, ['رياضتي تقويني', 'أجري وألعب كل صباح', 'الفوز حلو باللعب النظيف'])
-  const others = ['رياضتي تقويني', 'أجري وألعب كل صباح', 'الفوز حلو باللعب النظيف'].filter((l) => l !== line)
+  const line = pick(rand, ANTHEM_LINES)
+  const others = ANTHEM_LINES.filter((l) => l !== line)
   return mcqE(rand, 'استمع واضغط على سطر النشيد الذي سمعته', line, others, say(line))
 }
 
 function a7AnthemSpeak(rand: Rand): Question {
-  const line = pick(rand, ['رياضتي تقويني وأجري كل صباح', 'ألعب مع أصدقائي باللعب النظيف'])
+  const line = pick(rand, [
+    'رياضتي تقويني وأجري كل صباح',
+    'ألعب مع أصدقائي باللعب النظيف',
+    'أنا أحب رياضتي وأتمرن كل صباح',
+    'ألعب مع فريقي وأحترم الخصم',
+    'الفوز باللعب النظيف فوز حقيقي',
+  ])
   return speakQ('غِنِّ نشيد رياضتي', line, { hint: 'رياضي بصوت قوي!' })
 }
 
-const SPORT_TILES = ['كرة', 'نادي', 'فوز', 'ملعب', 'سباق']
+const SPORT_TILES = ['كرة', 'نديم', 'فوز', 'ملعب', 'سباق', 'تمرين', 'خصم', 'تدريب']
 
 function a7SportTiles(rand: Rand): Question {
   const w = pick(rand, SPORT_TILES)
   return tilesQ('اكتب كلمة من عالم الرياضة', w, 'تذكر حروف الكلمة جيدا')
 }
 
+const ACTIVITY_EMOJIS = [
+  { emoji: '⚽', target: 3, word: 'الكرات' },
+  { emoji: '🏀', target: 2, word: 'كرات السلة' },
+  { emoji: '🐟', target: 4, word: 'السمكات' },
+  { emoji: '⭐', target: 5, word: 'النجوم' },
+  { emoji: '🎈', target: 3, word: 'البالونات' },
+  { emoji: '🌸', target: 2, word: 'الزهور' },
+]
+
 function a7MyActivity(rand: Rand): Question {
-  void rand
+  const item = pick(rand, ACTIVITY_EMOJIS)
+  const fillers = shuffle(rand, ACTIVITY_EMOJIS.filter((e) => e.emoji !== item.emoji))
+    .slice(0, 3)
+    .map((e) => e.emoji)
+  const cells = shuffle(rand, [...Array.from({ length: item.target }, () => item.emoji), ...fillers])
   return {
     kind: 'tap-count',
-    prompt: 'اضغط على كل الكرات التي تراها',
-    target: 3,
-    targetEmoji: '⚽',
-    cells: ['⚽', '🏀', '⚽', '🎾', '⚽', '🏊', '🚲', '🏀'],
-    hint: 'الكرة المستديرة فقط!',
+    prompt: `اضغط على كل ${item.word} التي تراها`,
+    target: item.target,
+    targetEmoji: item.emoji,
+    cells,
+    hint: 'الهدف فقط!',
   } as Question
 }
 
@@ -124,7 +153,7 @@ const a7l3 = makeLesson(
   'tails',
   'رياضتي!',
   'نشيد: رياضتي. ثم اكتب عن أنشطتك المميزة واجمع الكرات.',
-  [a7AnthemHear, a7AnthemSpeak, a7SportTiles, a7MyActivity],
+  [a7AnthemHear, a7AnthemSpeak, a7SportTiles, a7MyActivity, a7ClubTF, a7RelativePick],
 )
 
 /* ---------- a7boss ---------- */

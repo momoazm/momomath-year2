@@ -11,6 +11,7 @@ import {
   unitDef,
   type Gen,
 } from './helpers'
+import { TERM3 } from './terms'
 
 const gPlanOrder: Gen = (rand) => {
   const themes = [
@@ -18,6 +19,9 @@ const gPlanOrder: Gen = (rand) => {
     ['Choose two astronauts', 'Pick a faraway planet', 'Invent a wobbly robot problem', 'Plan a safe trip home'],
     ['Pick a kind princess', 'Choose a deep dark wood', 'Add a grumpy troll', 'Plan a clever escape'],
     ['Choose a lost kitten', 'Picture our quiet village', 'Imagine it stuck up a tree', 'Plan a ladder rescue'],
+    ['Pick a curious detective', 'Choose a foggy city street', 'Hide a sneaky clue', 'Plan the big reveal'],
+    ['Choose a young wizard', 'Picture a towering ice castle', 'Add a mischievous snow sprite', 'Plan a frosty friendship'],
+    ['Pick a team of explorers', 'Choose a deep dark cave', 'Spark a river of glow-worms', 'Plan the way back out'],
   ]
   return orderQ('Order the story plan!', pick(rand, themes), {
     hint: 'Writers choose WHO first',
@@ -32,6 +36,9 @@ const gSettingPick: Gen = (rand) => {
     { emojis: [PICTURE_BANK.island], answer: 'an island', wrong: ['a busy city', 'an igloo', 'a train station'] },
     { emojis: [PICTURE_BANK.mountain], answer: 'a mountain', wrong: ['a swimming pool', 'a bakery', 'a flat field'] },
     { emojis: [PICTURE_BANK.garden], answer: 'a garden', wrong: ['a stadium', 'a garage', 'the North Pole'] },
+    { emojis: [PICTURE_BANK.house], answer: 'a house', wrong: ['a volcano', 'a desert', 'a spaceship'] },
+    { emojis: [PICTURE_BANK.shop], answer: 'a shop', wrong: ['a jungle', 'a cave', 'a lake'] },
+    { emojis: [PICTURE_BANK.bridge], answer: 'a bridge', wrong: ['a forest', 'a desert island', 'a cave'] },
   ]
   const set = pick(rand, sets)
   return mcqE(rand, 'Where is this story set?', set.answer, set.wrong, {
@@ -125,6 +132,9 @@ const gDescribeBuild: Gen = (rand) => {
     ['The', 'grumpy', 'troll', 'stomps', 'away'],
     ['My', 'enormous', 'sandwich', 'holds', 'cheese'],
     ['The', 'sparkly', 'crown', 'glitters', 'brightly'],
+    ['A', 'tiny', 'hedgehog', 'snuffles', 'through', 'leaves'],
+    ['The', 'wooden', 'door', 'creaks', 'wide', 'open'],
+    ['Our', 'loud', 'parrot', 'squawks', 'at', 'dawn'],
   ]
   return orderQ('Build a describing sentence!', pick(rand, sentences), {
     hint: 'Slip the adjective before the noun',
@@ -158,6 +168,26 @@ const gDescribePick: Gen = (rand) => {
       correct: 'A fierce lion roars on the dusty plain.',
       wrong: ['A quiet rabbit nibbles grass.', 'Big and loud.'],
     },
+    {
+      emoji: PICTURE_BANK.owl,
+      correct: 'A wise old owl hoots from the oak branch.',
+      wrong: ['A chirpy chick pecks the ground.', 'Hoo hoo.'],
+    },
+    {
+      emoji: PICTURE_BANK.castle,
+      correct: 'A mighty stone castle towers over the valley.',
+      wrong: ['A cosy cottage smokes by the stream.', 'Stone and tall.'],
+    },
+    {
+      emoji: PICTURE_BANK.storm,
+      correct: 'A wild grey storm rages across the bay.',
+      wrong: ['A gentle breeze cools the picnic.', 'Cloudy maybe.'],
+    },
+    {
+      emoji: PICTURE_BANK.fox,
+      correct: 'A sneaky red fox tiptoes through the snow.',
+      wrong: ['A plump pigeon struts the path.', 'Red quick.'],
+    },
   ]
   const s = pick(rand, scenes)
   return mcqE(rand, 'Tap the best describing sentence', s.correct, s.wrong, {
@@ -188,6 +218,26 @@ const gFactGroup: Gen = (rand) => {
       fits: 'Frogspawn hatches into tadpoles.',
       other: ['Frogs hop on springy legs.', 'Ponds make cosy homes.', 'Frogs snatch flies with tongues.'],
     },
+    {
+      heading: 'Where Sea Turtles Are Born',
+      fits: 'Mothers lay eggs in sandy nests.',
+      other: ['Turtles have hard shells.', 'They swim using flippers.', 'Turtles eat jellyfish.'],
+    },
+    {
+      heading: 'Why We Yawn',
+      fits: 'Yawning cools down a warm brain.',
+      other: ['Babies yawn a lot.', 'Snakes can yawn too.', 'You can yawn without a sound.'],
+    },
+    {
+      heading: 'How Magnets Work',
+      fits: 'Magnets pull on iron and steel.',
+      other: ['Magnets are used in junkyards.', 'Some magnets are tiny.', 'Fridges often use magnets.'],
+    },
+    {
+      heading: 'How Puddles Disappear',
+      fits: 'Heat turns puddles into invisible vapour.',
+      other: ['Clouds look white and fluffy.', 'Rain falls from the sky.', 'Rivers flow to the sea.'],
+    },
   ]
   const sec = pick(rand, sections)
   const cs = shuffle(rand, [sec.fits, ...sec.other])
@@ -202,6 +252,10 @@ const gReportOrder: Gen = (rand) => {
     ['My Pet Rabbit', 'Rabbits make lovely quiet pets.', 'Nibbles munches hay and crunchy carrots.', 'Every home needs a hoppy friend!'],
     ['Volatile Volcanoes', 'A volcano is a mountain that erupts.', 'Red-hot lava oozes down its sides.', 'Volcanoes absolutely rock!'],
     ['Brilliant Boats', 'Boats float and carry people.', 'Sails catch the wind to push along.', 'Boats are brilliant machines!'],
+    ['Rainforest Layers', 'The rainforest has four leafy layers.', 'Monkeys swing through the canopy.', 'Rainforests burst with noisy life!'],
+    ['The Solar System', 'Eight planets orbit our star.', 'Jupiter is the giant of the family.', 'Space is endlessly awesome!'],
+    ['Penguins at Play', 'Penguins are flightless sea birds.', 'They toboggan on their tummies.', 'Penguins are nature\'s comedians!'],
+    ['All About Volcanoes for Kids', 'A volcano is a vent in Earth\'s crust.', 'Ash and lava escape during eruptions.', 'Volcanoes build new land too!'],
   ]
   return orderQ('Stack the report in order!', pick(rand, kits), {
     hint: 'Title on top, ending last',
@@ -262,5 +316,5 @@ export const UNIT_E13 = unitDef(
   'Cambridge 2Ws/2Wc/2Wp - planning, structure, checking',
   '#f97316',
   '✍️',
-  [...lessons, boss],
+  [...lessons, TERM3, boss],
 )

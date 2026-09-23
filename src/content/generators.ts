@@ -146,6 +146,23 @@ export function gNumWords(rand: Rand): Question {
 export function gBonds10(rand: Rand): Question {
   const a = randInt(rand, 1, 9)
   const ans = 10 - a
+  const form = randInt(rand, 0, 2)
+  if (form === 1) {
+    return {
+      kind: 'type-number',
+      prompt: `? + ${a} = 10`,
+      answer: ans,
+      hint: 'Adding in any order still makes ten.',
+    }
+  }
+  if (form === 2) {
+    return {
+      kind: 'type-number',
+      prompt: `10 − ${a} = ?`,
+      answer: ans,
+      hint: 'Count back from ten to find the complement.',
+    }
+  }
   return {
     kind: 'type-number',
     prompt: `${a} + ? = 10`,
@@ -417,6 +434,17 @@ const SYMMETRY_MCQ: { prompt: string; answer: string; wrong: string[] }[] = [
   { prompt: 'How many lines of symmetry does a SQUARE have?', answer: '4', wrong: ['1', '2', '3'] },
   { prompt: 'How many lines of symmetry does a RECTANGLE have?', answer: '2', wrong: ['1', '4', '0'] },
   { prompt: 'How many lines of symmetry does an EQUILATERAL TRIANGLE have?', answer: '3', wrong: ['1', '2', '6'] },
+  { prompt: 'Which letter has a line of symmetry?', answer: 'H', wrong: ['L', 'N', 'Z'] },
+  { prompt: 'Which letter has a line of symmetry?', answer: 'T', wrong: ['J', 'L', 'S'] },
+  { prompt: 'Which letter has a line of symmetry?', answer: 'O', wrong: ['P', 'S', 'F'] },
+  { prompt: 'Which letter has NO line of symmetry?', answer: 'L', wrong: ['A', 'O', 'H'] },
+  { prompt: 'Which letter has NO line of symmetry?', answer: 'N', wrong: ['M', 'T', 'U'] },
+  { prompt: 'How many lines of symmetry does a CIRCLE have?', answer: 'Lots', wrong: ['1', '2', '0'] },
+  { prompt: 'How many lines of symmetry does a REGULAR HEXAGON have?', answer: '6', wrong: ['3', '4', '2'] },
+  { prompt: 'How many lines of symmetry does an ISOSCELES TRIANGLE have?', answer: '1', wrong: ['2', '3', '0'] },
+  { prompt: 'How many lines of symmetry does a DIAMOND (rhombus) have?', answer: '2', wrong: ['1', '4', '0'] },
+  { prompt: 'A shape with ONE line of symmetry could be…', answer: 'A kite', wrong: ['A square', 'A circle', 'A parallelogram'] },
+  { prompt: 'A shape with FOUR lines of symmetry could be…', answer: 'A square', wrong: ['A rectangle', 'A triangle', 'A star'] },
 ]
 
 export function gSymmetry(rand: Rand): Question {
@@ -451,11 +479,17 @@ const TEMP_MCQ: { prompt: string; answer: string; wrong: string[] }[] = [
   { prompt: 'A hot sunny day is about…', answer: '30°C', wrong: ['0°C', '5°C', '60°C'] },
   { prompt: 'Your body temperature is about…', answer: '37°C', wrong: ['10°C', '80°C', '0°C'] },
   { prompt: 'We measure temperature with…', answer: 'A thermometer', wrong: ['A ruler', 'A scale', 'A clock'] },
+  { prompt: 'A freezing winter day is about…', answer: '0°C', wrong: ['40°C', '100°C', '25°C'] },
+  { prompt: 'An icy snowy day is about…', answer: '-2°C', wrong: ['50°C', '30°C', '10°C'] },
+  { prompt: 'A warm spring day is about…', answer: '15°C', wrong: ['90°C', '0°C', '60°C'] },
+  { prompt: 'A cool autumn evening is about…', answer: '10°C', wrong: ['100°C', '45°C', '2°C'] },
+  { prompt: 'A baking hot desert is about…', answer: '45°C', wrong: ['5°C', '0°C', '80°C'] },
+  { prompt: 'The coldest freezer is about…', answer: '-18°C', wrong: ['30°C', '60°C', '10°C'] },
 ]
 
 export function gTemperature(rand: Rand): Question {
   if (rand() < 0.45) {
-    const low = randInt(rand, 0, 3) * 10
+    const low = randInt(rand, 0, 6) * 10
     return {
       kind: 'type-number',
       prompt: `The thermometer is halfway between ${low}°C and ${low + 10}°C. What does it read?`,
@@ -519,6 +553,18 @@ const EQUIV_BANK: { prompt: string; answer: string; wrong: string[] }[] = [
   { prompt: 'How many QUARTERS make one whole?', answer: '4', wrong: ['2', '3', '8'] },
   { prompt: 'How many QUARTERS make one HALF?', answer: '2', wrong: ['1', '3', '4'] },
   { prompt: 'One half of my cake is the same as…', answer: 'two quarters', wrong: ['one quarter', 'three quarters', 'one third'] },
+  { prompt: 'How many THIRDS make one whole?', answer: '3', wrong: ['2', '4', '1'] },
+  { prompt: 'Three thirds of a pizza is the same as…', answer: 'one whole', wrong: ['one half', 'one third', 'two thirds'] },
+  { prompt: 'One third + one third = ?', answer: 'two thirds', wrong: ['one third', 'one half', 'one whole'] },
+  { prompt: 'Two thirds + one third = ?', answer: 'one whole', wrong: ['two thirds', 'one half', 'three quarters'] },
+  { prompt: 'Three quarters + one quarter = ?', answer: 'one whole', wrong: ['one half', 'three quarters', 'two quarters'] },
+  { prompt: 'Two quarters of a cake is the same as…', answer: 'one half', wrong: ['one whole', 'one quarter', 'three quarters'] },
+  { prompt: 'How many QUARTERS make two halves?', answer: '4', wrong: ['2', '3', '6'] },
+  { prompt: 'One half of a sandwich is the same as…', answer: 'two quarters', wrong: ['one quarter', 'three quarters', 'one third'] },
+  { prompt: 'How many HALVES make two wholes?', answer: '4', wrong: ['2', '3', '5'] },
+  { prompt: 'Which is the SAME size as one half?', answer: 'two quarters', wrong: ['one quarter', 'one third', 'three quarters'] },
+  { prompt: 'One whole is the same as…', answer: 'four quarters', wrong: ['one half', 'two quarters', 'three quarters'] },
+  { prompt: 'One half is bigger than…', answer: 'one quarter', wrong: ['one whole', 'three quarters', 'two thirds'] },
 ]
 
 export function gEquivFractions(rand: Rand): Question {
@@ -588,18 +634,26 @@ export function gMatchNumWords(rand: Rand): MatchQuestion {
 /* ===================== Unit 5 · Fractions ======================== */
 
 export function gShadedFractionName(rand: Rand): Question {
+  const item = pick(rand, ['pizza', 'cake', 'pie'])
   const slices = pick(rand, [2, 3, 4])
-  const filled = slices === 4 ? randInt(rand, 1, 3) : 1
-  const names: Record<number, string> = { 2: 'one half', 3: 'one third', 4: filled === 2 ? 'two quarters' : filled === 3 ? 'three quarters' : 'one quarter' }
+  const filled =
+    slices === 4 ? randInt(rand, 1, 3)
+    : slices === 3 ? randInt(rand, 1, 2)
+    : 1
+  const names: Record<number, string> = {
+    2: 'one half',
+    3: filled === 2 ? 'two thirds' : 'one third',
+    4: filled === 2 ? 'two quarters' : filled === 3 ? 'three quarters' : 'one quarter',
+  }
   const labels: Record<number, string[]> = {
     2: ['one third', 'one quarter'],
-    3: ['one half', 'one quarter'],
-    // 2/4 IS one half - never offer the equivalent fraction as a wrong choice
+    // 2/4 IS one half and 2/3 is NOT one third - never offer equivalents
+    3: filled === 2 ? ['one half', 'three quarters'] : ['one half', 'one quarter'],
     4: filled === 2 ? ['one third', 'three quarters'] : ['one half', 'one third'],
   }
   return mcq(
     rand,
-    `The pizza has ${slices} equal slices and ${filled} ${filled === 1 ? 'is' : 'are'} eaten. How much is eaten?`,
+    `The ${item} has ${slices} equal slices and ${filled} ${filled === 1 ? 'is' : 'are'} eaten. How much is eaten?`,
     names[slices],
     labels[slices],
     { visual: { type: 'fraction', slices, filled } },
@@ -629,13 +683,17 @@ export function gQuarterOfNumber(rand: Rand): Question {
 }
 
 export function gFractionOfSet(rand: Rand): Question {
-  const groups = pick(rand, [2, 3])
+  const groups = pick(rand, [2, 3, 4])
   const each = randInt(rand, 2, 5)
   const total = groups * each
-  const fracName = groups === 2 ? 'half' : 'third'
+  const fracName = groups === 2 ? 'half' : groups === 3 ? 'third' : 'quarter'
+  const style = rand() < 0.5
+  const prompt = style
+    ? `${total} ⭐ shared into ${groups} equal groups. What is ONE ${fracName} of ${total}?`
+    : `What is ONE ${fracName} of these ${total} ⭐? They sit in ${groups} equal groups.`
   return {
     kind: 'type-number',
-    prompt: `${total} ⭐ shared into ${groups} equal groups. What is ONE ${fracName} of ${total}?`,
+    prompt,
     answer: each,
     hint: `One ${fracName} = one of the ${groups} equal groups.`,
   }
@@ -657,6 +715,13 @@ const SHAPE_FACTS: { prompt: string; answer: string; wrong: string[] }[] = [
   { prompt: 'How many CORNERS does a circle have?', answer: '0', wrong: ['1', '3', '4'] },
   { prompt: 'Every point on a circle is the same distance from the…', answer: 'Centre', wrong: ['Edge', 'Corner', 'Side'] },
   { prompt: 'Which shape looks like a ball?', answer: 'Sphere', wrong: ['Cube', 'Cylinder', 'Circle'] },
+  { prompt: 'How many sides does a rectangle have?', answer: '4', wrong: ['3', '5', '6'] },
+  { prompt: 'How many corners does a square have?', answer: '4', wrong: ['0', '3', '5'] },
+  { prompt: 'How many sides does an octagon have?', answer: '8', wrong: ['6', '7', '9'] },
+  { prompt: 'A shoe box is like which 3D shape?', answer: 'Cuboid', wrong: ['Sphere', 'Cone', 'Circle'] },
+  { prompt: 'Which 3D shape has 6 square faces?', answer: 'Cube', wrong: ['Cone', 'Sphere', 'Cylinder'] },
+  { prompt: 'A party hat is like which 3D shape?', answer: 'Cone', wrong: ['Cube', 'Sphere', 'Cuboid'] },
+  { prompt: 'How many faces does a cube have?', answer: '6', wrong: ['4', '8', '5'] },
 ]
 
 export function gShapeFacts(rand: Rand): Question {
@@ -667,16 +732,18 @@ export function gShapeFacts(rand: Rand): Question {
 export function gTurnsDirections(rand: Rand): Question {
   const facing = pick(rand, ['⬆️ North', '➡️ East', '⬇️ South', '⬅️ West'])
   const dirMap: Record<string, Record<string, string>> = {
-    '⬆️ North': { right: '➡️ East', left: '⬅️ West' },
-    '➡️ East': { right: '⬇️ South', left: '⬆️ North' },
-    '⬇️ South': { right: '⬅️ West', left: '➡️ East' },
-    '⬅️ West': { right: '⬆️ North', left: '⬇️ South' },
+    '⬆️ North': { right: '➡️ East', left: '⬅️ West', half: '⬇️ South' },
+    '➡️ East': { right: '⬇️ South', left: '⬆️ North', half: '⬅️ West' },
+    '⬇️ South': { right: '⬅️ West', left: '➡️ East', half: '⬆️ North' },
+    '⬅️ West': { right: '⬆️ North', left: '⬇️ South', half: '➡️ East' },
   }
-  const turn = rand() < 0.5 ? 'right' : 'left'
+  const who = pick(rand, ['Tails', 'Sonic', 'Amy', 'Knuckles'])
+  const turn = pick(rand, ['right', 'left', 'half'])
+  const turnLabel = turn === 'half' ? 'a half turn to the' : turn
   const ans = dirMap[facing][turn].split(' ')[0]
   return mcq(
     rand,
-    `Tails races ${facing}. He turns ${turn}. Which way is he facing now?`,
+    `${who} faces ${facing}. ${who} makes ${turnLabel} ${turn === 'half' ? '' : turn}. Which way is ${who} facing now?`,
     ans,
     shuffle(rand, ['⬆️', '➡️', '⬇️', '⬅️'].filter((e) => e !== ans)),
   )
@@ -720,6 +787,16 @@ const MEASURE_MCQ: { prompt: string; answer: string; wrong: string[]; hint?: str
   { prompt: 'Which holds MORE water?', answer: 'A bathtub', wrong: ['A cup', 'A spoon', 'A small bowl'] },
   { prompt: 'Which is HEAVIER?', answer: 'A car', wrong: ['A feather', 'A leaf', 'A pencil'] },
   { prompt: 'Half a metre equals…', answer: '50 cm', wrong: ['10 cm', '100 cm', '5 cm'] },
+  { prompt: 'What would you use to measure the width of a door?', answer: 'Metres (m)', wrong: ['Grams (g)', 'Litres (L)', 'Seconds'] },
+  { prompt: 'What would you use to measure the milk for a recipe?', answer: 'Millilitres (ml)', wrong: ['Centimetres (cm)', 'Kilograms (kg)', 'Hours'] },
+  { prompt: 'Which is SHORTER than a ruler?', answer: 'A paperclip', wrong: ['A pencil', 'A book', 'A door'] },
+  { prompt: 'Which is LIGHTER?', answer: 'A feather', wrong: ['A brick', 'A bag of sugar', 'A rock'] },
+  { prompt: 'Which holds LESS water?', answer: 'A teaspoon', wrong: ['A bucket', 'A jug', 'A bath'] },
+  { prompt: 'One metre equals…', answer: '100 cm', wrong: ['10 cm', '50 cm', '1000 cm'] },
+  { prompt: 'One kilogram is a measure of…', answer: 'How heavy something is', wrong: ['How long something is', 'How much liquid fits', 'How long we wait'] },
+  { prompt: 'A swimming pool holds about…', answer: 'Many litres of water', wrong: ['A few millilitres', 'One teaspoon', 'A single gram'] },
+  { prompt: 'Which would you use to weigh a parcel?', answer: 'A scale in kilograms', wrong: ['A ruler in cm', 'A jug in litres', 'A clock in hours'] },
+  { prompt: 'Your height is best measured in…', answer: 'Centimetres then metres', wrong: ['Kilograms', 'Millilitres', 'Degrees'] },
 ]
 
 export function gMeasureFacts(rand: Rand): Question {
@@ -809,7 +886,12 @@ export function gMonthsBetween(rand: Rand): Question {
 }
 
 export function gCoinsTotal(rand: Rand): Question {
-  const coins = pick(rand, [[1, 1, 2], [2, 5], [5, 5, 2], [1, 2, 2], [10, 5], [2, 2, 1]])
+  const coins = pick(rand, [
+    [1, 1, 2], [2, 5], [5, 5, 2], [1, 2, 2], [10, 5], [2, 2, 1],
+    [1, 1, 1], [5, 1], [10, 2], [10, 1], [5, 2, 1], [2, 2, 2],
+    [1, 1, 5], [5, 5], [10, 10], [2, 5, 1], [1, 2, 5], [5, 5, 5],
+    [1, 1, 10], [2, 2, 5], [10, 5, 1], [5, 1, 1],
+  ])
   const total = coins.reduce((a, c) => a + c, 0)
   return {
     kind: 'type-number',
@@ -932,11 +1014,16 @@ export function gEstimateCount(rand: Rand): Question {
   ]
   const [bucket, options] = pick(rand, buckets)
   const n = pick(rand, options)
-  const emoji = pick(rand, ['⭐', '🍎', '🎈'])
+  const emoji = pick(rand, ['⭐', '🍎', '🎈', '🌸', '🍩', '🦋'])
   const wrongLabels = ['about 5', 'about 10', 'about 20'].filter((l) => l !== `about ${bucket}`)
+  const promptForm = pick(rand, [
+    `About how many ${emoji} can you see? Do not count exactly!`,
+    `Roughly how many ${emoji}? Group them into fives!`,
+    `Estimate the number of ${emoji} - do not count one by one!`,
+  ])
   return mcq(
     rand,
-    'About how many can you see? Do not count exactly!',
+    promptForm,
     `about ${bucket}`,
     wrongLabels,
     { visual: { type: 'emoji-group', emojis: emojis(rand, n) }, hint: 'Group them into fives or tens to estimate!' },
@@ -949,6 +1036,20 @@ const ROTATION_MCQ: { prompt: string; answer: string; wrong: string[] }[] = [
   { prompt: 'A RECTANGLE looks identical how many times in one full turn?', answer: '2', wrong: ['1', '4', '3'] },
   { prompt: 'An EQUILATERAL TRIANGLE looks identical how many times in a full turn?', answer: '3', wrong: ['1', '2', '6'] },
   { prompt: 'A REGULAR HEXAGON looks identical how many times in a full turn?', answer: '6', wrong: ['3', '4', '8'] },
+  { prompt: 'A REGULAR PENTAGON looks identical how many times in a full turn?', answer: '5', wrong: ['2', '4', '10'] },
+  { prompt: 'A REGULAR OCTAGON looks identical how many times in a full turn?', answer: '8', wrong: ['4', '6', '2'] },
+  { prompt: 'A REGULAR DECAGON looks identical how many times in a full turn?', answer: '10', wrong: ['5', '8', '4'] },
+  { prompt: 'A PARALLELOGRAM looks identical how many times in a full turn?', answer: '2', wrong: ['1', '4', '0'] },
+  { prompt: 'Spin a CIRCLE all the way round. How many times does it look the same?', answer: 'Forever - every spin matches', wrong: ['1', '2', '4'] },
+  { prompt: 'The letter H looks identical how many times in one full turn?', answer: '2', wrong: ['1', '4', '0'] },
+  { prompt: 'The letter N looks identical how many times in one full turn?', answer: '2', wrong: ['1', '4', '0'] },
+  { prompt: 'The letter I looks identical how many times in one full turn?', answer: '2', wrong: ['1', '4', '0'] },
+  { prompt: 'A five-pointed STAR looks identical how many times in a full turn?', answer: '5', wrong: ['2', '4', '10'] },
+  { prompt: 'A REGULAR SQUARE looks identical how many times after ONE spin?', answer: '4', wrong: ['1', '2', '3'] },
+  { prompt: 'How many times does a SQUARE match itself in 360°?', answer: '4', wrong: ['1', '2', '8'] },
+  { prompt: 'How many times does a RECTANGLE match itself in 360°?', answer: '2', wrong: ['1', '4', '0'] },
+  { prompt: 'How many times does a TRIANGLE match itself in 360°?', answer: '3', wrong: ['1', '2', '6'] },
+  { prompt: 'A REGULAR HEXAGON matches itself how many times in 360°?', answer: '6', wrong: ['3', '5', '12'] },
 ]
 export function gRotationalTurns(rand: Rand): Question {
   const f = pick(rand, ROTATION_MCQ)
@@ -962,6 +1063,19 @@ const CHANCE_MCQ: { prompt: string; answer: string; wrong: string[] }[] = [
   { prompt: 'Which event is CERTAIN to happen?', answer: 'The sun rises tomorrow', wrong: ['You roll a 6 next throw', 'It rains on your birthday', 'Your toy turns into gold'] },
   { prompt: 'Which event is IMPOSSIBLE?', answer: 'A cat barks like a dog tomorrow', wrong: ['You eat food today', 'The sun sets tonight', 'You blink soon'] },
   { prompt: 'Tossing a coin gives heads or tails. This outcome is…', answer: 'Random', wrong: ['Regular', 'Certain to be heads', 'Impossible'] },
+  { prompt: 'Drawing a marble from a bag without looking is…', answer: 'Random', wrong: ['Certain', 'Impossible', 'Always blue'] },
+  { prompt: 'Which of these is IMPOSSIBLE?', answer: 'You grow wings and fly home', wrong: ['You finish this quiz', 'It gets dark at night', 'You yawn when tired'] },
+  { prompt: 'Which of these is CERTAIN?', answer: 'You need water to drink', wrong: ['You win the lottery', 'It snows in July', 'A fish climbs a tree'] },
+  { prompt: 'Spinning a fair spinner - where will the arrow stop?', answer: 'You cannot tell for sure', wrong: ['Always on red', 'Always on blue', 'Never on yellow'] },
+  { prompt: '🟢🟢🟢🟢🟢 - what kind of pattern is this?', answer: 'A regular pattern', wrong: ['A random pattern', 'No pattern', 'Broken'] },
+  { prompt: 'A traffic light goes red, green, amber, red, green, amber…', answer: 'A regular pattern', wrong: ['A random pattern', 'No pattern', 'Impossible'] },
+  { prompt: 'Choosing the next lesson with your eyes closed is…', answer: 'Random', wrong: ['Certain', 'Impossible', 'A regular pattern'] },
+  { prompt: 'Which word means "might or might not happen"?', answer: 'Maybe', wrong: ['Always', 'Never', 'Every time'] },
+  { prompt: 'Which word means "definitely will happen"?', answer: 'Certain', wrong: ['Random', 'Maybe', 'Unlikely'] },
+  { prompt: 'Which word means "definitely will NOT happen"?', answer: 'Impossible', wrong: ['Certain', 'Likely', 'Possible'] },
+  { prompt: 'Picking a sock from a drawer of mixed socks is…', answer: 'Random', wrong: ['Always black', 'Certain to match', 'Impossible'] },
+  { prompt: 'Your heart beating is…', answer: 'Certain', wrong: ['Random', 'Impossible', 'Once a year'] },
+  { prompt: 'Jumping to the moon in one hop is…', answer: 'Impossible', wrong: ['Certain', 'Random', 'Likely'] },
 ]
 export function gChanceLanguage(rand: Rand): Question {
   const f = pick(rand, CHANCE_MCQ)
@@ -1012,6 +1126,19 @@ const COMBINE_BANK: { prompt: string; answer: string; wrong: string[] }[] = [
   { prompt: 'Two quarters + two quarters = ?', answer: 'one whole', wrong: ['one half', 'three quarters', 'two thirds'] },
   { prompt: 'One whole - one half = ?', answer: 'one half', wrong: ['one quarter', 'nothing at all', 'three quarters'] },
   { prompt: 'Three quarters - one quarter = ?', answer: 'one half', wrong: ['one whole', 'two thirds', 'nothing at all'] },
+  { prompt: 'One quarter + one quarter = ?', answer: 'one half', wrong: ['one quarter', 'one whole', 'one third'] },
+  { prompt: 'One whole - one quarter = ?', answer: 'three quarters', wrong: ['one half', 'one quarter', 'one whole'] },
+  { prompt: 'Two quarters - one quarter = ?', answer: 'one quarter', wrong: ['one half', 'three quarters', 'one whole'] },
+  { prompt: 'One half - one quarter = ?', answer: 'one quarter', wrong: ['one half', 'three quarters', 'one whole'] },
+  { prompt: 'Three quarters + one quarter = ?', answer: 'one whole', wrong: ['one half', 'three quarters', 'two thirds'] },
+  { prompt: 'One quarter + one half = ?', answer: 'three quarters', wrong: ['one half', 'one quarter', 'one whole'] },
+  { prompt: 'One whole - three quarters = ?', answer: 'one quarter', wrong: ['one half', 'three quarters', 'one whole'] },
+  { prompt: 'One quarter + one quarter + one quarter = ?', answer: 'three quarters', wrong: ['one half', 'one whole', 'one third'] },
+  { prompt: 'One quarter + one quarter + one half = ?', answer: 'one whole', wrong: ['one half', 'three quarters', 'one third'] },
+  { prompt: 'One whole - two quarters = ?', answer: 'one half', wrong: ['one quarter', 'three quarters', 'one whole'] },
+  { prompt: 'Four quarters make…', answer: 'one whole', wrong: ['one half', 'two quarters', 'three quarters'] },
+  { prompt: 'One half + one quarter + one quarter = ?', answer: 'one whole', wrong: ['one half', 'three quarters', 'one third'] },
+  { prompt: 'Three thirds make…', answer: 'one whole', wrong: ['one half', 'two thirds', 'one third'] },
 ]
 export function gCombineFractions(rand: Rand): Question {
   const f = pick(rand, COMBINE_BANK)
@@ -1025,6 +1152,12 @@ const POSITION_MCQ: { prompt: string; answer: string; wrong: string[] }[] = [
   { prompt: 'The kite flies ___ the trees.', answer: 'above', wrong: ['below', 'between', 'behind'] },
   { prompt: 'The shoes are ___ the bed, on the floor under it.', answer: 'below', wrong: ['above', 'beside', 'around'] },
   { prompt: 'If you take two steps BACKWARDS you move…', answer: 'away from where you were facing', wrong: ['closer to where you were facing', 'in a circle only', 'upwards'] },
+  { prompt: 'The cat is ___ the table - right on its top surface.', answer: 'on', wrong: ['under', 'through', 'across'] },
+  { prompt: 'The mouse hides ___ the box - inside it.', answer: 'inside', wrong: ['above', 'behind only', 'between'] },
+  { prompt: 'Sonic runs ___ the finish line - coming up to it.', answer: 'towards', wrong: ['away from', 'over and past', 'under'] },
+  { prompt: 'The picture hangs ___ the sofa - higher up on the wall.', answer: 'above', wrong: ['below', 'inside', 'next and under'] },
+  { prompt: 'The ball rolls ___ the tunnel - right through it.', answer: 'through', wrong: ['above', 'between two', 'on top'] },
+  { prompt: 'You step ___ the puddle - from one side to the other.', answer: 'across', wrong: ['underneath', 'inside', 'behind'] },
 ]
 export function gPositionWords(rand: Rand): Question {
   const f = pick(rand, POSITION_MCQ)
@@ -1036,6 +1169,11 @@ const MIRROR_MCQ: { prompt: string; answer: string; wrong: string[] }[] = [
   { prompt: 'You wave your RIGHT hand at a mirror. Which hand does your reflection wave?', answer: 'Its left hand', wrong: ['Its right hand', 'Both hands', 'No hands'] },
   { prompt: 'In a mirror, a shape and its reflection are…', answer: 'The same size', wrong: ['Different sizes', 'Always upside down', 'Always spinning'] },
   { prompt: 'Hold the letter F up to a mirror. The reflection faces…', answer: 'The opposite way', wrong: ['Exactly the same way', 'Upside down only', 'It disappears'] },
+  { prompt: 'You raise your LEFT leg. Your mirror image raises…', answer: 'Its right leg', wrong: ['Its left leg', 'Both legs', 'Neither leg'] },
+  { prompt: 'A mirror flips which directions?', answer: 'Left and right', wrong: ['Up and down only', 'Front and back only', 'Nothing at all'] },
+  { prompt: 'Stand a 10 cm block in front of a mirror. Its reflection is…', answer: '10 cm tall', wrong: ['20 cm tall', '5 cm tall', 'It has no height'] },
+  { prompt: 'You smile at a mirror. Your reflection…', answer: 'Smiles back', wrong: ['Frowns', 'Turns away', 'Closes its eyes'] },
+  { prompt: 'Hold the letter B up to a mirror. The reflection looks…', answer: 'Flipped left to right', wrong: ['Exactly the same', 'Upside down only', 'Rotated in a circle'] },
 ]
 export function gMirrorReflections(rand: Rand): Question {
   const f = pick(rand, MIRROR_MCQ)

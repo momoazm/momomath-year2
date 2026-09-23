@@ -55,6 +55,18 @@ const WHERE_SETS = [
     { left: 'Das Schiff ist…', right: 'auf dem Wasser 💧' },
     { left: 'Der Stern ist…', right: 'am Himmel ⭐' },
   ],
+  [
+    { left: 'Das Brot ist…', right: 'auf dem Tisch 🍽️' },
+    { left: 'Der Regenschirm ist…', right: 'unter der Treppe 🪜' },
+    { left: 'Die Schlüssel sind…', right: 'in der Tasche 👜' },
+    { left: 'Der Frosch ist…', right: 'auf dem Stein 🪨' },
+  ],
+  [
+    { left: 'Der Apfel ist…', right: 'in dem Korb 🧺' },
+    { left: 'Das Licht ist…', right: 'an der Decke 💡' },
+    { left: 'Der Stift ist…', right: 'auf dem Papier 📝' },
+    { left: 'Die Ente ist…', right: 'auf dem Teich 🦆' },
+  ],
 ]
 
 function gWhereMatch(rand: Rand): Question {
@@ -66,6 +78,7 @@ function gWhereMatch(rand: Rand): Question {
 const ORDINALS = [
   { de: 'erste', emoji: '🥇' }, { de: 'zweite', emoji: '🥈' },
   { de: 'dritte', emoji: '🥉' }, { de: 'vierte', emoji: '4️⃣' },
+  { de: 'fünfte', emoji: '5️⃣' }, { de: 'sechste', emoji: '6️⃣' },
 ]
 
 function gOrdinalPicture(rand: Rand): Question {
@@ -82,6 +95,10 @@ const FEST_TF = [
   { s: '“Alles Gute zum Geburtstag!” means Happy Birthday!', a: true },
   { s: 'Nikolaus brings treats on 6 December.', a: true },
   { s: 'Felix phones Germany without a country code.', a: false },
+  { s: 'German schools usually start in August or September.', a: true },
+  { s: 'Oktoberfest always happens in October only.', a: false },
+  { s: 'In German the word for Christmas is “Weihnachten”.', a: true },
+  { s: '“Guten Appetit!” is said before someone goes to bed.', a: false },
 ]
 
 function gFestTrueFalse(rand: Rand): Question {
@@ -102,6 +119,30 @@ const LETTER_SETS: string[][] = [
     'Der Ball ist rot.',
     'Tschüss! Felix',
   ],
+  [
+    'Liebe Franzi,',
+    'Der Park ist groß.',
+    'Ich lerne Deutsch.',
+    'Bis morgen! Felix',
+  ],
+  [
+    'Hallo Franzi,',
+    'Die Ente ist im Teich.',
+    'Das Brot ist frisch.',
+    'Tschüss! Felix',
+  ],
+  [
+    'Liebe Franzi,',
+    'Heute scheint die Sonne.',
+    'Der Frosch sitzt am Stein.',
+    'Bis bald! Felix',
+  ],
+  [
+    'Hallo Franzi,',
+    'Ich habe einen Brief.',
+    'Die Lampe leuchtet.',
+    'Tschüss! Felix',
+  ],
 ]
 
 function gLetterOrder(rand: Rand): Question {
@@ -112,7 +153,20 @@ function gLetterOrder(rand: Rand): Question {
   })
 }
 
-const WISHES = ['Alles Gute zum Geburtstag!', 'Viel Glück zum Geburtstag!']
+const WISHES = [
+  'Alles Gute zum Geburtstag!',
+  'Viel Glück zum Geburtstag!',
+  'Herzlichen Glückwunsch!',
+  'Alles Liebe zum Geburtstag!',
+  'Ich wünsche dir alles Gute!',
+  'Zum Geburtstag alles Liebe!',
+  'Happy Birthday, Franzi!',
+  'Genieße deinen besonderen Tag!',
+  'Hab einen wunderschönen Geburtstag!',
+  'Feier schön, lieber Freund!',
+  'Beste Wünsche für dich!',
+  'Ein Jahr voller Freude!',
+]
 
 function gSpeakWish(rand: Rand): Question {
   const wish = pick(rand, WISHES)
@@ -123,14 +177,17 @@ function gSpeakWish(rand: Rand): Question {
 }
 
 function gPartyPick(rand: Rand): Question {
-  const answer = 'Alles Gute zum Geburtstag!'
-  const choices = shuffle(rand, [
-    answer,
-    'Guten Appetit!',
-    'Gute Nacht!',
-    'Viel Glück!',
-  ])
-  return mcqFixed('What do you sing at the party?', choices, choices.indexOf(answer), say(answer))
+  const items = [
+    { answer: 'Alles Gute zum Geburtstag!', wrong: ['Guten Appetit!', 'Gute Nacht!', 'Viel Glück!'] },
+    { answer: 'Viel Glück zum Geburtstag!', wrong: ['Gute Nacht!', 'Auf Wiedersehen!', 'Danke schön!'] },
+    { answer: 'Herzlichen Glückwunsch!', wrong: ['Guten Morgen!', 'Entschuldigung!', 'Bis morgen!'] },
+    { answer: 'Alles Liebe zum Geburtstag!', wrong: ['Guten Appetit!', 'Viel Spaß!', 'Gute Reise!'] },
+    { answer: 'Ich wünsche dir alles Gute!', wrong: ['Gute Nacht!', 'Auf Wiedersehen!', 'Danke sehr!'] },
+    { answer: 'Zum Geburtstag alles Liebe!', wrong: ['Guten Appetit!', 'Gute Besserung!', 'Tschüss!'] },
+  ]
+  const item = pick(rand, items)
+  const choices = shuffle(rand, [item.answer, ...item.wrong])
+  return mcqFixed('What do you say at the party?', choices, choices.indexOf(item.answer), say(item.answer))
 }
 
 /* ----- Duolingo-style EN ⇄ DE: both directions + sentence builds ----- */
@@ -155,6 +212,10 @@ const WHERE_BUILDS: { en: string; de: string[]; back: string[] }[] = [
   { en: 'The cat is on the bed.', de: ['Die Katze', 'ist', 'auf dem Bett'], back: ['The cat', 'is', 'on the bed'] },
   { en: 'The lamp is in the room.', de: ['Die Lampe', 'ist', 'in dem Zimmer'], back: ['The lamp', 'is', 'in the room'] },
   { en: 'The ball is under the bed.', de: ['Der Ball', 'ist', 'unter dem Bett'], back: ['The ball', 'is', 'under the bed'] },
+  { en: 'The dog is in the garden.', de: ['Der Hund', 'ist', 'in dem Garten'], back: ['The dog', 'is', 'in the garden'] },
+  { en: 'The star is in the sky.', de: ['Der Stern', 'ist', 'am Himmel'], back: ['The star', 'is', 'in the sky'] },
+  { en: 'The bread is on the table.', de: ['Das Brot', 'ist', 'auf dem Tisch'], back: ['The bread', 'is', 'on the table'] },
+  { en: 'The frog is under the leaf.', de: ['Der Frosch', 'ist', 'unter dem Blatt'], back: ['The frog', 'is', 'under the leaf'] },
 ]
 
 function gBuildWhereDe(rand: Rand): Question {
@@ -168,13 +229,27 @@ function gBuildWhereEn(rand: Rand): Question {
 }
 
 function gBuildWishDe(rand: Rand): Question {
-  void rand
-  return buildDe('Happy birthday!', ['Alles', 'Gute', 'zum', 'Geburtstag!'])
+  const wish = pick(rand, [
+    { en: 'Happy birthday!', de: ['Alles', 'Gute', 'zum', 'Geburtstag!'] },
+    { en: 'All the best on your birthday!', de: ['Alles', 'Gute', 'zum', 'Geburtstag!'] },
+    { en: 'Many happy returns!', de: ['Viel', 'Glück', 'zum', 'Geburtstag!'] },
+    { en: 'Best wishes for your birthday!', de: ['Herzlichen', 'Glückwunsch', 'zum', 'Geburtstag!'] },
+    { en: 'Everything good for you!', de: ['Ich', 'wünsche', 'dir', 'alles', 'Gute!'] },
+    { en: 'Lots of love on your birthday!', de: ['Zum', 'Geburtstag', 'alles', 'Liebe!'] },
+  ])
+  return buildDe(wish.en, wish.de)
 }
 
 function gBuildWishEn(rand: Rand): Question {
-  void rand
-  return buildEn('Alles Gute zum Geburtstag!', ['Happy', 'birthday!'])
+  const wish = pick(rand, [
+    { de: 'Alles Gute zum Geburtstag!', tokens: ['Happy', 'birthday!'] },
+    { de: 'Viel Glück zum Geburtstag!', tokens: ['Good', 'luck', 'on', 'your', 'birthday!'] },
+    { de: 'Herzlichen Glückwunsch zum Geburtstag!', tokens: ['Congratulations', 'on', 'your', 'birthday!'] },
+    { de: 'Ich wünsche dir alles Gute!', tokens: ['I', 'wish', 'you', 'all', 'the', 'best!'] },
+    { de: 'Zum Geburtstag alles Liebe!', tokens: ['Lots', 'of', 'love', 'on', 'your', 'birthday!'] },
+    { de: 'Alles Gute zum Geburtstag!', tokens: ['Happy', 'birthday!'] },
+  ])
+  return buildEn(wish.de, wish.tokens)
 }
 
 const g10l1 = makeLesson(
@@ -214,7 +289,7 @@ const g10l4 = makeLesson(
   'cream',
   'Post!',
   'Read Felix’s mini letter, order it, then read the birthday wish aloud!',
-  [gLetterOrder, gSpeakWish, gRoomMatchDeEn, gBuildWhereDe],
+  [gLetterOrder, gSpeakWish, gRoomMatchDeEn, gBuildWhereDe, gBuildWhereEn, gRoomPicture],
 )
 
 const g10boss = makeLesson(

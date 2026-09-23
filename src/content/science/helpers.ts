@@ -15,33 +15,7 @@ export { hashString, mulberry32, pick, randInt, shuffle, type Rand }
 export type Gen = (rand: Rand) => Question
 export const Q_PER_LESSON = 10
 
-/** Seeds questions the same way the math curriculum does, so the engine treats
- *  science lessons identically: deterministic per (lessonId, attempt). */
-export function makeLesson(
-  id: string,
-  title: string,
-  objectiveCodes: string[],
-  mascotId: LessonDef['intro']['mascotId'],
-  introTitle: string,
-  introBody: string,
-  gens: Gen[],
-  challenge?: Gen,
-): LessonDef {
-  return {
-    id,
-    title,
-    objectiveCodes,
-    intro: { mascotId, title: introTitle, body: introBody },
-    generate(n, seed) {
-      const rand = mulberry32(hashString(id) ^ (seed * 2654435761))
-      const out: Question[] = []
-      for (let i = 0; i < n - 1; i++) out.push(gens[i % gens.length](rand))
-      const finalGen = challenge ?? gens[(n - 1) % gens.length]
-      out.push(finalGen(rand))
-      return out
-    },
-  }
-}
+export { makeLesson } from '../makeLesson'
 
 export function unitDef(
   id: string,
@@ -247,7 +221,7 @@ export const LIFE_STAGES = ['baby', 'toddler', 'child', 'adult'] as const
 export const ANIMAL_LIFE_CYCLES: Record<string, string[]> = {
   butterfly: ['egg', 'caterpillar', 'chrysalis', 'butterfly'],
   frog: ['egg', 'tadpole', 'tadpole with legs', 'froglet', 'frog'],
-  plant: ['seed', 'sprout', 'plant with leaves', 'flower', 'seed'],
+  plant: ['seed', 'sprout', 'plant with leaves', 'flower', 'fruit'],
 }
 
 export function emojiPair(word: string): string {

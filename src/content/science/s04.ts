@@ -43,23 +43,77 @@ function gChange(rand: Rand): Question {
   const a = pick(rand, MATERIAL_CHANGES)
   return mcqE(rand, `Is ${a.item} a reversible or irreversible change?`, a.kind, ["a colour change", "a different kind of change"], { visual: { type: "emoji-group", emojis: ["🔁"] } })
 }
-function gHardVsSoft(rand: Rand): Question {
-  return matchQ(rand, "Is each material HARD or SOFT?",
-    [
+const HARD_SOFT_SETS: { pairs: { left: string; right: string }[]; emojis: string[] }[] = [
+  {
+    pairs: [
       { left: "wood", right: "hard" }, { left: "stone", right: "hard" },
       { left: "paper", right: "soft" }, { left: "rubber", right: "soft" },
-    ], { visual: { type: "emoji-group", emojis: ["🪵", "🪨", "📄", "🏀"] } },
-  )
+    ],
+    emojis: ["🪵", "🪨", "📄", "🏀"],
+  },
+  {
+    pairs: [
+      { left: "metal", right: "hard" }, { left: "brick", right: "hard" },
+      { left: "fabric", right: "soft" }, { left: "wool", right: "soft" },
+    ],
+    emojis: ["🔩", "🧱", "👕", "🧶"],
+  },
+  {
+    pairs: [
+      { left: "glass", right: "hard" }, { left: "ice", right: "hard" },
+      { left: "sponge", right: "soft" }, { left: "foam", right: "soft" },
+    ],
+    emojis: ["🪟", "🧊", "🧽", "🫧"],
+  },
+]
+function gHardVsSoft(rand: Rand): Question {
+  const set = pick(rand, HARD_SOFT_SETS)
+  return matchQ(rand, "Is each material HARD or SOFT?", set.pairs, { visual: { type: "emoji-group", emojis: set.emojis } })
 }
+const REVERSIBLE_TF: { text: string; ok: boolean }[] = [
+  { text: "A reversible change can be undone like ice melting back to water.", ok: true },
+  { text: "Bending a paperclip is a reversible change.", ok: true },
+  { text: "Burning wood is a reversible change because you can un-burn it.", ok: false },
+  { text: "Melting butter and chilling it again is reversible.", ok: true },
+  { text: "Rusting iron cannot easily be undone, so it is irreversible.", ok: true },
+  { text: "Dissolving sugar in water means the change is always permanent.", ok: false },
+]
 function gReversibleIdea(rand: Rand): Question {
-  return tfQ("Material change", "A reversible change can be undone like ice melting back to water.", true, { visual: { type: "emoji-group", emojis: ["🧊", "💧"] } })
+  const line = pick(rand, REVERSIBLE_TF)
+  return tfQ("Material change", line.text, line.ok, { visual: { type: "emoji-group", emojis: ["🧊", "💧"] } })
 }
+const MASS_ORDERS: { label: string; items: string[]; emojis: string[] }[] = [
+  {
+    label: "Order objects from LIGHTEST to HEAVIEST (just a guess!)",
+    items: ["feather", "apple", "book", "rock", "car"],
+    emojis: ["🪶", "🍎", "📖", "🪨", "🚗"],
+  },
+  {
+    label: "Order these from lightest to heaviest",
+    items: ["paper clip", "pencil", "rubber", "brick", "bicycle"],
+    emojis: ["📎", "✏️", "🏀", "🧱", "🚲"],
+  },
+  {
+    label: "Put the objects lightest first",
+    items: ["balloon", "tennis ball", "shoe", "school bag", "desk"],
+    emojis: ["🎈", "🎾", "👟", "🎒", "🪑"],
+  },
+]
 function gOrderSolids(rand: Rand): Question {
-  return orderQ("Order objects from LIGHTEST to HEAVIEST (just a guess!)",
-    ["feather", "apple", "book", "rock", "car"], { visual: { type: "emoji-group", emojis: ["🪶", "🍎", "📖", "🪨", "🚗"] } })
+  const o = pick(rand, MASS_ORDERS)
+  return orderQ(o.label, o.items, { visual: { type: "emoji-group", emojis: o.emojis } })
 }
+const MULTI_PROP: { text: string; ok: boolean }[] = [
+  { text: "A single material can have more than one useful property: for example wood is hard AND strong.", ok: true },
+  { text: "Metal can be hard, shiny and also a good conductor of heat.", ok: true },
+  { text: "Plastic can be light, waterproof and easy to bend.", ok: true },
+  { text: "Every material has exactly one property and no more.", ok: false },
+  { text: "Glass is hard and can also be transparent.", ok: true },
+  { text: "A material can never be both stretchy and strong.", ok: false },
+]
 function gMultiProp(rand: Rand): Question {
-  return tfQ("Material science", "A single material can have more than one useful property: for example wood is hard AND strong.", true, { visual: { type: "emoji-group", emojis: ["🪵"] } })
+  const line = pick(rand, MULTI_PROP)
+  return tfQ("Material science", line.text, line.ok, { visual: { type: "emoji-group", emojis: ["🪵"] } })
 }
 function gWaterproof(rand: Rand): Question {
   return mcqE(rand, "Which of these would best keep water from soaking through?", pick(rand, WATERPROOF_ITEMS), NOT_WATERPROOF, { visual: { type: "emoji-group", emojis: ["💧", "🧴"] } })
@@ -71,8 +125,8 @@ const lessons = [
   makeLesson("s4l1", "Natural or Made?", ["2Cm.01"], "cream", "Found it or made it?", "Wood comes from trees (natural) and plastic is made in a factory (manufactured).", [gNaturalOrMade, gPropWord, gMultiProp], gNaturalOrMade),
   makeLesson("s4l2", "Material Properties", ["2Cp.01"], "tails", "Hard, soft, shiny, dull!", "Every material has properties: describing words that help us choose them for a job.", [gPropWord, gMultiProp, gHardVsSoft], gPropWord),
   makeLesson("s4l3", "Choosing the Right Material", ["2Cp.02"], "shadow", "Pick the perfect one!", "Windows use glass because it is transparent. Pans use metal because it is strong and hard.", [gWhyThisMaterial, gPropWord, gWaterproof], gWhyThisMaterial),
-  makeLesson("s4l4", "Test It!", ["2Cp.03"], "knuckles", "Material lab!", "You can TEST materials: is it hard, soft, shiny or dull? Sort and compare!", [gHardVsSoft, gOrderSolids, gSameMaterialSort], gHardVsSoft),
-  makeLesson("s4l5", "Reversible or Not?", ["2Cc.01"], "silver", "Undo it or not?", "Bending a paperclip is reversible. Burning paper is irreversible: you cannot un-burn it!", [gChange, gReversibleIdea], gChange),
+  makeLesson("s4l4", "Test It!", ["2Cp.03"], "knuckles", "Material lab!", "You can TEST materials: is it hard, soft, shiny or dull? Sort and compare!", [gHardVsSoft, gOrderSolids, gSameMaterialSort, gWaterproof, gMultiProp], gHardVsSoft),
+  makeLesson("s4l5", "Reversible or Not?", ["2Cc.01"], "silver", "Undo it or not?", "Bending a paperclip is reversible. Burning paper is irreversible: you cannot un-burn it!", [gChange, gReversibleIdea, gWaterproof, gWhyThisMaterial], gChange),
 ]
 
 const boss = makeLesson("s4boss", "Materials Boss", ["2Cm.01", "2Cp.01-03", "2Cc.01"], "eggman", "BOSS TIME!", "Eggman mixed up every material! Sort, match, and check the right properties to set things right.", [gNaturalOrMade, gPropWord, gWhyThisMaterial, gChange, gHardVsSoft], gWhyThisMaterial)
