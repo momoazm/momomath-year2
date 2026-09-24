@@ -1,0 +1,236 @@
+{
+  "egg-pawn-captain": {
+    "title": "File:Egg-Pawn-Sonic-Colors-V.png",
+    "page": "https://sonic.fandom.com/wiki/Egg-Pawn-Sonic-Colors-V.png",
+    "url": "https://static.wikia.nocookie.net/sonic/images/8/83/Egg-Pawn-Sonic-Colors-V.png/revision/latest/scale-to-width-down/512?cb=20160510130232",
+    "file": "egg-pawn-captain.webp",
+    "bytes": 26428
+  },
+  "tails-doll": {
+    "title": "File:Tails-Doll.png",
+    "page": "https://sonic.fandom.com/wiki/Tails-Doll.png",
+    "url": "https://static.wikia.nocookie.net/sonic/images/7/7d/Tails-Doll.png/revision/latest?cb=20091215221931",
+    "file": "tails-doll.webp",
+    "bytes": 20122
+  },
+  "buzz-bomber-armada": {
+    "title": "File:BigBadBuzzBomber.webp",
+    "page": "https://sonic.fandom.com/wiki/BigBadBuzzBomber.webp",
+    "url": "https://static.wikia.nocookie.net/sonic/images/5/5f/BigBadBuzzBomber.webp/revision/latest?cb=20260915024244",
+    "file": "buzz-bomber-armada.webp",
+    "bytes": 36644,
+    "alpha": true
+  },
+  "frozen-egg-robot": {
+    "title": "File:E-10000b-sonic-free-riders.png",
+    "page": "https://sonic.fandom.com/wiki/E-10000b-sonic-free-riders.png",
+    "url": "https://static.wikia.nocookie.net/sonic/images/7/72/E-10000b-sonic-free-riders.png/revision/latest/scale-to-width-down/512?cb=20130708135342",
+    "file": "frozen-egg-robot.webp",
+    "bytes": 55908,
+    "alpha": true
+  },
+  "mecha-sonic": {
+    "title": "File:SSS Mecha-Bu Artwork.png",
+    "page": "https://sonic.fandom.com/wiki/SSS_Mecha-Bu_Artwork.png",
+    "url": "https://static.wikia.nocookie.net/sonic/images/d/d4/SSS_Mecha-Bu_Artwork.png/revision/latest/scale-to-width-down/512?cb=20251020053437",
+    "file": "mecha-sonic.webp",
+    "bytes": 44808,
+    "alpha": true
+  },
+  "shadow-bot": {
+    "title": "File:Shadow-Android Yellow-Alternate.png",
+    "page": "https://sonic.fandom.com/wiki/Shadow-Android_Yellow-Alternate.png",
+    "url": "https://static.wikia.nocookie.net/sonic/images/6/67/Shadow-Android_Yellow-Alternate.png/revision/latest?cb=20220706065942",
+    "file": "shadow-bot.webp",
+    "bytes": 22608
+  },
+  "dr-eggman": {
+    "title": "File:CD Eggman.png",
+    "page": "https://sonic.fandom.com/wiki/CD_Eggman.png",
+    "url": "https://static.wikia.nocookie.net/sonic/images/4/40/CD_Eggman.png/revision/latest/scale-to-width-down/512?cb=20130302195757",
+    "file": "dr-eggman.webp",
+    "bytes": 32254,
+    "alpha": true
+  },
+  "buzz-bomber": {
+    "title": "File:BigBadBuzzBomber.webp",
+    "page": "https://sonic.fandom.com/wiki/BigBadBuzzBomber.webp",
+    "url": "https://static.wikia.nocookie.net/sonic/images/5/5f/BigBadBuzzBomber.webp/revision/latest?cb=20260915024244",
+    "file": "buzz-bomber.webp",
+    "bytes": 36644,
+    "alpha": true
+  },
+  "egg-pawn": {
+    "title": "File:Egg-Pawn-Sonic-Colors-V.png",
+    "page": "https://sonic.fandom.com/wiki/Egg-Pawn-Sonic-Colors-V.png",
+    "url": "https://static.wikia.nocookie.net/sonic/images/8/83/Egg-Pawn-Sonic-Colors-V.png/revision/latest/scale-to-width-down/512?cb=20160510130232",
+    "file": "egg-pawn.webp",
+    "bytes": 26428
+  },
+  "driptooter": {
+    "title": "File:Egg-Pawn-Sonic-Colors-V.png (reused)",
+    "url": "https://static.wikia.nocookie.net/sonic/images/8/83/Egg-Pawn-Sonic-Colors-V.png/revision/latest/scale-to-width-down/512?cb=20160510130232",
+    "file": "driptooter.webp",
+    "bytes": 26428,
+    "reused": true
+  },
+  "grabber": {
+    "title": "File:Grabber.png",
+    "page": "https://sonic.fandom.com/wiki/Grabber.png",
+    "url": "https://static.wikia.nocookie.net/sonic/images/e/ee/Grabber.png/revision/latest?cb=20260712050626",
+    "file": "grabber.webp",
+    "bytes": 35674,
+    "alpha": true
+  },
+  "yadrin": {
+    "title": "File:GD Sonic1 GDC2018 Yadrin.png",
+    "page": "https://sonic.fandom.com/wiki/GD_Sonic1_GDC2018_Yadrin.png",
+    "url": "https://static.wikia.nocookie.net/sonic/images/e/e1/GD_Sonic1_GDC2018_Yadrin.png/revision/latest?cb=20180825143518",
+    "file": "yadrin.webp",
+    "bytes": 55248,
+    "alpha": false
+  },
+  "mantis": {
+    "title": "File:Quasi-Badnik.png",
+    "page": "https://sonic.fandom.com/wiki/Quasi-Badnik.png",
+    "url": "https://static.wikia.nocookie.net/sonic/images/c/c4/Quasi-Badnik.png/revision/latest/scale-to-width-down/512?cb=20260720154040",
+    "file": "mantis.webp",
+    "bytes": 74616
+  },
+  "pengu-bot": {
+    "title": "File:Egg-Pawn-Sonic-Colors-V.png (reused)",
+    "url": "https://static.wikia.nocookie.net/sonic/images/8/83/Egg-Pawn-Sonic-Colors-V.png/revision/latest/scale-to-width-down/512?cb=20160510130232",
+    "file": "pengu-bot.webp",
+    "bytes": 26428,
+    "reused": true
+  },
+  "coconuts": {
+    "title": "File:AoStH Coconuts.png",
+    "page": "https://sonic.fandom.com/wiki/AoStH_Coconuts.png",
+    "url": "https://static.wikia.nocookie.net/sonic/images/6/6e/AoStH_Coconuts.png/revision/latest?cb=20191221030010",
+    "file": "coconuts.webp",
+    "bytes": 41580,
+    "alpha": true
+  },
+  "aquis": {
+    "title": "File:Aquis.png",
+    "page": "https://sonic.fandom.com/wiki/Aquis.png",
+    "url": "https://static.wikia.nocookie.net/sonic/images/0/0e/Aquis.png/revision/latest?cb=20151218135819",
+    "file": "aquis.webp",
+    "bytes": 34030
+  },
+  "jet-propn": {
+    "title": "File:Aquis.png (reused)",
+    "url": "https://static.wikia.nocookie.net/sonic/images/0/0e/Aquis.png/revision/latest?cb=20151218135819",
+    "file": "jet-propn.webp",
+    "bytes": 34030,
+    "reused": true
+  },
+  "krako": {
+    "title": "File:Aquis.png (reused)",
+    "url": "https://static.wikia.nocookie.net/sonic/images/0/0e/Aquis.png/revision/latest?cb=20151218135819",
+    "file": "krako.webp",
+    "bytes": 34030,
+    "reused": true
+  },
+  "swat-bot": {
+    "title": "File:Vol-2-Swat-bot-and-Motobug.png",
+    "page": "https://sonic.fandom.com/wiki/Vol-2-Swat-bot-and-Motobug.png",
+    "url": "https://static.wikia.nocookie.net/sonic/images/a/a4/Vol-2-Swat-bot-and-Motobug.png/revision/latest/scale-to-width-down/512?cb=20101019043733",
+    "file": "swat-bot.webp",
+    "bytes": 137184
+  },
+  "pata-bata": {
+    "title": "File:Pata-Bata-CD-I.png",
+    "page": "https://sonic.fandom.com/wiki/Pata-Bata-CD-I.png",
+    "url": "https://static.wikia.nocookie.net/sonic/images/b/b0/Pata-Bata-CD-I.png/revision/latest?cb=20140104191219",
+    "file": "pata-bata.webp",
+    "bytes": 6732
+  },
+  "butterdroid": {
+    "title": "File:Butterdroid.png",
+    "page": "https://sonic.fandom.com/wiki/Butterdroid.png",
+    "url": "https://static.wikia.nocookie.net/sonic/images/b/b3/Butterdroid.png/revision/latest?cb=20091210212536",
+    "file": "butterdroid.webp",
+    "bytes": 11200
+  },
+  "egg-robo": {
+    "title": "File:Egg Robo 3.png",
+    "page": "https://sonic.fandom.com/wiki/Egg_Robo_3.png",
+    "url": "https://static.wikia.nocookie.net/sonic/images/a/a3/Egg_Robo_3.png/revision/latest?cb=20240928095618",
+    "file": "egg-robo.webp",
+    "bytes": 24934
+  },
+  "silver-sonic": {
+    "title": "File:Silver Sonic.png",
+    "page": "https://sonic.fandom.com/wiki/Silver_Sonic.png",
+    "url": "https://static.wikia.nocookie.net/sonic/images/0/02/Silver_Sonic.png/revision/latest/scale-to-width-down/512?cb=20221110225231",
+    "file": "silver-sonic.webp",
+    "bytes": 79080
+  },
+  "death-egg-robot": {
+    "title": "File:Death Egg Robot merch.png",
+    "page": "https://sonic.fandom.com/wiki/Death_Egg_Robot_merch.png",
+    "url": "https://static.wikia.nocookie.net/sonic/images/5/5a/Death_Egg_Robot_merch.png/revision/latest/scale-to-width-down/512?cb=20210730141412",
+    "file": "death-egg-robot.webp",
+    "bytes": 45530
+  },
+  "metal-sonic": {
+    "title": "File:Metal-Sonic.png",
+    "page": "https://sonic.fandom.com/wiki/Metal-Sonic.png",
+    "url": "https://static.wikia.nocookie.net/sonic/images/e/eb/Metal-Sonic.png/revision/latest?cb=20091215062337",
+    "file": "metal-sonic.webp",
+    "bytes": 22212
+  },
+  "chopper": {
+    "title": "File:Chopper-Murica.png",
+    "page": "https://sonic.fandom.com/wiki/Chopper-Murica.png",
+    "url": "https://static.wikia.nocookie.net/sonic/images/8/84/Chopper-Murica.png/revision/latest?cb=20151214133740",
+    "file": "chopper.webp",
+    "bytes": 32578,
+    "alpha": true
+  },
+  "spiker": {
+    "title": "File:Sonic the Hedgehog 3 - 05 Spiker.png",
+    "page": "https://sonic.fandom.com/wiki/Sonic_the_Hedgehog_3_-_05_Spiker.png",
+    "url": "https://static.wikia.nocookie.net/sonic/images/1/1a/Sonic_the_Hedgehog_3_-_05_Spiker.png/revision/latest?cb=20110916151115",
+    "file": "spiker.webp",
+    "bytes": 29160,
+    "alpha": true
+  },
+  "buzzer": {
+    "title": "File:Buzzer-1.png",
+    "page": "https://sonic.fandom.com/wiki/Buzzer-1.png",
+    "url": "https://static.wikia.nocookie.net/sonic/images/3/3a/Buzzer-1.png/revision/latest?cb=20260712050914",
+    "file": "buzzer.webp",
+    "bytes": 37386
+  },
+  "grounder": {
+    "title": "File:Grounder-and-Rouge-are-best-friends.png",
+    "page": "https://sonic.fandom.com/wiki/Grounder-and-Rouge-are-best-friends.png",
+    "url": "https://static.wikia.nocookie.net/sonic/images/4/45/Grounder-and-Rouge-are-best-friends.png/revision/latest/scale-to-width-down/512?cb=20101001055035",
+    "file": "grounder.webp",
+    "bytes": 39666
+  },
+  "scratch": {
+    "title": "File:Scratch-3.png",
+    "page": "https://sonic.fandom.com/wiki/Scratch-3.png",
+    "url": "https://static.wikia.nocookie.net/sonic/images/2/20/Scratch-3.png/revision/latest?cb=20110123074848",
+    "file": "scratch.webp",
+    "bytes": 92258
+  },
+  "bomber-hawk": {
+    "title": "File:Buzzer-1.png (reused)",
+    "url": "https://static.wikia.nocookie.net/sonic/images/3/3a/Buzzer-1.png/revision/latest?cb=20260712050914",
+    "file": "bomber-hawk.webp",
+    "bytes": 37386,
+    "reused": true
+  },
+  "motobug": {
+    "title": "File:Motobug.png",
+    "page": "https://sonic.fandom.com/wiki/Motobug.png",
+    "url": "https://static.wikia.nocookie.net/sonic/images/e/ef/Motobug.png/revision/latest/scale-to-width-down/512?cb=20150330093812",
+    "file": "motobug.webp",
+    "bytes": 44372
+  }
+}
