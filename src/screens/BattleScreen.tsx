@@ -19,7 +19,7 @@ import { QuestionView } from '../components/QuestionView'
 import { ChestReveal } from '../components/ui/ChestReveal'
 import { Mascot } from '../components/mascots/Mascots'
 import { enemyArt, playerArt } from '../engine/enemyArt'
-import { speak, stopSpeaking } from '../engine/tts'
+import { speakFor, stopSpeaking } from '../engine/tts'
 import { sfx } from '../engine/sfx'
 
 export function BattleScreen({
@@ -69,7 +69,7 @@ export function BattleScreen({
   // auto-play audio prompts once per question
   const q = battle && battle.status === 'active' && !showIntro ? battle.questions[battle.index] : undefined
   useEffect(() => {
-    if (q && 'audioText' in q && q.audioText) speak(q.audioText)
+    if (q && 'audioText' in q && q.audioText) speakFor(subject, q.audioText)
     return () => stopSpeaking()
   }, [q])
 

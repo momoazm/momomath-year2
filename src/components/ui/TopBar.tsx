@@ -6,18 +6,59 @@ import { useAuth } from '../../engine/auth'
 import { sfx } from '../../engine/sfx'
 import type { Subject } from '../../content/types'
 
-const SUBJECTS: { id: Subject; icon: string; label: string; activeBg: string }[] = [
+const CORE_SUBJECTS: { id: Subject; icon: string; label: string; activeBg: string }[] = [
   { id: 'math', icon: '🧮', label: 'Maths', activeBg: 'bg-speed-blue text-white' },
   { id: 'english', icon: '📚', label: 'English', activeBg: 'bg-[#ff9600] text-white' },
   { id: 'science', icon: '🔬', label: 'Science', activeBg: 'bg-emerald-500 text-white' },
 ]
 
+const GERMAN_EXTRA: { id: Subject; icon: string; label: string; activeBg: string } = {
+  id: 'german',
+  icon: '🇩🇪',
+  label: 'Deutsch (optional extra)',
+  activeBg: 'bg-[#00a651] text-white',
+}
+
+const ARABIC_EXTRA: { id: Subject; icon: string; label: string; activeBg: string } = {
+  id: 'arabic',
+  icon: '🇪🇬',
+  label: 'العربية (optional extra)',
+  activeBg: 'bg-[#c09300] text-white',
+}
+
+const RELIGION_EXTRA: { id: Subject; icon: string; label: string; activeBg: string } = {
+  id: 'religion',
+  icon: '🕌',
+  label: 'الدين (optional extra)',
+  activeBg: 'bg-[#0d7a5f] text-white',
+}
+
+const SOCIAL_EXTRA: { id: Subject; icon: string; label: string; activeBg: string } = {
+  id: 'social',
+  icon: '🗺️',
+  label: 'دراسات (optional extra)',
+  activeBg: 'bg-[#b3541e] text-white',
+}
+
 function SubjectSwitch() {
   const subject = usePlayer((s) => s.subject)
   const setSubject = usePlayer((s) => s.setSubject)
+  // Optional extras: German / Arabic / Religion / Social only appear after
+  // opt-in (Profile → Extra adventures) or ?subject=. Core never changes.
+  const germanEnabled = usePlayer((s) => s.germanEnabled)
+  const arabicEnabled = usePlayer((s) => s.arabicEnabled)
+  const religionEnabled = usePlayer((s) => s.religionEnabled)
+  const socialEnabled = usePlayer((s) => s.socialEnabled)
+  const visible = [
+    ...CORE_SUBJECTS,
+    ...(germanEnabled ? [GERMAN_EXTRA] : []),
+    ...(arabicEnabled ? [ARABIC_EXTRA] : []),
+    ...(religionEnabled ? [RELIGION_EXTRA] : []),
+    ...(socialEnabled ? [SOCIAL_EXTRA] : []),
+  ]
   return (
     <div className="flex items-center gap-0.5 rounded-full border border-white bg-white/90 p-0.5 shadow-sm" title="Switch subject">
-      {SUBJECTS.map((s) => (
+      {visible.map((s) => (
         <button
           key={s.id}
           onClick={() => {
@@ -31,6 +72,7 @@ function SubjectSwitch() {
           }`}
           aria-pressed={subject === s.id}
           aria-label={s.label}
+          title={s.label}
         >
           {s.icon}
         </button>

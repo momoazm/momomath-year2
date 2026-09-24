@@ -3,7 +3,7 @@
 // Exit 0 only when every check passes.
 //
 // Covers (PLAN.md steps 15 + 35):
-//   1. v7 seed -> v10 persist migration (arcadeRounds/arcadeBossesDown backfill)
+//   1. v7 seed -> v11 persist migration (arcade counters + extra-subject flags backfill)
 //   2. Phase 7 auth: seeded user opens roadmap (no gate); ?gate=3 forces picker;
 //      clearing user returns the sign-in gate; no guest path
 //   3. subject switching renders unit roadmaps for english/science (no "coming soon")
@@ -42,7 +42,7 @@ const jsClick = async (page, src) =>
     return true
   }, src)
 
-// v7 seed (pre-dust) so the full v7->v10 persist migration runs on the live bundle.
+// v7 seed (pre-dust) so the full v7->v11 persist migration runs on the live bundle.
 // dust/arcadeScores are provided so the dust-shop + XP checks have a balance to spend.
 // cardStars deliberately EXCLUDES fang/bean/bark so the exclusive grant is observable.
 const SEED = {
@@ -113,14 +113,19 @@ async function main() {
   await page.goto(url, { waitUntil: 'domcontentloaded' })
   await page.waitForTimeout(900)
 
-  // --- 1. migration ran: v7 -> v10, arcade counters backfilled ---
+  // --- 1. migration ran: v7 -> v11, arcade counters backfilled ---
   const persisted = await page.evaluate((k) => JSON.parse(localStorage.getItem(k)), PLAYER_KEY)
-  ok('persist migrated to v10', persisted.version === 10, `version=${persisted.version}`)
+  ok('persist migrated to v11', persisted.version === 11, `version=${persisted.version}`)
   const st = persisted.state
   ok(
     'v10 arcade counters backfilled to 0',
     st.arcadeRounds === 0 && st.arcadeBossesDown === 0,
     `arcadeRounds=${st.arcadeRounds} arcadeBossesDown=${st.arcadeBossesDown}`,
+  )
+  ok(
+    'v11 extra-subject flags backfilled off',
+    st.germanEnabled === false && st.arabicEnabled === false && st.religionEnabled === false && st.socialEnabled === false,
+    `german=${st.germanEnabled} arabic=${st.arabicEnabled} religion=${st.religionEnabled} social=${st.socialEnabled}`,
   )
   ok(
     'earlier fields still backfilled (dust/login/arcadeScores)',
@@ -404,11 +409,18 @@ async function main() {
   // --- 5. Library arcade section ---
   // Full page nav (not SPA): wait for the Arcade Exclusives heading, not a fixed 2s.
   await page.evaluate(() => { location.href = location.pathname + '?library&cb=' + Date.now() })
+  await page.waitForLoadState('domcontentloaded').catch(() => {})
   let libReady = false
-  for (let i = 0; i < 20 && !libReady; i++) {
+  for (let i = 0; i < 40 && !libReady; i++) {
     await page.waitForTimeout(250)
-    libReady = await page.evaluate(() => document.body.innerText.includes('🕹️ Arcade Exclusives'))
+    try {
+      libReady = await page.evaluate(() => document.body.innerText.includes('🕹️ Arcade Exclusives'))
+    } catch {
+      // navigation still in flight — execution context destroyed; retry
+      libReady = false
+    }
   }
+  await page.waitForTimeout(500)
   await shot(page, '08-library')
   const lib = await page.evaluate(() => {
     const body = document.body.innerText

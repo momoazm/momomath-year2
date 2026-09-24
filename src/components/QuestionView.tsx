@@ -2,7 +2,8 @@ import { useMemo, useState } from 'react'
 import type { Question, VisualSpec } from '../content/types'
 import { correctAnswerText } from '../engine/questionText'
 import { gradeSpeak } from '../engine/speakGrade'
-import { speak } from '../engine/tts'
+import { speakFor } from '../engine/tts'
+import { usePlayer } from '../engine/store'
 
 export interface GradeResult {
   correct: boolean
@@ -64,6 +65,7 @@ function shuffle<T>(arr: T[], seed: number): T[] {
 }
 
 export function QuestionView({ q, disabled, onSubmit }: Props) {
+  const subject = usePlayer((s) => s.subject)
   const correctAnswer = correctAnswerText(q)
   const [typed, setTyped] = useState('')
   const [tapSel, setTapSel] = useState<number[]>([])
@@ -354,7 +356,7 @@ export function QuestionView({ q, disabled, onSubmit }: Props) {
         {q.targetText}
       </p>
       <div className="mt-2 flex flex-wrap justify-center gap-2">
-        <button className="btn3d btn-blue !py-2 !text-base" onClick={() => speak(q.targetText)}>
+        <button className="btn3d btn-blue !py-2 !text-base" onClick={() => speakFor(subject, q.targetText)}>
           🔊 Hear it
         </button>
         {hasRecog && (
