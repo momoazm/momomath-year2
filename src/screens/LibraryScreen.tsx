@@ -171,10 +171,20 @@ function ArcadeExclusives({
                     border: '2px solid #f59e0b',
                   }}
                 >
-                  <span className="text-2xl">🔒</span>
-                  <p className="mt-1 font-display text-[11px] font-extrabold text-amber-600">Exclusive</p>
-                  <p className="mt-1 text-[9px] font-bold leading-tight text-slate-500">{goalText(card.id)}</p>
-                  <p className="mt-1 font-display text-[10px] font-extrabold text-amber-600">{progressText(card.id)}</p>
+                  <img
+                    src={cardImageUrl(card)}
+                    alt=""
+                    aria-hidden="true"
+                    loading="lazy"
+                    onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
+                    className="absolute inset-0 h-full w-full object-contain p-3 opacity-40 grayscale pointer-events-none"
+                  />
+                  <div className="relative z-10 flex flex-col items-center">
+                    <span className="text-2xl">🔒</span>
+                    <p className="mt-1 font-display text-[11px] font-extrabold text-amber-600">Exclusive</p>
+                    <p className="mt-1 text-[9px] font-bold leading-tight text-slate-500">{goalText(card.id)}</p>
+                    <p className="mt-1 font-display text-[10px] font-extrabold text-amber-600">{progressText(card.id)}</p>
+                  </div>
                 </div>
               )}
             </motion.button>
@@ -274,31 +284,41 @@ function CardGrid({ cards, isOwned, onCardClick, getHiddenCardStyle, cardStars }
                     boxShadow: `inset 0 0 40px ${meta.glowColor}`,
                   }}
                 >
-                  <div
-                    className="w-16 h-16 rounded-full mb-3 flex items-center justify-center"
-                    style={{
-                      background: meta.color,
-                      boxShadow: `0 0 30px ${meta.glowColor}`,
-                    }}
-                  >
-                    <span className="text-3xl">❓</span>
+                  <img
+                    src={cardImageUrl(card)}
+                    alt=""
+                    aria-hidden="true"
+                    loading="lazy"
+                    onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
+                    className="absolute inset-0 h-full w-full object-contain p-6 opacity-40 grayscale pointer-events-none"
+                  />
+                  <div className="relative z-10 flex flex-col items-center">
+                    <div
+                      className="w-16 h-16 rounded-full mb-3 flex items-center justify-center"
+                      style={{
+                        background: meta.color,
+                        boxShadow: `0 0 30px ${meta.glowColor}`,
+                      }}
+                    >
+                      <span className="text-3xl">❓</span>
+                    </div>
+                    <p className="font-display text-lg font-extrabold text-center"
+                       style={{ color: meta.color }}>
+                      {meta.label}
+                    </p>
+                    <p className="font-display text-xs font-bold text-center mt-1 opacity-70"
+                       style={{ color: meta.color }}>
+                      {card.tier.charAt(0).toUpperCase() + card.tier.slice(1)} Card
+                    </p>
+                    <div className="mt-2 flex justify-center gap-0.5" aria-label="0 out of 5 stars">
+                      {[1, 2, 3, 4, 5].map((s) => (
+                        <span key={s} className="text-sm text-slate-300">★</span>
+                      ))}
+                    </div>
+                    <p className="font-display text-xs text-center mt-2 opacity-60">
+                      Win to unlock · 0★
+                    </p>
                   </div>
-                  <p className="font-display text-lg font-extrabold text-center"
-                     style={{ color: meta.color }}>
-                    {meta.label}
-                  </p>
-                  <p className="font-display text-xs font-bold text-center mt-1 opacity-70"
-                     style={{ color: meta.color }}>
-                    {card.tier.charAt(0).toUpperCase() + card.tier.slice(1)} Card
-                  </p>
-                  <div className="mt-2 flex justify-center gap-0.5" aria-label="0 out of 5 stars">
-                    {[1, 2, 3, 4, 5].map((s) => (
-                      <span key={s} className="text-sm text-slate-300">★</span>
-                    ))}
-                  </div>
-                  <p className="font-display text-xs text-center mt-2 opacity-60">
-                    Win to unlock · 0★
-                  </p>
                 </motion.div>
               )}
             </AnimatePresence>
