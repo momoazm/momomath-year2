@@ -41,6 +41,15 @@ interface PlayerState {
   name: string
   mascot: MascotId
   subject: Subject
+  /** Optional DLC-style extras. German / Arabic / Religion / Social never
+   *  appear unless the player opts in (Profile "Extra adventures") or opens
+   *  ?subject=<extra>. Local-only — not in the cloudsave field whitelist
+   *  (but `subject` itself syncs, and applySyncedSnapshot auto-enables the
+   *  matching flag when a remote save lands on an extra). */
+  germanEnabled: boolean
+  arabicEnabled: boolean
+  religionEnabled: boolean
+  socialEnabled: boolean
   xpTotal: number
   gems: number
   streakCurrent: number
@@ -121,6 +130,10 @@ interface PlayerState {
   setName: (n: string) => void
   setMascot: (m: MascotId) => void
   setSubject: (s: Subject) => void
+  setGermanEnabled: (v: boolean) => void
+  setArabicEnabled: (v: boolean) => void
+  setReligionEnabled: (v: boolean) => void
+  setSocialEnabled: (v: boolean) => void
   setOnboarded: () => void
   addGems: (n: number) => void
   toggleSound: () => void
@@ -479,18 +492,40 @@ export function updateStreak(
 
 const firstDay = todayISO()
 
+type ExtraKey = 'germanEnabled' | 'arabicEnabled' | 'religionEnabled' | 'socialEnabled'
+type ExtraSubject = 'german' | 'arabic' | 'religion' | 'social'
+
+function initialSubjectFromUrl(): Subject {
+  if (typeof window === 'undefined') return 'math'
+  const q = new URLSearchParams(window.location.search).get('subject')
+  if (q === 'english' || q === 'science' || q === 'german' || q === 'arabic' || q === 'religion' || q === 'social') return q
+  return 'math'
+}
+
+function initialExtraEnabled(key: ExtraKey, subject: ExtraSubject): boolean {
+  if (typeof window === 'undefined') return false
+  try {
+    const raw = window.localStorage.getItem('momomath-year2-player-v2')
+    if (raw) {
+      const parsed = JSON.parse(raw) as { state?: Record<string, unknown> }
+      if (typeof parsed?.state?.[key] === 'boolean') return parsed.state[key] as boolean
+    }
+  } catch {
+    /* fall through to URL check */
+  }
+  return new URLSearchParams(window.location.search).get('subject') === subject
+}
+
 export const usePlayer = create<PlayerState>()(
   persist(
     (set, get) => ({
       name: 'Champion',
       mascot: 'sonic' as MascotId,
-      subject:
-        typeof window !== 'undefined' &&
-        ['english', 'science'].includes(
-          new URLSearchParams(window.location.search).get('subject') ?? '',
-        )
-          ? (new URLSearchParams(window.location.search).get('subject') as Subject)
-          : ('math' as Subject),
+      subject: initialSubjectFromUrl(),
+      germanEnabled: initialExtraEnabled('germanEnabled', 'german'),
+      arabicEnabled: initialExtraEnabled('arabicEnabled', 'arabic'),
+      religionEnabled: initialExtraEnabled('religionEnabled', 'religion'),
+      socialEnabled: initialExtraEnabled('socialEnabled', 'social'),
       xpTotal: 0,
       gems: 50,
       streakCurrent: 0,
@@ -590,12 +625,40 @@ export const usePlayer = create<PlayerState>()(
       setSubject: (s) => {
         if (typeof window !== 'undefined') {
           const url = new URL(window.location.href)
-          if (s === 'english' || s === 'science') url.searchParams.set('subject', s)
+          if (s !== 'math') url.searchParams.set('subject', s)
           else url.searchParams.delete('subject')
           window.history.replaceState(null, '', url)
         }
-        set({ subject: s })
+        // Deep-linking / picking an extra auto-enables it so a hidden pill
+        // can never strand the player on an extra roadmap.
+        if (s === 'german') set({ subject: s, germanEnabled: true })
+        else if (s === 'arabic') set({ subject: s, arabicEnabled: true })
+        else if (s === 'religion') set({ subject: s, religionEnabled: true })
+        else if (s === 'social') set({ subject: s, socialEnabled: true })
+        else set({ subject: s })
       },
+      setGermanEnabled: (v) =>
+        set((state) => {
+          // Turning the extra off while viewing it falls back to Maths so the
+          // roadmap never points at a hidden subject.
+          if (!v && state.subject === 'german') return { germanEnabled: false, subject: 'math' as Subject }
+          return { germanEnabled: v }
+        }),
+      setArabicEnabled: (v) =>
+        set((state) => {
+          if (!v && state.subject === 'arabic') return { arabicEnabled: false, subject: 'math' as Subject }
+          return { arabicEnabled: v }
+        }),
+      setReligionEnabled: (v) =>
+        set((state) => {
+          if (!v && state.subject === 'religion') return { religionEnabled: false, subject: 'math' as Subject }
+          return { religionEnabled: v }
+        }),
+      setSocialEnabled: (v) =>
+        set((state) => {
+          if (!v && state.subject === 'social') return { socialEnabled: false, subject: 'math' as Subject }
+          return { socialEnabled: v }
+        }),
       setOnboarded: () => set({ onboarded: true }),
       addGems: (n) => set((state) => ({ gems: state.gems + n })),
       toggleSound: () =>
@@ -777,7 +840,16 @@ export const usePlayer = create<PlayerState>()(
             typeof b === 'number' && Number.isFinite(b) ? Math.max(a, b) : undefined
           if (typeof snap.name === 'string' && snap.name) next.name = snap.name
           if (snap.mascot) next.mascot = snap.mascot
-          if (snap.subject) next.subject = snap.subject
+          if (snap.subject) {
+            next.subject = snap.subject
+            // The *Enabled flags are local-only (not synced), so a remote
+            // subject that IS an extra must auto-enable its flag here —
+            // otherwise device B lands on the extra roadmap with no pill.
+            if (snap.subject === 'german') next.germanEnabled = true
+            else if (snap.subject === 'arabic') next.arabicEnabled = true
+            else if (snap.subject === 'religion') next.religionEnabled = true
+            else if (snap.subject === 'social') next.socialEnabled = true
+          }
           if (typeof snap.dailyGoal === 'number') next.dailyGoal = snap.dailyGoal
           if (typeof snap.onboarded === 'boolean') next.onboarded = snap.onboarded
           if (typeof snap.soundOn === 'boolean') next.soundOn = snap.soundOn
@@ -971,7 +1043,7 @@ export const usePlayer = create<PlayerState>()(
     }),
     {
       name: 'momomath-year2-player-v2',
-      version: 10,
+      version: 11,
       migrate: (persisted, version) => {
         const p = { ...(persisted as PlayerState) }
         if (version < 4) {
@@ -1025,6 +1097,41 @@ export const usePlayer = create<PlayerState>()(
           // grants themselves sync via cloudsave as normal keys).
           p.arcadeRounds = typeof p.arcadeRounds === 'number' ? p.arcadeRounds : 0
           p.arcadeBossesDown = typeof p.arcadeBossesDown === 'number' ? p.arcadeBossesDown : 0
+        }
+        if (version < 11) {
+          // v11: optional subject extras (Deutsch / العربية / الدين / دراسات)
+          // opt-in flags. Backfill off, except when the save is already parked
+          // on that extra or the URL deep-links into it.
+          const urlSubject =
+            typeof window !== 'undefined'
+              ? new URLSearchParams(window.location.search).get('subject')
+              : null
+          const valid: Subject[] = ['math', 'english', 'science', 'german', 'arabic', 'religion', 'social']
+          const urlValid =
+            urlSubject && (valid as string[]).includes(urlSubject) ? (urlSubject as Subject) : null
+          // Repair a missing/unknown subject. A save that predates the field
+          // (or is corrupt) must NOT clobber a valid ?subject= deep link —
+          // prefer the URL, else fall back to Maths.
+          if (!valid.includes(p.subject)) p.subject = urlValid ?? 'math'
+          const extras: { flag: ExtraKey; subject: ExtraSubject }[] = [
+            { flag: 'germanEnabled', subject: 'german' },
+            { flag: 'arabicEnabled', subject: 'arabic' },
+            { flag: 'religionEnabled', subject: 'religion' },
+            { flag: 'socialEnabled', subject: 'social' },
+          ]
+          for (const { flag, subject } of extras) {
+            p[flag] = p[flag] === true || p.subject === subject || urlValid === subject
+          }
+          // An extra subject whose flag is off (and no URL deep-link) would
+          // render a roadmap with no visible way to switch away — fall back.
+          if (
+            (p.subject === 'german' && !p.germanEnabled) ||
+            (p.subject === 'arabic' && !p.arabicEnabled) ||
+            (p.subject === 'religion' && !p.religionEnabled) ||
+            (p.subject === 'social' && !p.socialEnabled)
+          ) {
+            p.subject = 'math'
+          }
         }
         return p
       },

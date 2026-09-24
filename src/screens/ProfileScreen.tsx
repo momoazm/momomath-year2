@@ -89,6 +89,191 @@ export function ProfileScreen() {
         </div>
       </section>
 
+      {/* optional extras: Deutsch + Arabic (Egyptian Tawassol Grade 2).
+          Opt-in DLC — never forced, never in the core toggle until enabled.
+          Shared XP/gems/league economy when on. */}
+      <section className="card-white mt-4 border-l-4 border-l-[#00a651]">
+        <p className="font-display text-sm font-bold uppercase tracking-wide text-slate-400">
+          Extra adventures · optional
+        </p>
+        <div className="mt-2 flex items-center gap-3">
+          <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-green-50 text-2xl">🇩🇪</span>
+          <div className="min-w-0 flex-1">
+            <p className="font-display font-extrabold text-slate-700">Deutsch mit Felix &amp; Franzi</p>
+            <p className="text-xs font-semibold text-slate-500">
+              Beginner German extra (10 units · Hallo! → Feste). Off by default — turn on to add 🇩🇪 to the top-bar switch.
+            </p>
+          </div>
+        </div>
+        <div className="mt-3 flex gap-2">
+          {!s.germanEnabled ? (
+            <button
+              onClick={() => { sfx.tap(); s.setGermanEnabled(true) }}
+              className="btn3d btn-green flex-1 !px-3 !py-2.5 !text-sm"
+            >
+              ➕ Add Deutsch
+            </button>
+          ) : (
+            <>
+              <button
+                onClick={() => { sfx.tap(); s.setSubject('german') }}
+                className="btn3d btn-green flex-1 !px-3 !py-2.5 !text-sm"
+              >
+                ▶ Play Deutsch
+              </button>
+              <button
+                onClick={() => { sfx.tap(); s.setGermanEnabled(false) }}
+                className="btn3d btn-grey flex-1 !px-3 !py-2.5 !text-sm"
+                title="Hide the German extra (progress is kept)"
+              >
+                Remove
+              </button>
+            </>
+          )}
+        </div>
+        {s.germanEnabled && s.subject === 'german' && (
+          <p className="mt-2 text-xs font-bold text-emerald-600">🇩🇪 Deutsch is on — switch anytime in the top bar!</p>
+        )}
+      </section>
+
+      {/* optional extra: Arabic (Egyptian Tawassol Grade 2, full year T1+T2).
+          Same opt-in DLC model as German. Lesson keys are `a*`. */}
+      <section className="card-white mt-4 border-l-4 border-l-[#c09300]">
+        <p className="font-display text-sm font-bold uppercase tracking-wide text-slate-400">
+          Extra adventures · optional
+        </p>
+        <div className="mt-2 flex items-center gap-3">
+          <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-amber-50 text-2xl">🇪🇬</span>
+          <div className="min-w-0 flex-1">
+            <p className="font-display font-extrabold text-slate-700">العربية · Egyptian Grade 2</p>
+            <p className="text-xs font-semibold text-slate-500">
+              Arabic extra (10 units · الحروف → أكتب وأعبّر). Off by default — turn on to add 🇪🇬 to the top-bar switch.
+            </p>
+          </div>
+        </div>
+        <div className="mt-3 flex gap-2">
+          {!s.arabicEnabled ? (
+            <button
+              onClick={() => { sfx.tap(); s.setArabicEnabled(true) }}
+              className="btn3d btn-green flex-1 !px-3 !py-2.5 !text-sm"
+            >
+              ➕ Add العربية
+            </button>
+          ) : (
+            <>
+              <button
+                onClick={() => { sfx.tap(); s.setSubject('arabic') }}
+                className="btn3d btn-green flex-1 !px-3 !py-2.5 !text-sm"
+              >
+                ▶ Play العربية
+              </button>
+              <button
+                onClick={() => { sfx.tap(); s.setArabicEnabled(false) }}
+                className="btn3d btn-grey flex-1 !px-3 !py-2.5 !text-sm"
+                title="Hide the Arabic extra (progress is kept)"
+              >
+                Remove
+              </button>
+            </>
+          )}
+        </div>
+        {s.arabicEnabled && s.subject === 'arabic' && (
+          <p className="mt-2 text-xs font-bold text-emerald-600">🇪🇬 العربية is on — switch anytime in the top bar!</p>
+        )}
+      </section>
+
+      {/* optional extra: Islamic religion (Egyptian govt Grade 2, T1+T2).
+          Same opt-in DLC model. Lesson keys are `r*`. */}
+      <section className="card-white mt-4 border-l-4 border-l-[#0d7a5f]">
+        <p className="font-display text-sm font-bold uppercase tracking-wide text-slate-400">
+          Extra adventures · optional
+        </p>
+        <div className="mt-2 flex items-center gap-3">
+          <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-50 text-2xl">🕌</span>
+          <div className="min-w-0 flex-1">
+            <p className="font-display font-extrabold text-slate-700">التربية الدينية · Grade 2</p>
+            <p className="text-xs font-semibold text-slate-500">
+              Religion extra (6 units · الله ربي → أخلاق المسلم). Off by default — turn on to add 🕌 to the top-bar switch.
+            </p>
+          </div>
+        </div>
+        <div className="mt-3 flex gap-2">
+          {!s.religionEnabled ? (
+            <button
+              onClick={() => { sfx.tap(); s.setReligionEnabled(true) }}
+              className="btn3d btn-green flex-1 !px-3 !py-2.5 !text-sm"
+            >
+              ➕ Add الدين
+            </button>
+          ) : (
+            <>
+              <button
+                onClick={() => { sfx.tap(); s.setSubject('religion') }}
+                className="btn3d btn-green flex-1 !px-3 !py-2.5 !text-sm"
+              >
+                ▶ Play الدين
+              </button>
+              <button
+                onClick={() => { sfx.tap(); s.setReligionEnabled(false) }}
+                className="btn3d btn-grey flex-1 !px-3 !py-2.5 !text-sm"
+                title="Hide the religion extra (progress is kept)"
+              >
+                Remove
+              </button>
+            </>
+          )}
+        </div>
+        {s.religionEnabled && s.subject === 'religion' && (
+          <p className="mt-2 text-xs font-bold text-emerald-600">🕌 الدين is on — switch anytime in the top bar!</p>
+        )}
+      </section>
+
+      {/* optional extra: Social studies (Discover-based Egypt Grade 2).
+          Same opt-in DLC model. Lesson keys are `d*`. */}
+      <section className="card-white mt-4 border-l-4 border-l-[#b3541e]">
+        <p className="font-display text-sm font-bold uppercase tracking-wide text-slate-400">
+          Extra adventures · optional
+        </p>
+        <div className="mt-2 flex items-center gap-3">
+          <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-orange-50 text-2xl">🗺️</span>
+          <div className="min-w-0 flex-1">
+            <p className="font-display font-extrabold text-slate-700">الدراسات · Grade 2</p>
+            <p className="text-xs font-semibold text-slate-500">
+              Social extra (6 units · مصر بلدي → مجتمعي). Off by default — turn on to add 🗺️ to the top-bar switch.
+            </p>
+          </div>
+        </div>
+        <div className="mt-3 flex gap-2">
+          {!s.socialEnabled ? (
+            <button
+              onClick={() => { sfx.tap(); s.setSocialEnabled(true) }}
+              className="btn3d btn-green flex-1 !px-3 !py-2.5 !text-sm"
+            >
+              ➕ Add دراسات
+            </button>
+          ) : (
+            <>
+              <button
+                onClick={() => { sfx.tap(); s.setSubject('social') }}
+                className="btn3d btn-green flex-1 !px-3 !py-2.5 !text-sm"
+              >
+                ▶ Play دراسات
+              </button>
+              <button
+                onClick={() => { sfx.tap(); s.setSocialEnabled(false) }}
+                className="btn3d btn-grey flex-1 !px-3 !py-2.5 !text-sm"
+                title="Hide the social extra (progress is kept)"
+              >
+                Remove
+              </button>
+            </>
+          )}
+        </div>
+        {s.socialEnabled && s.subject === 'social' && (
+          <p className="mt-2 text-xs font-bold text-emerald-600">🗺️ دراسات is on — switch anytime in the top bar!</p>
+        )}
+      </section>
+
       {/* account */}
       <section className="card-white mt-4">
         <p className="font-display text-sm font-bold uppercase tracking-wide text-slate-400">Google account</p>

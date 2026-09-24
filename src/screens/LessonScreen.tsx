@@ -7,7 +7,7 @@ import { isLessonRedo, crownsEarned } from '../engine/path'
 import { usePlayer } from '../engine/store'
 import { rollChest, type ChestContext, type ChestResult } from '../engine/cards'
 import { chestGemMultiplier } from '../engine/shop'
-import { speak, speakSlow, stopSpeaking, ttsAvailable } from '../engine/tts'
+import { speakFor, speakSlowFor, stopSpeaking, ttsAvailable } from '../engine/tts'
 import { Mascot } from '../components/mascots/Mascots'
 import { ChestReveal } from '../components/ui/ChestReveal'
 import { sfx } from '../engine/sfx'
@@ -222,7 +222,7 @@ export function LessonScreen({ lessonId, onExit }: { lessonId: string; onExit: (
 
   // auto-play audio prompts once per question; stop any speech on unmount
   useEffect(() => {
-    if (q && 'audioText' in q && q.audioText) speak(q.audioText)
+    if (q && 'audioText' in q && q.audioText) speakFor(subject, q.audioText)
     return () => stopSpeaking()
   }, [q])
 
@@ -562,18 +562,19 @@ function StoryPanelView({ panel }: { panel: StoryPanel }) {
 }
 
 function AudioBar({ audioText }: { audioText: string }) {
+  const subject = usePlayer((s) => s.subject)
   if (!ttsAvailable()) return null
   return (
     <div className="mx-auto mt-2 flex w-fit items-center gap-2">
       <button
-        onClick={() => { sfx.tap('audio'); speak(audioText) }}
+        onClick={() => { sfx.tap('audio'); speakFor(subject, audioText) }}
         className="btn3d btn-blue flex items-center gap-2 !px-5 !py-3 text-xl"
         title="Play again"
       >
         🔊 Listen
       </button>
       <button
-        onClick={() => { sfx.tap('slow'); speakSlow(audioText) }}
+        onClick={() => { sfx.tap('slow'); speakSlowFor(subject, audioText) }}
         className="btn3d btn-grey !px-4 !py-3 text-xl"
         title="Slow replay (turtle mode)"
       >
