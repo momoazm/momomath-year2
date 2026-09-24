@@ -409,11 +409,18 @@ async function main() {
   // --- 5. Library arcade section ---
   // Full page nav (not SPA): wait for the Arcade Exclusives heading, not a fixed 2s.
   await page.evaluate(() => { location.href = location.pathname + '?library&cb=' + Date.now() })
+  await page.waitForLoadState('domcontentloaded').catch(() => {})
   let libReady = false
-  for (let i = 0; i < 20 && !libReady; i++) {
+  for (let i = 0; i < 40 && !libReady; i++) {
     await page.waitForTimeout(250)
-    libReady = await page.evaluate(() => document.body.innerText.includes('🕹️ Arcade Exclusives'))
+    try {
+      libReady = await page.evaluate(() => document.body.innerText.includes('🕹️ Arcade Exclusives'))
+    } catch {
+      // navigation still in flight — execution context destroyed; retry
+      libReady = false
+    }
   }
+  await page.waitForTimeout(500)
   await shot(page, '08-library')
   const lib = await page.evaluate(() => {
     const body = document.body.innerText
