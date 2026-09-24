@@ -6,6 +6,7 @@ import { usePlayer } from '../../engine/store'
 import { ARCADE_CARD_BY_ID, ARCADE_CARD_GOALS, cardImageUrl } from '../../engine/cards'
 import { sfx } from '../../engine/sfx'
 import { makeMathQuestion, type ArcadeQ } from '../../content/arcadeMath'
+import { Mascot } from '../mascots/Mascots'
 
 /* ---------------- tunables (exported for tests) ---------------- */
 
@@ -16,21 +17,26 @@ export const RUN = {
   STAGE_H: 200,
   GROUND_H: 40, // px of STAGE_H → 20% bottom band
   PLAYER_X: 56,
-  PLAYER_W: 22,
+  PLAYER_W: 26, // square-ish so the Sonic art isn't squashed
   PLAYER_H: 26,
   SPEED: 3.0, // camera px per 60fps frame
-  GRAVITY: 0.55,
-  /** initial upward velocity — POSITIVE because py = height above ground */
-  JUMP_V: 9.6,
+  GRAVITY: 0.6,
+  /** initial upward velocity — POSITIVE because py = height above ground.
+   *  apex = JUMP_V²/(2·GRAVITY) ≈ 87px — comfortably clears the h=52 coin arc. */
+  JUMP_V: 10.2,
   FINISH_X: 6400,
   GATE_EVERY: 800,
   SPIKE_MIN: 280,
   SPIKE_MAX: 470,
-  COIN_EVERY: 360,
   INVULN_FRAMES: 80,
   COIN_SCORE: 10,
-  GATE_SCORE: 20,
+  /** clearing a gate: big points + a shield (see SHIELD_FRAMES) */
+  GATE_SCORE: 50,
   GATE_COINS: 30,
+  /** wrong gate answer also costs this many points (floored at 0) */
+  WRONG_PENALTY: 30,
+  /** correct-answer shield duration (frames @60fps) — spikes pass right through */
+  SHIELD_FRAMES: 240,
   FINISH_BONUS: 100,
 } as const
 
@@ -46,15 +52,90 @@ export const GATE_COUNT = (() => {
   return n
 })()
 
-/** Pure score: distance/10 + coins + gates + finish bonus. */
+/** Pure score: distance/10 + coins + gates + finish − wrong-answer penalty. */
 export function computeRunScore(
   worldX: number,
   coins: number,
   gatesCleared: number,
   finished: boolean,
+  wrongs = 0,
 ): number {
   const dist = Math.max(0, Math.floor(worldX / 10))
-  return dist + coins * RUN.COIN_SCORE + gatesCleared * RUN.GATE_SCORE + (finished ? RUN.FINISH_BONUS : 0)
+  const raw =
+    dist +
+    coins * RUN.COIN_SCORE +
+    gatesCleared * RUN.GATE_SCORE +
+    (finished ? RUN.FINISH_BONUS : 0) -
+    wrongs * RUN.WRONG_PENALTY
+  return Math.max(0, raw)
+}
+
+/* ---------------- level layout (pure, testable) ---------------- */
+
+export const GATE_CLEAR = 80 // keep features this far from a gate on each side
+export const SPIKE_W = 18
+export const COIN_SIZE = 16
+export const COIN_SPACING = 24
+export const COIN_HEIGHTS = [8, 34, 52, 34, 8] as const
+/** arc span (first coin x → last coin x + size) */
+export const COIN_ARC_W = (COIN_HEIGHTS.length - 1) * COIN_SPACING + COIN_SIZE
+/** gap after a coin arc before the next feature — landing is always safe */
+export const COIN_GAP_AFTER = 130
+
+export type RunEnt =
+  | { kind: 'spike'; x: number }
+  | { kind: 'coin'; x: number; h: number; got: boolean }
+
+/**
+ * Sequential feature planner: spikes and coin arcs share ONE cursor, so a
+ * coin arc can never overlap or lead straight into a spike, and nothing is
+ * placed inside a gate's clearance zone. `rand` is injectable for tests.
+ */
+export function planFeatures(
+  rand: () => number,
+  fromX: number,
+  untilX: number,
+): { ents: RunEnt[]; nextX: number } {
+  const ents: RunEnt[] = []
+  let x = fromX
+  const limit = Math.min(untilX, RUN.FINISH_X - 140)
+
+  /** push x forward until [x, x+w] is clear of every gate zone */
+  const clearOfGates = (start: number, w: number): number => {
+    let fx = start
+    for (let pass = 0; pass < 3; pass++) {
+      let moved = false
+      for (let i = 0; i < GATE_COUNT; i++) {
+        const g = gateX(i)
+        if (fx < g + GATE_CLEAR && fx + w > g - GATE_CLEAR) {
+          fx = g + GATE_CLEAR
+          moved = true
+        }
+      }
+      if (!moved) break
+    }
+    return fx
+  }
+
+  while (x < limit) {
+    const isSpike = rand() < 0.45
+    const w = isSpike ? SPIKE_W : COIN_ARC_W
+    const fx = clearOfGates(x, w)
+    if (fx >= limit) {
+      x = fx
+      break
+    }
+    if (isSpike) {
+      ents.push({ kind: 'spike', x: fx })
+      x = fx + RUN.SPIKE_MIN + rand() * (RUN.SPIKE_MAX - RUN.SPIKE_MIN)
+    } else {
+      for (let i = 0; i < COIN_HEIGHTS.length; i++) {
+        ents.push({ kind: 'coin', x: fx + i * COIN_SPACING, h: COIN_HEIGHTS[i], got: false })
+      }
+      x = fx + COIN_ARC_W + COIN_GAP_AFTER + rand() * 90
+    }
+  }
+  return { ents, nextX: x }
 }
 
 /* ---------------- run state ---------------- */
@@ -73,12 +154,13 @@ type Run = {
   onGround: boolean
   coins: number
   gatesOk: number
+  wrongs: number
+  shield: number // remaining frames of correct-answer shield
   finished: boolean
   invuln: number
   lives: number
   ents: Ent[]
-  nextSpikeX: number
-  nextCoinX: number
+  nextX: number // sequential feature cursor (spikes + coins)
   nextGateI: number
   activeGate: GateEnt | null
 }
@@ -91,63 +173,16 @@ function freshRun(): Run {
     onGround: true,
     coins: 0,
     gatesOk: 0,
+    wrongs: 0,
+    shield: 0,
     finished: false,
     invuln: 0,
     lives: 3,
     ents: [],
-    nextSpikeX: 700,
-    nextCoinX: 420,
+    nextX: 700,
     nextGateI: 0,
     activeGate: null,
   }
-}
-
-/** Pixel runner — inline SVG, no image assets. `frame` alternates the legs. */
-function PixelRunner({ frame, blink }: { frame: number; blink: boolean }) {
-  const skin = '#fbbf24'
-  const shirt = '#2563eb'
-  const shirtDark = '#1d4ed8'
-  const pants = '#1f2937'
-  const outline = '#1f2430'
-  return (
-    <svg
-      viewBox="0 0 12 12"
-      shapeRendering="crispEdges"
-      className="h-full w-full"
-      style={{ opacity: blink ? 0.35 : 1 }}
-      aria-label="Runner"
-    >
-      {/* head */}
-      <rect x="4" y="0" width="5" height="4" fill={skin} />
-      <rect x="4" y="0" width="5" height="1" fill="#78350f" />
-      <rect x="7" y="2" width="1" height="1" fill={outline} />
-      {/* body */}
-      <rect x="3" y="4" width="6" height="4" fill={shirt} />
-      <rect x="3" y="7" width="6" height="1" fill={shirtDark} />
-      {/* arms */}
-      <rect x="9" y="4" width="2" height="3" fill={skin} />
-      <rect x="1" y="5" width="2" height="3" fill={skin} />
-      {/* legs — alternate frames for a run cycle */}
-      {frame % 2 === 0 ? (
-        <>
-          <rect x="3" y="8" width="2" height="3" fill={pants} />
-          <rect x="7" y="8" width="3" height="2" fill={pants} />
-          <rect x="2" y="11" width="3" height="1" fill={outline} />
-          <rect x="8" y="10" width="3" height="1" fill={outline} />
-        </>
-      ) : (
-        <>
-          <rect x="2" y="8" width="3" height="2" fill={pants} />
-          <rect x="7" y="8" width="2" height="3" fill={pants} />
-          <rect x="1" y="10" width="3" height="1" fill={outline} />
-          <rect x="7" y="11" width="3" height="1" fill={outline} />
-        </>
-      )}
-      {/* outline */}
-      <rect x="4" y="0" width="5" height="4" fill="none" stroke={outline} strokeWidth="0.5" />
-      <rect x="3" y="4" width="6" height="4" fill="none" stroke={outline} strokeWidth="0.5" />
-    </svg>
-  )
 }
 
 function SpikeSprite() {
@@ -204,7 +239,7 @@ export function PixelRun({ game, onExit }: { game: ArcadeGameDef; onExit: () => 
     if (submitted.current) return
     submitted.current = true
     const r = run.current
-    const score = computeRunScore(r.worldX, r.coins, r.gatesOk, r.finished)
+    const score = computeRunScore(r.worldX, r.coins, r.gatesOk, r.finished, r.wrongs)
     setFinalScore(score)
     setPhase('over')
     setGateQ(null)
@@ -278,27 +313,21 @@ export function PixelRun({ game, onExit }: { game: ArcadeGameDef; onExit: () => 
           r.onGround = true
         }
         if (r.invuln > 0) r.invuln -= dt
+        if (r.shield > 0) r.shield -= dt
 
         const pwx = r.worldX + RUN.PLAYER_X // player world x
         const ahead = r.worldX + RUN.STAGE_W + 120
 
-        // spawn gates
+        // spawn gates (fixed rhythm)
         while (r.nextGateI < GATE_COUNT && gateX(r.nextGateI) <= ahead) {
           r.ents.push({ kind: 'gate', x: gateX(r.nextGateI), passed: false })
           r.nextGateI++
         }
-        // spawn spikes + coin arcs before them
-        while (r.nextSpikeX <= ahead && r.nextSpikeX < RUN.FINISH_X - 140) {
-          r.ents.push({ kind: 'spike', x: r.nextSpikeX })
-          r.nextSpikeX += RUN.SPIKE_MIN + Math.random() * (RUN.SPIKE_MAX - RUN.SPIKE_MIN)
-        }
-        // spawn standalone coin arcs
-        while (r.nextCoinX <= ahead && r.nextCoinX < RUN.FINISH_X - 80) {
-          const heights = [8, 34, 52, 34, 8]
-          for (let i = 0; i < heights.length; i++) {
-            r.ents.push({ kind: 'coin', x: r.nextCoinX + i * 22, h: heights[i], got: false })
-          }
-          r.nextCoinX += RUN.COIN_EVERY + Math.random() * 160
+        // spawn spikes + coin arcs from the shared sequential cursor
+        if (r.nextX <= ahead && r.nextX < RUN.FINISH_X - 140) {
+          const planned = planFeatures(Math.random, r.nextX, ahead)
+          for (const e of planned.ents) r.ents.push(e)
+          r.nextX = planned.nextX
         }
 
         // collisions
@@ -308,14 +337,21 @@ export function PixelRun({ game, onExit }: { game: ArcadeGameDef; onExit: () => 
         for (const e of r.ents) {
           if (e.kind === 'coin') {
             if (e.got) continue
-            if (pRight >= e.x && pLeft <= e.x + 14 && r.py <= e.h + 14 && r.py + RUN.PLAYER_H >= e.h) {
+            // generous hitbox so a well-timed jump sweeps the whole arc
+            if (
+              pRight + 6 >= e.x &&
+              pLeft <= e.x + COIN_SIZE + 6 &&
+              r.py <= e.h + 20 &&
+              r.py + RUN.PLAYER_H + 6 >= e.h
+            ) {
               e.got = true
               r.coins++
               sfx.tap('c')
             }
           } else if (e.kind === 'spike') {
+            if (r.shield > 0) continue // correct-answer shield: spikes pass through
             if (r.invuln > 0) continue
-            if (pRight >= e.x && pLeft <= e.x + 18 && r.py < 18) {
+            if (pRight >= e.x && pLeft <= e.x + SPIKE_W && r.py < 18) {
               r.lives--
               r.invuln = RUN.INVULN_FRAMES
               sfx.wrong()
@@ -346,12 +382,6 @@ export function PixelRun({ game, onExit }: { game: ArcadeGameDef; onExit: () => 
         }
 
         if (died || r.finished) {
-          if (died) {
-            setTick((v) => v + 1)
-            finish()
-            return
-          }
-          // crossed the finish: show over on next tick
           setTick((v) => v + 1)
           finish()
           return
@@ -364,7 +394,7 @@ export function PixelRun({ game, onExit }: { game: ArcadeGameDef; onExit: () => 
     return () => cancelAnimationFrame(raf)
   }, [phase, gateQ, finish])
 
-  /* -------- gate answering -------- */
+  /* -------- gate answering: clear reward / clear drawback -------- */
   const answerGate = (opt: string) => {
     if (!gateQ) return
     const correct = opt === gateQ.answer
@@ -373,13 +403,18 @@ export function PixelRun({ game, onExit }: { game: ArcadeGameDef; onExit: () => 
     r.activeGate = null
     setGateQ(null)
     if (correct) {
+      // BENEFIT: points + coins + a shield that soaks the next spikes
       sfx.correct()
       r.gatesOk++
       r.coins += RUN.GATE_COINS
+      r.shield = RUN.SHIELD_FRAMES
       setFlash('ok')
     } else {
+      // DRAWBACK: lose a life AND points (brief i-frames so it can't chain)
       sfx.wrong()
       r.lives--
+      r.wrongs++
+      r.invuln = RUN.INVULN_FRAMES
       setFlash('no')
     }
     setTimeout(() => setFlash(null), 150)
@@ -401,7 +436,7 @@ export function PixelRun({ game, onExit }: { game: ArcadeGameDef; onExit: () => 
   }
 
   const r = run.current
-  const liveScore = computeRunScore(r.worldX, r.coins, r.gatesOk, r.finished)
+  const liveScore = computeRunScore(r.worldX, r.coins, r.gatesOk, r.finished, r.wrongs)
   const shownScore = phase === 'over' ? finalScore : liveScore
   const isPb = phase === 'over' && finalScore > best && finalScore > 0
   const unlockedDef = unlockedCard ? ARCADE_CARD_BY_ID[unlockedCard] : null
@@ -418,8 +453,11 @@ export function PixelRun({ game, onExit }: { game: ArcadeGameDef; onExit: () => 
         <p className="mt-1 font-body text-sm font-bold text-slate-400">{game.desc}</p>
         <div className="card-white mx-auto mt-6 max-w-sm text-left text-sm font-bold text-slate-500">
           <p>⏱ {RUN.ROUND_SECONDS}s · ❤️ 3 lives</p>
-          <p>🏃 Tap or press Space to jump — dodge 🟥 spikes, grab 🪙 coins</p>
-          <p>🚧 Math gates pause the run — clear them to pass!</p>
+          <p>🧡 Tap or press Space — Sonic jumps over 🟥 spikes and sweeps 🪙 coin arcs</p>
+          <p>
+            ✅ Gate right: <strong className="text-emerald-600">+{RUN.GATE_SCORE} pts &amp; 🛡️ shield</strong> ·
+            ❌ wrong: <strong className="text-red-500">−1 ❤️ &amp; −{RUN.WRONG_PENALTY} pts</strong>
+          </p>
           <p>🚩 Reach the finish line for a {RUN.FINISH_BONUS} point bonus</p>
           <p>🏆 Personal best: {best || '—'}</p>
           <p className="mt-1 text-xs font-bold text-slate-400">🕹️ Rounds feed exclusive card unlocks</p>
@@ -444,7 +482,9 @@ export function PixelRun({ game, onExit }: { game: ArcadeGameDef; onExit: () => 
           </h2>
           <p className="mt-2 font-display text-4xl font-extrabold text-emerald-500">{finalScore}</p>
           <p className="mt-1 text-sm font-bold text-slate-400">
-            🪙 {r.coins} coins · 🚧 {r.gatesOk}/{GATE_COUNT} gates{reachedFinish ? ` · 🚩 +${RUN.FINISH_BONUS}` : ''}
+            🪙 {r.coins} coins · 🚧 {r.gatesOk}/{GATE_COUNT} gates
+            {r.wrongs > 0 && <> · ❌ {r.wrongs} wrong (−{r.wrongs * RUN.WRONG_PENALTY})</>}
+            {reachedFinish ? ` · 🚩 +${RUN.FINISH_BONUS}` : ''}
           </p>
           {rewards.xp + rewards.gems > 0 && (
             <p className="mt-1 font-display font-extrabold text-sky-500">
@@ -485,8 +525,8 @@ export function PixelRun({ game, onExit }: { game: ArcadeGameDef; onExit: () => 
   }
 
   /* ---------------- play ---------------- */
-  const runFrame = Math.floor(r.worldX / 9) % 2
   const blink = r.invuln > 0 && Math.floor(r.invuln / 6) % 2 === 0
+  const expression = r.shield > 0 ? 'cheer' : r.onGround ? 'happy' : 'excited'
 
   return (
     <div className="mx-auto w-full max-w-xl px-4 pb-28 pt-4">
@@ -497,6 +537,8 @@ export function PixelRun({ game, onExit }: { game: ArcadeGameDef; onExit: () => 
         </span>
         <span className="rounded-xl bg-amber-100 px-3 py-1 text-amber-600">
           ❤️ {r.lives}/3 · 🪙 {r.coins}
+          {r.wrongs > 0 && <> · ❌{r.wrongs}</>}
+          {r.shield > 0 && <> · 🛡️</>}
         </span>
       </div>
 
@@ -629,17 +671,22 @@ export function PixelRun({ game, onExit }: { game: ArcadeGameDef; onExit: () => 
           )
         })}
 
-        {/* player */}
+        {/* player — Sonic */}
         <div
           className="absolute z-20"
+          aria-label="Runner"
           style={{
             left: `${pctX(RUN.PLAYER_X)}%`,
             bottom: `calc(${GROUND_PCT}% + ${pctY(r.py)}%)`,
             width: `${pctX(RUN.PLAYER_W)}%`,
             height: `${pctY(RUN.PLAYER_H)}%`,
+            opacity: blink ? 0.35 : 1,
           }}
         >
-          <PixelRunner frame={runFrame} blink={blink} />
+          <Mascot id="sonic" expression={expression} />
+          {r.shield > 0 && (
+            <div className="pointer-events-none absolute -inset-[12%] rounded-full border-2 border-cyan-300 shadow-[0_0_10px_#22d3ee]" />
+          )}
         </div>
 
         {/* gate question overlay */}
@@ -648,6 +695,9 @@ export function PixelRun({ game, onExit }: { game: ArcadeGameDef; onExit: () => 
             <div className="w-full max-w-xs rounded-xl bg-white p-3 text-center shadow-lg">
               <p className="text-[10px] font-extrabold uppercase tracking-wide text-amber-500">🚧 Math gate</p>
               <p className="font-display text-xl font-extrabold text-slate-800">{gateQ.text} = ?</p>
+              <p className="mt-0.5 text-[10px] font-bold text-slate-400">
+                ✅ +{RUN.GATE_SCORE} &amp; 🛡️ shield · ❌ −1 ❤️ &amp; −{RUN.WRONG_PENALTY}
+              </p>
               <div className="mt-2 grid grid-cols-2 gap-2">
                 {gateQ.options.map((opt) => (
                   <button

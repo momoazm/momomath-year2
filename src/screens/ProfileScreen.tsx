@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ACHIEVEMENTS, LEAGUES, LEAGUE_META, displayStreak, isStreakActive } from '../engine/gamification'
+import { ACHIEVEMENTS, LEAGUES, LEAGUE_META, ARCADE_GAMES, displayStreak, isStreakActive } from '../engine/gamification'
 import { usePlayer } from '../engine/store'
 import { MASCOTS, Mascot } from '../components/mascots/Mascots'
 import { GoogleSignInInline } from '../components/ui/AuthBadge'
@@ -71,7 +71,7 @@ export function ProfileScreen() {
           icon="🕹️"
           label="Arcade best"
           value={String(Math.max(0, ...Object.values(s.arcadeScores)))}
-          sub={`${Object.values(s.arcadeScores).filter((v) => v > 0).length}/3 games`}
+          sub={`${Object.values(s.arcadeScores).filter((v) => v > 0).length}/${ARCADE_GAMES.length} games`}
         />
         <Stat icon="🎁" label="Login streak" value={`${s.dailyLoginStreak}`} sub="daily calendar" />
       </section>
