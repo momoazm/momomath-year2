@@ -336,7 +336,7 @@ function CardGrid({ cards, isOwned, onCardClick, getHiddenCardStyle, cardStars }
                   {meta.label}
                 </span>
                 <span className="text-xs font-bold text-slate-400">
-                  #{String(CARDS.findIndex(c => c.id === card.id) + 1).padStart(2, '0')}
+                  #{String(ALL_CARDS.findIndex(c => c.id === card.id) + 1).padStart(2, '0')}
                 </span>
               </div>
 

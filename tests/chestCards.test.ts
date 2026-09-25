@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
+import { existsSync } from 'node:fs'
 import { mulberry32 } from '../src/content/rng'
-import { CARDS, PACK_SIZE, START_TABLES, rollChest, rollStartTier, upgradeStep, STAR_THRESHOLDS, LOCKED_PITY } from '../src/engine/cards'
+import { CARDS, ALL_CARDS, ARCADE_CARDS, PACK_SIZE, START_TABLES, TIER_ORDER, rollChest, rollStartTier, upgradeStep, STAR_THRESHOLDS, LOCKED_PITY } from '../src/engine/cards'
 
 function rng(s: number) { return mulberry32(s) }
 
@@ -126,9 +127,9 @@ describe('new card drops uniform plus locked pity', () => {
     }
   })
   it('new card is a probability, NOT a guarantee (no pity)', () => {
-    // 9 of 19 owned, pity reset -> ~10/19 chance of new per chest.
+    // 40 of 97 owned, pity reset -> ~57/97 ≈ 59% chance of new per chest.
     const counts: Record<string, number> = {}
-    CARDS.slice(0, 9).forEach((c) => { counts[c.id] = 3 })
+    CARDS.slice(0, 40).forEach((c) => { counts[c.id] = 3 })
     let news = 0
     const total = 5000
     for (let i = 0; i < total; i++) {
@@ -136,7 +137,7 @@ describe('new card drops uniform plus locked pity', () => {
     }
     expect(news).toBeGreaterThan(0)               // possible
     expect(news).toBeLessThan(total * 0.8)        // NOT guaranteed
-    expect(news / total).toBeGreaterThan(0.3)     // ~10/19 sane
+    expect(news / total).toBeGreaterThan(0.3)     // ~57/97 sane
   })
   it('kick upgrades move rarity upward with the KICK_UPGRADE odds', () => {
     // streak context starts at legendary (75%) or exclusive (25%); both have
@@ -161,5 +162,43 @@ describe('new card drops uniform plus locked pity', () => {
     }
     expect(sawUpgrade).toBeGreaterThan(0)
     expect(sawUpgrade).toBeLessThan(5000)
+  })
+})
+
+describe('100-card roster band (97 chest + 3 arcade)', () => {
+  const PLAN_BAND: Record<string, [number, number]> = {
+    common: [39, 39],
+    rare: [25, 25],
+    epic: [18, 18],
+    legendary: [10, 10],
+    exclusive: [5, 5],
+  }
+
+  it('chest roster is exactly 97; ALL_CARDS is exactly 100', () => {
+    expect(CARDS).toHaveLength(97)
+    expect(ALL_CARDS).toHaveLength(100)
+    expect(ARCADE_CARDS).toHaveLength(3)
+    expect(CARDS.length + ARCADE_CARDS.length).toBe(ALL_CARDS.length)
+  })
+
+  it('tier distribution matches PLAN band 39/25/18/10/5', () => {
+    for (const tier of TIER_ORDER) {
+      const count = CARDS.filter((c) => c.tier === tier).length
+      const [lo, hi] = PLAN_BAND[tier]
+      expect(count, `${tier} count`).toBeGreaterThanOrEqual(lo)
+      expect(count, `${tier} count`).toBeLessThanOrEqual(hi)
+    }
+  })
+
+  it('every card image exists on disk under public/', () => {
+    for (const c of ALL_CARDS) {
+      const file = new URL(`../public/${c.image}`, import.meta.url)
+      expect(existsSync(file), `${c.id} -> ${c.image}`).toBe(true)
+    }
+  })
+
+  it('ids are unique non-empty strings', () => {
+    expect(new Set(ALL_CARDS.map((c) => c.id)).size).toBe(ALL_CARDS.length)
+    for (const c of ALL_CARDS) expect(c.id.length).toBeGreaterThan(0)
   })
 })

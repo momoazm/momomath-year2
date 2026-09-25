@@ -6,7 +6,7 @@ import { GoogleSignInInline } from '../components/ui/AuthBadge'
 import { signOutGoogle, useAuth } from '../engine/auth'
 import { sfx } from '../engine/sfx'
 import type { MascotId } from '../content/types'
-import { CARDS, ALL_CARDS, STAR_THRESHOLDS, toStar } from '../engine/cards'
+import { ALL_CARDS, STAR_THRESHOLDS, toStar } from '../engine/cards'
 
 export function ProfileScreen() {
   const s = usePlayer()
@@ -326,7 +326,7 @@ export function ProfileScreen() {
         </div>
         <div className="mt-3 flex flex-wrap justify-center gap-2">
           {[1, 2, 3, 4, 5].map((star) => {
-            const count = CARDS.filter((c) => toStar(s.cardStars[c.id] ?? 0) === star).length
+            const count = ALL_CARDS.filter((c) => toStar(s.cardStars[c.id] ?? 0) === star).length
             return (
               <div key={star} className="flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1.5 font-display text-sm font-bold">
                 {'★'.repeat(star)}{'☆'.repeat(5 - star)} {count}

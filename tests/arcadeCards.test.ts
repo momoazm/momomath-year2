@@ -8,7 +8,7 @@ function rng(s: number) { return mulberry32(s) }
 const ARCADE_IDS = new Set<string>(ARCADE_CARDS.map((c) => c.id))
 
 describe('arcade exclusives never enter the chest pool', () => {
-  it('uniform chest rolls only ever pick from the 19 CARDS', () => {
+  it('uniform chest rolls only ever pick from the 97 CARDS', () => {
     for (let i = 0; i < 20000; i++) {
       const r = rollChest(rng(i), 'normal', {}, 0)
       expect(ARCADE_IDS.has(r.cardId)).toBe(false)

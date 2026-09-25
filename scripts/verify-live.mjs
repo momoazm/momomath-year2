@@ -466,20 +466,20 @@ async function main() {
     for (let i = 0; i < 20; i++) {
       await page.waitForTimeout(250)
       const ready = await page.evaluate(() =>
-        document.querySelectorAll('[aria-label$="out of 5 stars"]').length >= 19)
+        document.querySelectorAll('[aria-label$="out of 5 stars"]').length >= 97)
       if (ready) break
     }
     await shot(page, '05-library-after')
     const lib = await page.evaluate(() => {
       const body = document.body.innerText
       return {
-        collected: (body.match(/\d+ \/ 19 collected/) || [null])[0],
+        collected: (body.match(/\d+ \/ 100 collected/) || [null])[0],
         starLines: (body.match(/★\d\/5 · ×\d+[^\n]*/g) || []).slice(0, 6),
         ariaCount: document.querySelectorAll('[aria-label$="out of 5 stars"]').length,
         hasNewBadge: /\bNEW\b/.test(body),
       }
     })
-    ok('library renders star-up lines', lib.ariaCount >= 19 && lib.starLines.length > 0,
+    ok('library renders star-up lines', lib.ariaCount >= 97 && lib.starLines.length > 0,
       `collected=${lib.collected} aria=${lib.ariaCount} sample=${JSON.stringify(lib.starLines.slice(0, 3))}`)
     ok('no always-on NEW badge in library', !lib.hasNewBadge, `hasNewBadge=${lib.hasNewBadge}`)
   }

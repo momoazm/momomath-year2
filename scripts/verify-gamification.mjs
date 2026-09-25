@@ -382,7 +382,7 @@ async function main() {
     overShown: document.body.innerText.includes("Time's up!"),
     score: (Array.from(document.querySelectorAll('p')).map((p) => (p.textContent || '').trim()).find((t) => /^\d+$/.test(t))) || '',
     celebration: /exclusive card unlocked/i.test(document.body.innerText),
-    fang: document.body.innerText.includes('Fang the Fox'),
+    fang: document.body.innerText.includes('Fang the Sniper'),
   }))
   ok('round ends and shows result', over.overShown, `overShown=${over.overShown}`)
   ok('final score = 100 (1 boss)', Number(over.score) === 100, `finalScore=${over.score}`)
@@ -426,9 +426,9 @@ async function main() {
     const body = document.body.innerText
     const section = document.querySelector('section[aria-label="Arcade Exclusives"]')
     const secText = section ? section.innerText : ''
-    const fangImg = !!Array.from(document.querySelectorAll('img')).find((i) => i.alt === 'Fang the Fox')
+    const fangImg = !!Array.from(document.querySelectorAll('img')).find((i) => i.alt === 'Fang the Sniper')
     return {
-      overall: (body.match(/\d+ \/ 22 collected/) || [null])[0],
+      overall: (body.match(/\d+ \/ 100 collected/) || [null])[0],
       heading: body.includes('🕹️ Arcade Exclusives'),
       arcadeCollected: (secText.match(/\d+ \/ 3 collected/) || [null])[0],
       beanGoal: secText.includes('Score in all 3 subject games'),
@@ -439,7 +439,7 @@ async function main() {
       chestPhrase: /Win from a .*chest/.test(body),
     }
   })
-  ok('library overall count /22', !!lib.overall, `overall=${lib.overall}`)
+  ok('library overall count /100', !!lib.overall, `overall=${lib.overall}`)
   ok('arcade exclusives heading', lib.heading, `heading=${lib.heading}`)
   ok(
     'arcade panel 1/3 collected with live progress',
