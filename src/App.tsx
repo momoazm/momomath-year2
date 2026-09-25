@@ -12,6 +12,9 @@ import { ProfileScreen } from './screens/ProfileScreen'
 import { ShopScreen } from './screens/ShopScreen'
 import { LibraryScreen } from './screens/LibraryScreen'
 import { ArcadeScreen } from './screens/ArcadeScreen'
+import { BookScreen } from './screens/BookScreen'
+import { FriendsScreen } from './screens/FriendsScreen'
+import { BOOKS_BY_ID } from './content/english/books'
 import { WelcomeGate } from './components/ui/WelcomeGate'
 import { AutoLeagueSettle } from './components/ui/AutoLeagueSettle'
 import { Scenery } from './components/ui/Scenery'
@@ -21,8 +24,14 @@ export default function App() {
   const [tab, setTab] = useState<Tab>('path')
   const [activeBattle, setActiveBattle] = useState<{ lessonId: string; epoch: number } | null>(null)
   const [showLibrary, setShowLibrary] = useState(false)
+  const [showFriends, setShowFriends] = useState(
+    () => new URLSearchParams(window.location.search).has('friends'),
+  )
   const [reviewLesson, setReviewLesson] = useState<string | null>(
     () => new URLSearchParams(window.location.search).get('lesson'),
+  )
+  const [reviewBook, setReviewBook] = useState<string | null>(
+    () => new URLSearchParams(window.location.search).get('book'),
   )
 
   useEffect(() => {
@@ -51,6 +60,25 @@ export default function App() {
     )
   }
 
+  // Friends + referral codes: Profile-section entry (and ?friends deep link)
+  if (showFriends) {
+    return (
+      <>
+        <TopBar onLeagueClick={() => setTab('leagues')} onLibraryClick={() => setShowLibrary(true)} />
+        <FriendsScreen
+          onClose={() => {
+            setShowFriends(false)
+            if (new URLSearchParams(window.location.search).has('friends')) {
+              const url = new URL(window.location.href)
+              url.searchParams.delete('friends')
+              window.history.replaceState({}, '', url.toString())
+            }
+          }}
+        />
+      </>
+    )
+  }
+
   // Plain LessonScreen review: only reachable via ?lesson=<id>
   if (reviewLesson && !activeBattle) {
     return (
@@ -66,12 +94,28 @@ export default function App() {
     )
   }
 
+  // Unit storybook reader: state-set from the roadmap node, or ?book=<id> deep link
+  if (reviewBook && BOOKS_BY_ID[reviewBook] && !activeBattle) {
+    return (
+      <BookScreen
+        book={BOOKS_BY_ID[reviewBook]}
+        onExit={() => {
+          const url = new URL(window.location.href)
+          url.searchParams.delete('book')
+          window.history.replaceState({}, '', url.toString())
+          setReviewBook(null)
+        }}
+      />
+    )
+  }
+
   // Path node tap → BattleScreen for all lesson/boss nodes
   if (activeBattle) {
     return (
       <BattleScreen
         key={`${activeBattle.lessonId}:${activeBattle.epoch}`}
         lessonId={activeBattle.lessonId}
+        epoch={activeBattle.epoch}
         onExit={() => setActiveBattle(null)}
         onRetry={() => setActiveBattle((b) => (b ? { ...b, epoch: b.epoch + 1 } : b))}
         onVictoryContinue={() => setActiveBattle(null)}
@@ -97,13 +141,14 @@ export default function App() {
 {tab === 'path' && (
   <PathScreen
     onStartLesson={(id) => setActiveBattle({ lessonId: id, epoch: 0 })}
+    onOpenBook={(id) => setReviewBook(id)}
   />
 )}
       {tab === 'shop' && <ShopScreen />}
       {tab === 'leagues' && <LeaguesScreen />}
       {tab === 'quests' && <QuestsScreen />}
       {tab === 'arcade' && <ArcadeScreen />}
-      {tab === 'profile' && <ProfileScreen />}
+      {tab === 'profile' && <ProfileScreen onOpenFriends={() => setShowFriends(true)} />}
         </motion.main>
         </AnimatePresence>
         <BottomNav tab={tab} onTab={setTab} />

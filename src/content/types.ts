@@ -165,8 +165,29 @@ export interface LessonDef {
   title: string
   objectiveCodes: string[]
   intro: IntroCard
+  /** Friendly pre-lesson guide lines (≤12 words each) spoken by the lesson's mascot.
+   *  Optional — absent falls back to intro.body. */
+  teach?: string[]
   /** returns n questions, deterministic for (lessonId, attemptSeed) */
   generate: (n: number, seed: number) => Question[]
+}
+
+/** One page of a unit storybook (PLAN Phase 15). */
+export interface BookPage {
+  /** emoji cast shown big above the text */
+  scene: string[]
+  /** 1-2 short sentences, kid reading level */
+  text: string
+  /** optional key word — tap it to hear it */
+  focus?: string
+}
+
+/** A 5-10 page readable story tied to one unit. */
+export interface BookDef {
+  id: string
+  unitId: string
+  title: string
+  pages: BookPage[]
 }
 
 export interface UnitDef {
@@ -178,6 +199,8 @@ export interface UnitDef {
   icon: string
   lessons: LessonDef[]
   bossLessonIds: string[]
+  /** unit storybook — optional, rendered as a 📖 roadmap node */
+  book?: BookDef
 }
 
 export const questionEmojiBank = [

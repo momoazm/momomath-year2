@@ -14,6 +14,13 @@ Vite + React + TS + Tailwind, zustand persist store, vitest. Deploys to GitHub P
 - ALWAYS commit before (or with) a deploy — never leave live code uncommitted. Order: finish work → gates green → `git add` + commit → `node scripts/deploy.mjs`. If you already deployed uncommitted work, commit immediately after and note it in `PLAN.md`.
 - Push `main` when the user asks; the gh-pages publish alone does NOT sync source.
 
+## No momolearn.space content / no-merge rule (standing, user-mandated 2026-09-25)
+
+- NEVER take anything from the momolearn.space project (repo `momoazm/momolearn-ai`, local folders `C:\Users\momo\momolearn-ai` and `C:\Users\momo\Documents\Default Project`) into THIS repo: no code, no lesson/story/text content, no data files, no images/SVG/webp assets, no CSS, no copy strings. Zero copying, in either direction.
+- NEVER merge the two projects: no `git remote add` of momolearn-ai, no cross-repo branch merges/cherry-picks/stashes, no folder sync. `origin` here is ONLY `momoazm/momomath-year2`.
+- ONLY permitted exception: consuming the momolearn-ai **HTTP API as a backend service** — the URL constants in `src/engine/cloudsave.ts` / `leaderboard.ts` / `friends.ts` and their JSON wire contract. A URL + JSON payload is not content; anything beyond that (server code, page markup, styles, assets) must be re-implemented natively here.
+- Before shipping work that adds a cross-project dependency, run a provenance check (does any new file match a file in the momolearn folders?) and record the result in `PLAN.md`.
+
 ## No-deletion rule (standing, user-mandated)
 
 - NEVER delete features, pages/screens, mechanisms, or cards — not lesson content, node types, UI flows, games, mascots, endpoints, questions, or card entries. Only ADD or MODIFY.

@@ -24,11 +24,13 @@ import { sfx } from '../engine/sfx'
 
 export function BattleScreen({
   lessonId,
+  epoch = 0,
   onExit,
   onRetry,
   onVictoryContinue,
 }: {
   lessonId: string
+  epoch?: number
   onExit: () => void
   onRetry: () => void
   onVictoryContinue: () => void
@@ -42,6 +44,10 @@ export function BattleScreen({
   const [battle, setBattle] = useState<BattleState | null>(null)
   const [reward, setReward] = useState<{ chest: ChestResult | null; xp: number; redo: boolean; streakBonus: number | null } | null>(null)
   const [showIntro, setShowIntro] = useState(() => battleKindFor(lessonId) === 'boss')
+  // guide phase: friendly mascot explanation before Q1 (first attempt only — skip loss-retries)
+  const [guideDone, setGuideDone] = useState(epoch > 0)
+  const [speakingIdx, setSpeakingIdx] = useState(-1)
+  const speakTimerRef = useRef<number | undefined>(undefined)
   const [lockInput, setLockInput] = useState(false)
   const [failedArt, setFailedArt] = useState<string | null>(null)
   const [failedPlayerArt, setFailedPlayerArt] = useState<string | null>(null)
@@ -67,11 +73,27 @@ export function BattleScreen({
   }, [entry, kind, subject, lessonId, mascot])
 
   // auto-play audio prompts once per question
-  const q = battle && battle.status === 'active' && !showIntro ? battle.questions[battle.index] : undefined
+  const q = battle && battle.status === 'active' && !showIntro && guideDone ? battle.questions[battle.index] : undefined
   useEffect(() => {
     if (q && 'audioText' in q && q.audioText) speakFor(subject, q.audioText)
     return () => stopSpeaking()
   }, [q])
+
+  // guide phase content + autoplay the first friendly line (path tap = audio gesture)
+  const guideLines = entry ? entry.lesson.teach ?? [entry.lesson.intro.body] : []
+  useEffect(() => {
+    if (!guideDone && guideLines[0]) speakFor(subject, guideLines[0])
+    return () => stopSpeaking()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [guideDone])
+  useEffect(() => () => window.clearTimeout(speakTimerRef.current), [])
+  const speakGuideLine = (i: number, text: string) => {
+    sfx.tap('audio')
+    speakFor(subject, text)
+    setSpeakingIdx(i)
+    window.clearTimeout(speakTimerRef.current)
+    speakTimerRef.current = window.setTimeout(() => setSpeakingIdx(-1), 1800)
+  }
 
   // DEV-only hook for e2e QA (never in production builds)
   useEffect(() => {
@@ -136,7 +158,7 @@ export function BattleScreen({
 
   const curQ = battle.questions[battle.index]
   const questionDone = battle.status !== 'active'
-  const showQuestion = !showIntro && !questionDone && curQ
+  const showQuestion = !showIntro && guideDone && !questionDone && curQ
 
   const onGrade = (g: { correct: boolean; studentAnswer: string; correctAnswer: string }) => {
     if (lockInput || battle.status !== 'active' || !curQ) return
@@ -313,7 +335,7 @@ export function BattleScreen({
           </motion.div>
         </div>
 
-        {battle.lastFeedback && battle.status === 'active' && !showIntro && (
+        {battle.lastFeedback && battle.status === 'active' && !showIntro && guideDone && (
           <motion.p
             key={battle.index}
             initial={{ opacity: 0, y: 8 }}
@@ -325,14 +347,46 @@ export function BattleScreen({
             {battle.lastFeedback.message}
           </motion.p>
         )}
-        {!battle.lastFeedback?.correct && hint && !lockInput && battle.status === 'active' && !showIntro && (
+        {!battle.lastFeedback?.correct && hint && !lockInput && battle.status === 'active' && !showIntro && guideDone && (
           <p className="mt-2 rounded-xl bg-sky-500/25 px-3 py-2 text-center text-xs font-bold text-sky-100">
             💡 {hint}
           </p>
         )}
       </div>
 
-      {showIntro && (
+      {!guideDone && (
+        <div className="card-white mt-4 text-center">
+          <Mascot
+            id={entry.lesson.intro.mascotId}
+            expression={speakingIdx >= 0 ? 'excited' : 'happy'}
+            className="mx-auto h-28 w-28 animate-bob"
+          />
+          <p className="mt-1 text-xs font-extrabold uppercase tracking-widest text-sky-500">🌟 Today's mission</p>
+          <h2 className="font-display text-xl font-extrabold text-slate-800">{entry.lesson.intro.title}</h2>
+          <div className="mt-2 space-y-1.5">
+            {guideLines.map((line, i) => (
+              <div key={i} className="flex items-center justify-center gap-2">
+                <button
+                  className="btn3d btn-blue !px-2 !py-1 text-sm"
+                  title="Say it again"
+                  onClick={() => speakGuideLine(i, line)}
+                >
+                  🔊
+                </button>
+                <p className="rounded-xl bg-sky-50 px-3 py-1.5 text-sm font-bold text-slate-700">{line}</p>
+              </div>
+            ))}
+          </div>
+          <p className="mt-2 text-[11px] font-extrabold text-slate-400">
+            🎯 Cambridge objectives · {entry.lesson.objectiveCodes.join(' · ')}
+          </p>
+          <button className="btn3d btn-green mt-4" onClick={() => { sfx.tap(); setGuideDone(true) }}>
+            Let's go! 🚀
+          </button>
+        </div>
+      )}
+
+      {showIntro && guideDone && (
         <div className="card-white mt-4 text-center">
           <p className="font-display text-xs font-extrabold uppercase tracking-widest text-red-500">⚠ Boss time</p>
           <h2 className="font-display text-xl font-extrabold text-slate-800">

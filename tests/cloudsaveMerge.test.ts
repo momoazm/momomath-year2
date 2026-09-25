@@ -36,6 +36,7 @@ function freshLocal(overrides: Partial<CloudSave> = {}): CloudSave {
     lastLoginDay: null,
     loginRewardClaimedDay: null,
     arcadeScores: {},
+    booksRead: {},
     onboarded: false,
     soundOn: true,
     updatedAt: Date.now(), // the bug: local always looks newest

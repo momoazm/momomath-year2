@@ -114,6 +114,14 @@ interface PlayerState {
   arcadeRounds: number
   /** lifetime bosses defeated in Boss Rush (local-only; drives the Bark unlock) */
   arcadeBossesDown: number
+  /** unit storybooks read to the last page (bookId -> true); synced (PLAN 72) */
+  booksRead: Record<string, boolean>
+  /** unit ids whose 🏆 trophy celebration (+30 gems) already fired (PLAN 76) */
+  unitsCelebrated: string[]
+  /** lifetime friends added via referral code (drives made-a-friend; PLAN 83).
+   *  Local-only: cloudsave whitelists its own fields, so this never syncs —
+   *  the `made-a-friend` achievement id itself DOES sync via achievements. */
+  friendsAdded: number
   /** timestamp (ms) of last successful cloud sync */
   lastSyncedAt: number | null
 
@@ -126,6 +134,13 @@ interface PlayerState {
     crownsGained: number
     accuracy: number
   }) => void
+  /** Mark a unit storybook finished (+20 gems, first read only). Idempotent. */
+  finishBook: (bookId: string) => void
+  /** Fire the unit 🏆 celebration reward (+30 gems, once per unit). Idempotent. */
+  celebrateUnit: (unitId: string) => void
+  /** First-ever friend added: +30 gems + made-a-friend achievement (PLAN 83).
+   *  Call once per successful server join; idempotent per player lifetime. */
+  recordFriendJoin: () => void
   setDailyGoal: (g: number) => void
   setName: (n: string) => void
   setMascot: (m: MascotId) => void
@@ -477,6 +492,7 @@ export function updateStreak(
       arcadeTop: Math.max(0, ...Object.values(s.arcadeScores)),
       subjectsPlayed: subjects.size,
       dailyLoginStreak: s.dailyLoginStreak,
+      friendsAdded: s.friendsAdded,
     }
     let gained = false
     for (const a of ACHIEVEMENTS) {
@@ -571,6 +587,9 @@ export const usePlayer = create<PlayerState>()(
       arcadeScores: {},
       arcadeRounds: 0,
       arcadeBossesDown: 0,
+      booksRead: {},
+      unitsCelebrated: [],
+      friendsAdded: 0,
       lastSyncedAt: null,
 
       completeLesson: ({ lessonId, xp, correct, totalQuestions, crownsGained, accuracy }) =>
@@ -617,6 +636,31 @@ export const usePlayer = create<PlayerState>()(
           if (!wasStreakActive && s.streakCurrent > 1) sfx.streak()
 
           return s
+        }),
+
+      finishBook: (bookId) =>
+        set((state) => {
+          if (state.booksRead[bookId]) return state
+          return { booksRead: { ...state.booksRead, [bookId]: true }, gems: state.gems + 20 }
+        }),
+
+      celebrateUnit: (unitId) =>
+        set((state) => {
+          if (state.unitsCelebrated.includes(unitId)) return state
+          return { unitsCelebrated: [...state.unitsCelebrated, unitId], gems: state.gems + 30 }
+        }),
+      recordFriendJoin: () =>
+        set((state) => {
+          const next: Partial<PlayerState> = {
+            friendsAdded: Math.min(state.friendsAdded + 1, 1000),
+          }
+          // One-time reward for the FIRST friend only; the achievement id is
+          // the idempotency guard (it also survives via cloud sync).
+          if (!state.achievements.includes('made-a-friend')) {
+            next.achievements = [...state.achievements, 'made-a-friend']
+            next.gems = state.gems + 30
+          }
+          return { ...state, ...next } as PlayerState
         }),
 
       setDailyGoal: (g) => set({ dailyGoal: g }),
@@ -913,6 +957,10 @@ export const usePlayer = create<PlayerState>()(
             }
             next.cardStars = merged
           }
+          if (snap.booksRead) {
+            // union: a book read on ANY device counts as read
+            next.booksRead = { ...state.booksRead, ...snap.booksRead }
+          }
           if (snap.shopInventory) {
             const merged: Record<string, number> = { ...state.shopInventory }
             for (const [k, v] of Object.entries(snap.shopInventory)) {
@@ -1043,10 +1091,19 @@ export const usePlayer = create<PlayerState>()(
     }),
     {
       name: 'momomath-year2-player-v2',
-      version: 11,
-      migrate: (persisted, version) => {
-        const p = { ...(persisted as PlayerState) }
-        if (version < 4) {
+      version: 12,
+      migrate: migratePersisted,
+    },
+  ),
+)
+
+/**
+ * Persisted-save migration (exported for tests — PLAN 18 step 85).
+ * `version` is the version the save was written at.
+ */
+export function migratePersisted(persisted: unknown, version: number): PlayerState {
+  const p = { ...(persisted as PlayerState) }
+  if (version < 4) {
           // Backfill any fields added after v3 (streak milestone rewards).
           p.lastStreakReward = typeof p.lastStreakReward === 'number' ? p.lastStreakReward : 0
           p.pendingStreakMilestone = p.pendingStreakMilestone === undefined ? null : p.pendingStreakMilestone
@@ -1133,11 +1190,14 @@ export const usePlayer = create<PlayerState>()(
             p.subject = 'math'
           }
         }
+        if (version < 12) {
+          // v12: unit storybooks read-state + unit trophy celebrations (PLAN 72/76)
+          p.booksRead = p.booksRead && typeof p.booksRead === 'object' ? p.booksRead : {}
+          p.unitsCelebrated = Array.isArray(p.unitsCelebrated) ? p.unitsCelebrated : []
+          p.friendsAdded = typeof p.friendsAdded === 'number' ? p.friendsAdded : 0
+        }
         return p
-      },
-    },
-  ),
-)
+}
 
 export function questProgressSnapshot(s: PlayerState) {
   const today = todayISO()

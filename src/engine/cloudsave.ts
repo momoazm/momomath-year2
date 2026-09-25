@@ -47,6 +47,7 @@ export interface CloudSave {
   lastLoginDay: string | null
   loginRewardClaimedDay: string | null
   arcadeScores: Record<string, number>
+  booksRead: Record<string, boolean>
   onboarded: boolean
   soundOn: boolean
   updatedAt: number
@@ -134,6 +135,7 @@ export function snapshotFromPlayer(p: {
   lastLoginDay: string | null
   loginRewardClaimedDay: string | null
   arcadeScores: Record<string, number>
+  booksRead: Record<string, boolean>
   onboarded: boolean
   soundOn: boolean
 }): CloudSave {
@@ -170,6 +172,7 @@ export function snapshotFromPlayer(p: {
     lastLoginDay: p.lastLoginDay,
     loginRewardClaimedDay: p.loginRewardClaimedDay,
     arcadeScores: p.arcadeScores,
+    booksRead: p.booksRead,
     onboarded: p.onboarded,
     soundOn: p.soundOn,
     updatedAt: Date.now(),
@@ -265,6 +268,7 @@ export function mergeCloudSave(local: CloudSave | null, remote: CloudSave | null
     claimedQuests:
       newest.claimedQuests?.questIds?.length ? newest.claimedQuests : local.claimedQuests,
     arcadeScores: maxInventory(local.arcadeScores, remote.arcadeScores),
+    booksRead: { ...local.booksRead, ...remote.booksRead }, // union: read anywhere = read
     updatedAt: Math.max(local.updatedAt || 0, remote.updatedAt || 0, Date.now()),
   }
 }

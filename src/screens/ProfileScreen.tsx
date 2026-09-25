@@ -8,7 +8,7 @@ import { sfx } from '../engine/sfx'
 import type { MascotId } from '../content/types'
 import { ALL_CARDS, STAR_THRESHOLDS, toStar } from '../engine/cards'
 
-export function ProfileScreen() {
+export function ProfileScreen({ onOpenFriends }: { onOpenFriends?: () => void }) {
   const s = usePlayer()
   const user = useAuth((a) => a.user)
   const signOut = useAuth((a) => a.signOut)
@@ -75,6 +75,19 @@ export function ProfileScreen() {
         />
         <Stat icon="🎁" label="Login streak" value={`${s.dailyLoginStreak}`} sub="daily calendar" />
       </section>
+
+      {/* friends entry (PLAN Phase 17) — Profile section, so the bottom nav never re-layouts */}
+      <button
+        onClick={() => { sfx.tap(); onOpenFriends?.() }}
+        className="card-white mt-4 flex w-full items-center gap-3 text-left transition-transform hover:scale-[1.01]"
+      >
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-sky-100 text-xl">🤝</div>
+        <div className="min-w-0 flex-1">
+          <p className="font-display font-bold">Friends</p>
+          <p className="truncate text-xs font-bold text-slate-400">Share your code · see who's winning this week</p>
+        </div>
+        <span className="text-slate-300">→</span>
+      </button>
 
       {/* daily goal */}
       <section className="card-white mt-4">

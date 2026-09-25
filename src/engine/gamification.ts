@@ -409,6 +409,7 @@ export interface AchievementSnapshot {
   arcadeTop: number
   subjectsPlayed: number
   dailyLoginStreak: number
+  friendsAdded: number
 }
 
 /**
@@ -472,4 +473,8 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   { id: 'arcade-100', title: 'High Scorer', desc: 'Score 100+ in an arcade game', icon: '🚀', test: (s) => s.arcadeTop >= 100 },
   { id: 'subjects-3', title: 'Triple Threat', desc: 'Play all 3 subjects', icon: '🎓', test: (s) => s.subjectsPlayed >= 3 },
   { id: 'login-7', title: 'Loyal Player', desc: 'Claim 7 login rewards in a row', icon: '🎁', test: (s) => s.dailyLoginStreak >= 7 },
+  // Unlocked by recordFriendJoin() on the first successful referral join
+  // (+30 gems there, not the standard +20) — the snapshot field is bumped in
+  // the same store update so this test can never double-fire (PLAN 83).
+  { id: 'made-a-friend', title: 'Best Friends', desc: 'Add your first friend', icon: '🤝', test: (s) => s.friendsAdded >= 1 },
 ]

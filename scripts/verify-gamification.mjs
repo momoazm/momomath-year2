@@ -14,6 +14,10 @@
 //   8. Library "🕹️ Arcade Exclusives" panel: 1/3 collected, live progress, locked-card toast
 //   9. quests / shop / dust / login calendar (kept from the previous release)
 //  10. mobile 360px viewport checks
+//  11. English storybook read-through end-to-end: open unlocked book node →
+//      page to The End → +20 gems reward → booksRead persisted + gold node (PLAN 15)
+//  12. Profile → Friends entry → friends screen: invite code, join form,
+//      empty state, privacy line (PLAN 17; friends API mocked for hermeticity)
 import { createRequire } from 'node:module'
 import { mkdirSync } from 'node:fs'
 
@@ -113,9 +117,9 @@ async function main() {
   await page.goto(url, { waitUntil: 'domcontentloaded' })
   await page.waitForTimeout(900)
 
-  // --- 1. migration ran: v7 -> v11, arcade counters backfilled ---
+  // --- 1. migration ran: v7 -> v12, arcade counters backfilled ---
   const persisted = await page.evaluate((k) => JSON.parse(localStorage.getItem(k)), PLAYER_KEY)
-  ok('persist migrated to v11', persisted.version === 11, `version=${persisted.version}`)
+  ok('persist migrated to v12', persisted.version === 12, `version=${persisted.version}`)
   const st = persisted.state
   ok(
     'v10 arcade counters backfilled to 0',
@@ -126,6 +130,11 @@ async function main() {
     'v11 extra-subject flags backfilled off',
     st.germanEnabled === false && st.arabicEnabled === false && st.religionEnabled === false && st.socialEnabled === false,
     `german=${st.germanEnabled} arabic=${st.arabicEnabled} religion=${st.religionEnabled} social=${st.socialEnabled}`,
+  )
+  ok(
+    'v12 roadmap fields backfilled (booksRead/unitsCelebrated/friendsAdded)',
+    st.booksRead && typeof st.booksRead === 'object' && Array.isArray(st.unitsCelebrated) && st.friendsAdded === 0,
+    `booksRead=${JSON.stringify(st.booksRead)} unitsCelebrated=${JSON.stringify(st.unitsCelebrated)} friendsAdded=${st.friendsAdded}`,
   )
   ok(
     'earlier fields still backfilled (dust/login/arcadeScores)',
@@ -169,12 +178,23 @@ async function main() {
       hp: /\d+\/\d+ HP/.test(body),
       flee: /flee/i.test(body),
       letsGo: /Let's go/i.test(body),
+      mission: /Today's mission/i.test(body),
+      // Phase 14: the guide panel renders lesson.teach lines (fallback intro.body)
+      teachLines: Array.from(document.querySelectorAll('.card-white p.rounded-xl')).map((p) => (p.textContent || '').trim()),
     }
   })
   ok('lesson node opens BattleScreen (not lesson intro)',
-    battleOpened && battleChrome.battle && battleChrome.hp && battleChrome.flee && !battleChrome.letsGo,
-    JSON.stringify({ battleOpened, ...battleChrome }))
+    battleOpened && battleChrome.battle && battleChrome.hp && battleChrome.flee && battleChrome.letsGo &&
+      battleChrome.mission && battleChrome.teachLines.length >= 1 && battleChrome.teachLines.every((l) => l.length > 0),
+    JSON.stringify({ battleOpened, ...battleChrome, teachLines: battleChrome.teachLines.slice(0, 2) }))
   await shot(page, '01b-battle')
+  // Phase 14 guide panel sits above the question — dismiss it before answering.
+  await page.evaluate(() => {
+    const b = Array.from(document.querySelectorAll('button'))
+      .find((x) => /Let's go/i.test((x.textContent || '').trim()) && !x.disabled)
+    b?.click()
+  })
+  await page.waitForTimeout(500)
   // Force one wrong answer. Tap-count needs a cell tap first; React must
   // re-render before Attack enables — so tap this step, Attack on the next.
   const wrongStage = await page.evaluate(() => {
@@ -278,6 +298,63 @@ async function main() {
     )
     await shot(page, `02-path-${subj.toLowerCase()}`)
   }
+
+  // --- 11. English storybook read-through end-to-end (PLAN 15) ---
+  const engPill2 = page.getByRole('button', { name: 'English', exact: true }).first()
+  if (await engPill2.isVisible().catch(() => false)) await engPill2.click().catch(() => {})
+  await page.waitForTimeout(500)
+  // Only unit 1's book is unlocked on the fresh seed (isLessonUnlocked(ui, 0));
+  // locked books carry a different title attribute.
+  const bookBtn = page.locator('button[title^="📖 "]').first()
+  const bookVisible = await bookBtn.isVisible().catch(() => false)
+  const lockedBookCount = await page.locator('button[title="Finish the first lesson to unlock the book!"]').count()
+  ok('one unlocked unit book + locked siblings', bookVisible && lockedBookCount >= 1,
+    `unlocked=${bookVisible} locked=${lockedBookCount}`)
+  const gemsBeforeBook = (await readState(page)).gems
+  const booksBefore = Object.keys((await readState(page)).booksRead).length
+  await bookBtn.click().catch(() => {})
+  await page.waitForTimeout(600)
+  const bookHead = await page.evaluate(() => document.body.innerText)
+  ok('book reader opens at page 1', /· 1\/\d+/.test(bookHead), (bookHead.match(/📖 .{0,30}/) || [''])[0])
+  // page to the end (books are 5-10 pages; → swaps to "The End" on the last)
+  let bookPages = 0
+  for (let i = 0; i < 15; i++) {
+    const atEnd = await page.getByRole('button', { name: /The End/ }).isVisible().catch(() => false)
+    if (atEnd) break
+    const moved = await jsClick(page, '^→$')
+    if (!moved) break
+    bookPages++
+    await page.waitForTimeout(220)
+  }
+  const endShown = await page.getByRole('button', { name: /The End/ }).isVisible().catch(() => false)
+  ok('paged through to The End', endShown, `pages=${bookPages}`)
+  await jsClick(page, 'The End')
+  await page.waitForTimeout(600)
+  const rewardUi = await page.evaluate(() => ({
+    reward: /You read the whole book!/.test(document.body.innerText),
+    gemsLabel: /\+20\s*💎/.test(document.body.innerText),
+    // .btn3d uppercases its label — innerText shows "KEEP GOING! 🚀"
+    keep: /Keep going!/i.test(document.body.innerText),
+  }))
+  ok('first-read reward overlay (+20 gems)', rewardUi.reward && rewardUi.gemsLabel && rewardUi.keep, JSON.stringify(rewardUi))
+  await shot(page, '02c-book-reward')
+  const gemsAfterBook = (await readState(page)).gems
+  const booksAfter = (await readState(page)).booksRead
+  ok('book grants +20 gems and persists booksRead',
+    gemsAfterBook === gemsBeforeBook + 20 && Object.keys(booksAfter).length === booksBefore + 1 &&
+      Object.values(booksAfter).some((v) => v === true),
+    `gems ${gemsBeforeBook} -> ${gemsAfterBook}, booksRead=${JSON.stringify(booksAfter)}`)
+  await jsClick(page, 'Keep going!')
+  await page.waitForTimeout(600)
+  const readBack = await page.evaluate(() => ({
+    goldNode: /✅ Read the book/.test(document.body.innerText),
+    badge: !!Array.from(document.querySelectorAll('span[title="Book read!"]')).length,
+    readerClosed: !/The End/.test(document.body.innerText),
+  }))
+  ok('back on roadmap: gold book node + header badge', readBack.goldNode && readBack.badge && readBack.readerClosed,
+    JSON.stringify(readBack))
+  await shot(page, '02d-book-read')
+
   // back to maths for the rest of the run
   const mathPill = page.getByRole('button', { name: 'Maths', exact: true }).first()
   if (await mathPill.isVisible().catch(() => false)) await mathPill.click().catch(() => {})
@@ -544,6 +621,83 @@ async function main() {
   // arcade play fed the daily quest counter
   const finalState = await readState(page)
   ok('arcade play fed the daily quest counter', finalState.arcadeCorrectToday > 0, `arcadeCorrectToday=${finalState.arcadeCorrectToday}`)
+
+  // --- 12. Friends: Profile entry → friends screen (PLAN 17, hermetic mocks) ---
+  let joined = false
+  await page.route('**/api/year2/friends/**', (route) => {
+    const url = route.request().url()
+    const json = (body) => route.fulfill({ contentType: 'application/json', body: JSON.stringify(body) })
+    if (url.includes('/list')) {
+      return json({ ok: true, friends: joined ? [{ id: 'g:sara', name: 'Sara' }] : [] })
+    }
+    if (url.includes('/code')) return json({ ok: true, code: 'K7QPM3' })
+    if (url.includes('/join')) {
+      return json({ ok: true, friendName: 'Sara', friendId: 'g:sara', firstJoin: true, already: false })
+    }
+    return json({ ok: true })
+  })
+  await page.route('**/api/year2/leaderboard*', (route) =>
+    route.fulfill({ contentType: 'application/json', body: JSON.stringify({ entries: [] }) }))
+
+  await page.locator('nav button', { hasText: 'You' }).first().click()
+  await page.waitForTimeout(500)
+  const friendsCard = await jsClick(page, 'Share your code')
+  await page.waitForTimeout(800)
+  const fui = await page.evaluate(() => {
+    const body = document.body.innerText
+    return {
+      title: body.includes('Friends 🤝'),
+      codeLabel: /your friend code/i.test(body),
+      empty: body.includes('No friends yet'),
+      codeShown: body.includes('K7QPM3'),
+      joinInput: !!document.querySelector('input[aria-label="Friend code"]'),
+      privacy: body.includes('Friends see only your display name'),
+      heading: !!Array.from(document.querySelectorAll('h1')).find((h) => /Friends/.test(h.textContent || '')),
+    }
+  })
+  ok('friends screen opens from Profile entry',
+    friendsCard && fui.title && fui.codeLabel && fui.joinInput && fui.privacy && fui.heading,
+    JSON.stringify({ friendsCard, ...fui }))
+  ok('invite code displayed (6 chars)', fui.codeShown, `codeShown=${fui.codeShown}`)
+  const emptyShown = await page.getByText('No friends yet').first().isVisible().catch(() => false)
+  ok('empty state before joining', emptyShown, `emptyShown=${emptyShown}`)
+  await shot(page, '14-friends')
+
+  // join Sara by code → first-friend celebration + reward
+  const gemsBeforeFriend = (await readState(page)).gems
+  if (fui.joinInput) {
+    await page.locator('input[aria-label="Friend code"]').fill('SARA123')
+    joined = true // the post-join list refresh must see the new friend
+    await page.getByRole('button', { name: 'Add', exact: true }).first().click()
+    await page.waitForTimeout(700)
+  }
+  const joinedUi = await page.evaluate(() => ({
+    reward: /You made a friend!/.test(document.body.innerText),
+    plus30: /\+30\s*💎/.test(document.body.innerText),
+    achievement: /Best Friends/.test(document.body.innerText),
+  }))
+  ok('first-friend celebration (+30 gems, Best Friends)',
+    joinedUi.reward && joinedUi.plus30 && joinedUi.achievement, JSON.stringify(joinedUi))
+  await shot(page, '15-friend-joined')
+  const afterJoin = await page.evaluate((k) => {
+    const s = JSON.parse(localStorage.getItem(k)).state
+    return { gems: s.gems, friendsAdded: s.friendsAdded, achievement: s.achievements.includes('made-a-friend') }
+  }, PLAYER_KEY)
+  ok('reward persisted (gems +30, friendsAdded=1, achievement)',
+    afterJoin.gems === gemsBeforeFriend + 30 && afterJoin.friendsAdded === 1 && afterJoin.achievement,
+    `gems ${gemsBeforeFriend} -> ${afterJoin.gems} friendsAdded=${afterJoin.friendsAdded}`)
+  await jsClick(page, 'Yay!')
+  await page.waitForTimeout(600)
+  const listAfter = await page.evaluate(() => ({
+    friend: document.body.innerText.includes('Sara'),
+    me: document.body.innerText.includes('· you'),
+  }))
+  ok('friend appears in this week\'s battle list', listAfter.friend && listAfter.me, JSON.stringify(listAfter))
+  await shot(page, '16-friends-list')
+  const leftFriends = await page.locator('button[aria-label="Back"]').first().click().then(() => true).catch(() => false)
+  await page.waitForTimeout(500)
+  const backOnProfile = await page.getByText('Daily XP goal').first().isVisible().catch(() => false)
+  ok('Back returns to Profile', leftFriends && backOnProfile, `back=${leftFriends} profileVisible=${backOnProfile}`)
 
   ok('no page errors', errors.length === 0, errors.length ? errors.slice(0, 3).join(' | ') : 'zero pageerror/console errors')
 
