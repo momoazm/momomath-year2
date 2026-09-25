@@ -6,6 +6,7 @@ const snap = (over: Partial<QuestSnapshot> = {}): QuestSnapshot => ({
   lessonsToday: 0,
   correctToday: 0,
   subjectsToday: [],
+  arcadeCorrectToday: 0,
   ...over,
 })
 
@@ -47,6 +48,8 @@ describe('WS-§9 B2/B3 achievements album + multi-subject', () => {
     crowns: 0,
     subjectCount: 0,
     cardsOwned: 0,
+    arcadeBests: 0,
+    arcadeTop: 0,
   }
 
   it('subject achievements unlock only at 3 / 5 distinct subjects', () => {

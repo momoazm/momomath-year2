@@ -742,6 +742,42 @@ Checklist:
 
 ---
 
+## 11. Arcade tab port (home → Documents clone, user 2026-09-23)
+
+Port the full Arcade experience from `C:\Users\momo\momomath-year2` into this
+100-card library tree as an additional bottom-nav tab (not a replacement).
+
+- [x] Copy arcade files: `engine/arcade.ts`, `engine/arcadeRound.ts`,
+      `content/arcade{Math,Science,Words}.ts`, `components/arcade/{PixelBoss,PixelRun}.tsx`
+      (home dirty Pixel Run fixes included), `screens/{ArcadeScreen,ArcadeGame}.tsx`,
+      `tests/{arcadeCards,pixelRun}.test.ts`.
+- [x] `gamification.ts`: `ArcadeGameDef` + `ARCADE_GAMES` (4 games) +
+      `rollQuestSet(_day)` stub (Documents shows full `DAILY_QUESTS`); quest
+      `arcade10` + `QuestSnapshot.arcadeCorrectToday`; achievements
+      `arcadeBests`/`arcadeTop` + 3 arcade achievements.
+- [x] `cards.ts`: `ARCADE_CARD_GOALS` (fang Rounds/10, bark Bosses/5, bean Games/3).
+- [x] `BottomNav.tsx` + `App.tsx`: `arcade` tab (`🕹️`) before profile; route
+      `<ArcadeScreen />`.
+- [x] `store.ts`: arcade fields (`arcadeScores/Rounds/BossesDown/CorrectToday*`),
+      actions (`addArcadeCorrect/Xp`, `submitArcadeScore`, `grantArcadeCard`,
+      `checkArcadeCards`, `recordArcadeRound`); persist **v10** migration;
+      `questProgressSnapshot` + achievements snapshots include arcade.
+      Create callback now `(set, get)`.
+- [x] `LibraryScreen.tsx`: locked exclusive cards show `goalText` +
+      `progressText` (e.g. "Rounds 4/10") from `ARCADE_CARD_GOALS`.
+- [x] `ProfileScreen.tsx`: Arcade best stat (`s.arcadeScores ?? {}`).
+- [x] `cloudsave.ts`: optional `arcadeScores` on `CloudSave` + snapshot +
+      max-merge; `applySyncedSnapshot` max-merges scores.
+- [x] Tests: `arcadeCards` adapted to this clone (`PITY_LIMIT`, `ChestResult.cards`);
+      `questsMultiSubject` snapshot/base extended.
+- [x] Gates: `npx tsc -b` clean; full `npx vitest run` **87 files / 2465 tests green**;
+      `npm run verify` OK.
+- [x] Local smoke (`tmp/arcade-smoke.mjs`, port 3201): Arcade tab, Retro Arcade
+      screen, 4 game cards, Library `Arcade Exclusives` panel + `/100` intact.
+- [x] PLAN §8 changelog row; commit + `node scripts/deploy.mjs`.
+
+---
+
 ## 8. Session changelog
 
 | Date | Session | What happened |
@@ -764,3 +800,4 @@ Checklist:
 | 2026-09-23 | §9 A+B1–B5+C1/C2 | **All §9 items done [x]**: C1 roster 98→100 (`maria` common + `chao` rare; distribution 41/26/18/10/5; `public/cards/` exactly 100 `.webp`; orphans honey/flicky deleted; cardStars/chestCards assert 100; Library real art on every tile, locked = dimmed + 🔒 not `?`; imgcheck 100/100). C2 hardened START_TABLES / CARD_CHANCE / KICK_UPGRADE — joint odds strictly decrease in all 4 contexts, pity preserved. A: PathScreen empty-state → generic "No roadmap here yet". B1: `tests/contentQaSubjects.test.ts` (16) green; findings documented in §9 (binary A/B prompts by design, match rights de-duped by matchLayout, fingerprint uniqueness via everyLesson + 8 seeds). B2: `subjectsToday` day-roll + subjects2/subjects3 quests + subjects-3/subjects-5/cards-10/cards-40 achievements + `subjectOfLesson`; `questsMultiSubject.test.ts` (6). B3: lucky-ticket copy (start odds + card drops); shop 19/19. B4: onboarding smoke welcome → path/lesson, 0 pageerrors. B5: Library search + Owned filter + tier tabs; search "maria" → 1 tile. Gates: `npx tsc -b` clean; full `npx vitest run` green; `npm run verify` OK. Files: cards.ts, store.ts, gamification.ts, shop.ts, LibraryScreen.tsx, PathScreen.tsx, tests/{contentQaSubjects,questsMultiSubject,cardStars,chestCards,shop}, public/cards/*.webp, PLAN.md. Not committed/deployed. |
 | 2026-09-23 | WS5-gameplay | **Pixel Run gameplay revision (user request): Sonic character, coin-friendly jump, safe coin placement, gate benefit/drawback.** (1) Player = Sonic `<Mascot id="sonic">` (happy/excited/cheer expressions, cyan shield ring; `aria-label="Runner"` kept for smoke scripts; PLAYER_W 22?26). (2) Jump retuned so a well-timed jump sweeps the whole coin arc: GRAVITY 0.55?0.6, JUMP_V?10.2 (apex �87 > coin top 52), coin hitbox +6px generous, arc spacing 24 / heights 8/34/52/34/8. (3) Coins never lead into obstacles: new pure `planFeatures(rand, fromX, untilX)` sequential spawner (spike ~45% / arc ~55%, shared cursor, `GATE_CLEAR=80`, `COIN_GAP_AFTER=130`, stops before finish-140) + layout-invariant tests. (4) Gate outcomes clear: correct = GATE_SCORE 20?**50** + 30 coins + **4s shield** (spikes pass through, cyan ring); wrong = -1 life + **WRONG_PENALTY=30** score (floor 0) + i-frames; live HUD ???/?n; over-screen shows wrong total. (5) ProfileScreen `/3 games` ? `ARCADE_GAMES.length`. Exclusives confirmed still rendering (Library panel 3 tiles). **Verify**: tsc clean; vitest 32 files/**1022** tests (pixelRun 13 incl. planFeatures invariants); precommit OK; local smoke **13/13** (jump +73px, gate overlay + HUD penalty, exclusives); deployed gh-pages `index-CxsAI_FX.js`; live `verify-gamification` **42/42**. Files: src/components/arcade/PixelRun.tsx, src/screens/ProfileScreen.tsx, tests/pixelRun.test.ts, both PLAN.md. |
 | 2026-09-23 | §10 arcade-exclusives | **Fang/Bean/Bark moved to arcade exclusives (user decisions locked).** (1) `cards.ts`: `source?: 'chest'|'arcade'`; removed trio from `CARDS` → chest pool **97 (39/25/18/10/5)**; added `ARCADE_CARDS` (all exclusive, source arcade, unlock-condition flavors), `ALL_CARDS` (100), `ARCADE_CARD_BY_ID`; `drawCardId`/`mastered` still read `CARDS` only. (2) Library: top `🕹️ Arcade Exclusives` panel (x/3 collected, existing gray locked style: dimmed art + 🔒 + condition line); header total = `ALL_CARDS.length` (100); locked toast + modal obtain copy branch on `source === 'arcade'`; tier/search/Owned still filter only the 97-card main grid. (3) Profile unique-cards + ★ distribution use `ALL_CARDS`. (4) Tests: chestCards band → 39/25/18/10/5 + `toBe(97)` + new arcade describe (`ALL_CARDS` 100, ARCADE disjoint/exclusive/source/images, `rollChest` never drops them); cardStars art contract over `ALL_CARDS` (100-entry map kept). (5) PLAN §7 renumbered + Arcade subsection; §10 checklist. **Gates**: `npx tsc -b` clean; full `npx vitest run` **85 files / 2442 tests green**; `npm run verify` OK. Local smoke: arcade panel 3 tiles, header `/100`, main grid 97, exclusive tab 5, search fang → 0 main + panel intact. Files: src/engine/cards.ts, src/screens/LibraryScreen.tsx, src/screens/ProfileScreen.tsx, tests/{chestCards,cardStars}.test.ts, PLAN.md. |
+| 2026-09-23 | §11 arcade-tab | **Ported the full Arcade tab from the home clone into this 100-card tree (user: additional page, keep library).** Surgical file port (no `git merge` — 16 conflicts). Copied 11 arcade files incl. dirty Pixel Run fixes (`JUMP_V 10.2`, `planFeatures`); wired `ARCADE_GAMES` (4) + `rollQuestSet` stub, `arcade10` quest, 3 arcade achievements, `ARCADE_CARD_GOALS`, BottomNav+App arcade tab, store arcade state/actions persist **v10**, Library locked goal/progress text, Profile arcade best, cloudsave optional `arcadeScores` max-merge. Fixed tests for this clone (`PITY_LIMIT`/`ChestResult.cards`, quest/achievement snapshot fields). **Gates**: `npx tsc -b` clean; full `npx vitest run` **87 files / 2465 tests green**; `npm run verify` OK. Smoke: Arcade tab → Retro Arcade + 4 games; Library panel + `/100` intact (CORS leaderboard noise local-only). Files: arcade engine/content/screens/components + App, BottomNav, cards, gamification, store, cloudsave, LibraryScreen, ProfileScreen, tests, PLAN.md §11. |

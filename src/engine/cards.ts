@@ -140,18 +140,26 @@ export const CARD_BY_ID: Record<string, CardDef> = Object.fromEntries(CARDS.map(
 /* -------------------- arcade-exclusive cards -------------------- */
 /** Unlock-only Sonic the Fighters trio — NEVER in the chest pool (uniform pick,
  *  locked-pity and novelty math all read CARDS, which excludes these).
- *  Display-only in this tree (no Arcade tab yet — PLAN.md §10); granted once
- *  a future arcade trigger exists. Art: existing free-source webps. */
+ *  Granted by playing the Arcade tab (see ARCADE_CARD_GOALS + store
+ *  recordArcadeRound). Art: existing free-source webps. */
 export const ARCADE_CARDS: CardDef[] = [
   { id: 'fang', tier: 'exclusive', name: 'Fang the Sniper', flavor: 'Finishes 10 arcade rounds!', image: 'cards/fang.webp', source: 'arcade' },
   { id: 'bean', tier: 'exclusive', name: 'Bean the Dynamite', flavor: 'Scores in all 3 subject games!', image: 'cards/bean.webp', source: 'arcade' },
   { id: 'bark', tier: 'exclusive', name: 'Bark the Polar Bear', flavor: 'Crushes 5 bosses in Boss Rush!', image: 'cards/bark.webp', source: 'arcade' },
 ]
 
-/** Every card incl. arcade exclusives (library/profile display only). */
+/** Every card incl. arcade exclusives (library/profile display). */
 export const ALL_CARDS: CardDef[] = [...CARDS, ...ARCADE_CARDS]
 
 export const ARCADE_CARD_BY_ID: Record<string, CardDef> = Object.fromEntries(ARCADE_CARDS.map((c) => [c.id, c]))
+
+/** Unlock progress target for each arcade card. `unit` is the short progress
+ *  prefix shown on the locked library card ("Rounds 4/10"). */
+export const ARCADE_CARD_GOALS: Record<string, { label: string; unit: string; goal: number; progress: (s: { arcadeRounds: number; arcadeBossesDown: number; arcadeGamesPlayed: number }) => number }> = {
+  fang: { label: 'Finish {n} arcade rounds', unit: 'Rounds', goal: 10, progress: (s) => s.arcadeRounds },
+  bark: { label: 'Defeat {n} bosses in Boss Rush', unit: 'Bosses', goal: 5, progress: (s) => s.arcadeBossesDown },
+  bean: { label: 'Score in all {n} subject games', unit: 'Games', goal: 3, progress: (s) => s.arcadeGamesPlayed },
+}
 
 /** Resolves a card's character render to an absolute URL under the Vite base path. */
 export function cardImageUrl(card: CardDef): string {

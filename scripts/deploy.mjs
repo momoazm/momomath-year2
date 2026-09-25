@@ -10,7 +10,7 @@ import { join } from 'node:path'
 const ROOT = new URL('..', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1')
 const BASE = '/momomath-year2/'
 const LIVE_URL = 'https://momoazm.github.io/momomath-year2/'
-const MUST_CONTAIN = ['apps.googleusercontent.com', 'Momo Year 2 Cambridge']
+const MUST_CONTAIN = ['apps.googleusercontent.com', 'Momo Year 2 Cambridge', 'Retro Arcade', 'Boss Rush']
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 const log = (...a) => console.log(`[${new Date().toISOString().slice(11, 19)}]`, ...a)

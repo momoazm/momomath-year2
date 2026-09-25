@@ -1,6 +1,7 @@
 import { useEffect, useState, type CSSProperties } from 'react'
 import { usePlayer } from '../engine/store'
-import { CARDS, ALL_CARDS, ARCADE_CARDS, cardImageUrl, STAR_THRESHOLDS, copiesToNextStar, toStar, TIER_META, TIER_ORDER, type CardDef, type ChestTier } from '../engine/cards'
+import { CARDS, ARCADE_CARDS, ARCADE_CARD_GOALS, ALL_CARDS, cardImageUrl, STAR_THRESHOLDS, copiesToNextStar, toStar, TIER_META, TIER_ORDER, type CardDef, type ChestTier } from '../engine/cards'
+import { ARCADE_GAMES } from '../engine/gamification'
 import { AnimatePresence, motion } from 'framer-motion'
 
 function isOwnedId(cardStars: Record<string, number>, id: string): boolean {
@@ -8,12 +9,30 @@ function isOwnedId(cardStars: Record<string, number>, id: string): boolean {
 }
 
 export function LibraryScreen({ onClose }: { onClose?: () => void }) {
-  const { cardStars } = usePlayer()
+  const { cardStars, arcadeRounds, arcadeBossesDown, arcadeScores } = usePlayer()
   const [filterTier, setFilterTier] = useState<ChestTier | 'all'>('all')
   const [query, setQuery] = useState('')
   const [ownedOnly, setOwnedOnly] = useState(false)
   const [selectedCard, setSelectedCard] = useState<CardDef | null>(null)
   const [lockedToast, setLockedToast] = useState<{card: CardDef; tier: ChestTier} | null>(null)
+
+  const arcadeSnapshot = {
+    arcadeRounds,
+    arcadeBossesDown,
+    arcadeGamesPlayed: ARCADE_GAMES.filter((g) => (arcadeScores[g.id] ?? 0) > 0).length,
+  }
+
+  const goalText = (id: string) => {
+    const goal = ARCADE_CARD_GOALS[id]
+    if (!goal) return ''
+    return goal.label.replace('{n}', String(goal.goal))
+  }
+
+  const progressText = (id: string) => {
+    const goal = ARCADE_CARD_GOALS[id]
+    if (!goal) return ''
+    return `${goal.unit} ${goal.progress(arcadeSnapshot)}/${goal.goal}`
+  }
 
   const owned = new Set(Object.keys(cardStars).filter((id) => (cardStars[id] ?? 0) > 0))
   const allCards = CARDS
@@ -56,6 +75,8 @@ export function LibraryScreen({ onClose }: { onClose?: () => void }) {
         onCardClick={handleCardClick}
         getHiddenCardStyle={getHiddenCardStyle}
         cardStars={cardStars}
+        goalText={goalText}
+        progressText={progressText}
       />
       <LibraryToolbar
         filterTier={filterTier}
@@ -95,11 +116,15 @@ function ArcadeExclusives({
   onCardClick,
   getHiddenCardStyle,
   cardStars,
+  goalText,
+  progressText,
 }: {
   isOwned: (id: string) => boolean
   onCardClick: (card: CardDef) => void
   getHiddenCardStyle: (tier: ChestTier) => CSSProperties
   cardStars: Record<string, number>
+  goalText: (id: string) => string
+  progressText: (id: string) => string
 }) {
   const collected = ARCADE_CARDS.filter((c) => isOwned(c.id)).length
   return (
@@ -150,7 +175,8 @@ function ArcadeExclusives({
                     style={{ background: 'linear-gradient(0deg, rgba(2,6,23,0.78) 0%, transparent 55%)' }}>
                     <p className="font-display text-sm font-extrabold text-white drop-shadow">{card.name}</p>
                     <p className="font-display text-[10px] font-bold text-slate-200">🔒 Arcade exclusive</p>
-                    <p className="font-display text-[9px] font-bold text-slate-300 leading-tight">{card.flavor}</p>
+                    <p className="font-display text-[9px] font-bold text-slate-300 leading-tight">{goalText(card.id)}</p>
+                    <p className="font-display text-[9px] font-extrabold text-amber-400">{progressText(card.id)}</p>
                   </div>
                 )}
                 {owned_ && (

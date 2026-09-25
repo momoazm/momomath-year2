@@ -16,8 +16,9 @@ import {
 } from './gamification'
 import { SHOP_ITEMS } from './shop'
 import { setMuted, sfx } from './sfx'
-import { chestPayout } from './cards'
+import { chestPayout, ARCADE_CARDS, ARCADE_CARD_GOALS, STAR_THRESHOLDS } from './cards'
 import type { ChestResult } from './cards'
+import { ARCADE_GAMES } from './arcade'
 import type { AdaptiveStore } from './adaptive/types'
 import type { SkillState } from './adaptive/types'
 import { ADAPTIVE_CONFIG } from './adaptive/config'
@@ -118,10 +119,33 @@ interface PlayerState {
   cardPity: number
   /** shop Lucky Ticket stack; consumed on the next chest */
   luckyTickets: number
+  /** day-rolled arcade score counter for daily quests */
+  arcadeCorrectTodayDay: string
+  arcadeCorrectToday: number
+  /** per-arcade-game personal bests (see ARCADE_GAMES ids) */
+  arcadeScores: Record<string, number>
+  /** lifetime finished arcade rounds (local-only; drives the Fang unlock) */
+  arcadeRounds: number
+  /** lifetime Boss Rush bosses beaten (drives the Bark unlock) */
+  arcadeBossesDown: number
   /** timestamp (ms) of last successful cloud sync */
   lastSyncedAt: number | null
 
   // actions
+  /** Count a correct answer inside an Arcade game (feeds the arcade quest). */
+  addArcadeCorrect: (n?: number) => void
+  /** Award XP earned from an arcade round (xpTotal + today + league week). */
+  addArcadeXp: (n: number) => void
+  /** Record an arcade score; returns true when a new personal best. */
+  submitArcadeScore: (gameId: string, score: number) => boolean
+  /** Count a finished arcade round (+ optional bosses beaten), then evaluate
+   *  arcade-exclusive card unlocks. Returns the ids newly granted. */
+  recordArcadeRound: (gameId: string, bossesDown?: number) => string[]
+  /** Grant an arcade-exclusive card 3 copies (1★) once; false if already owned. */
+  grantArcadeCard: (id: string) => boolean
+  /** Evaluate all ARCADE_CARD_GOALS against current progress; grants every
+   *  newly-satisfied goal. Returns the ids granted this call. */
+  checkArcadeCards: () => string[]
   completeLesson: (args: {
     lessonId: string
     xp: number
@@ -198,6 +222,10 @@ function rollDay(s: PlayerState) {
   if (s.subjectsTodayDay !== today) {
     s.subjectsTodayDay = today
     s.subjectsToday = []
+  }
+  if (s.arcadeCorrectTodayDay !== today) {
+    s.arcadeCorrectTodayDay = today
+    s.arcadeCorrectToday = 0
   }
 }
 
@@ -444,6 +472,8 @@ function checkAchievements(s: PlayerState) {
       .filter((x): x is Subject => x !== null),
   ).size
   const cardsOwned = Object.values(s.cardStars).filter((n) => n > 0).length
+  const arcadeBests = Object.values(s.arcadeScores ?? {}).filter((v) => v > 0).length
+  const arcadeTop = Math.max(0, ...Object.values(s.arcadeScores ?? {}))
   const snap = {
     xpTotal: s.xpTotal,
     streakCurrent: s.streakCurrent,
@@ -451,6 +481,8 @@ function checkAchievements(s: PlayerState) {
     crowns,
     subjectCount,
     cardsOwned,
+    arcadeBests,
+    arcadeTop,
   }
   let gained = false
   for (const a of ACHIEVEMENTS) {
@@ -491,7 +523,7 @@ function initialExtraEnabled(key: ExtraKey, subject: ExtraSubject): boolean {
 
 export const usePlayer = create<PlayerState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       name: 'Champion',
       mascot: 'sonic' as MascotId,
       subject: initialSubjectFromUrl(),
@@ -535,6 +567,11 @@ export const usePlayer = create<PlayerState>()(
       cardCounts: {},
       cardPity: 0,
       luckyTickets: 0,
+      arcadeCorrectTodayDay: firstDay,
+      arcadeCorrectToday: 0,
+      arcadeScores: {},
+      arcadeRounds: 0,
+      arcadeBossesDown: 0,
       lastSyncedAt: null,
 
       // --- adaptive learning ---
@@ -717,6 +754,26 @@ export const usePlayer = create<PlayerState>()(
             claimedQuests: { day: today, questIds: [...base, questId] },
           }
         }),
+      addArcadeCorrect: (n = 1) =>
+        set((state) => {
+          const s = { ...state }
+          rollDay(s)
+          s.arcadeCorrectToday += n
+          return s
+        }),
+      addArcadeXp: (n) =>
+        set((state) => {
+          const amt = Math.max(0, Math.round(Number(n) || 0))
+          if (amt === 0) return state
+          const s: PlayerState = { ...state }
+          rollDay(s)
+          rollWeek(s)
+          s.xpTotal += amt
+          s.todayXp += amt
+          s.weeklyXp += amt
+          checkAchievements(s)
+          return s
+        }),
       spendGems: (amount) => {
         let success = false
         set((state) => {
@@ -812,6 +869,59 @@ export const usePlayer = create<PlayerState>()(
           const payout = chestPayout(chest, cardStars)
           return { gems: state.gems + payout.gems + payout.dust, cardStars, cardPity: pity }
         }),
+      submitArcadeScore: (gameId, score) => {
+        const key = String(gameId ?? '').slice(0, 32)
+        if (!key) return false
+        let pb = false
+        set((state) => {
+          const n = Math.max(0, Math.round(Number(score) || 0))
+          const prev = state.arcadeScores[key] ?? 0
+          if (n <= prev) return state
+          pb = true
+          return { arcadeScores: { ...state.arcadeScores, [key]: n } }
+        })
+        return pb
+      },
+      grantArcadeCard: (id) => {
+        const def = ARCADE_CARDS.find((c) => c.id === id)
+        if (!def) return false
+        let granted = false
+        set((state) => {
+          if ((state.cardStars[id] ?? 0) >= STAR_THRESHOLDS[0]) return state
+          granted = true
+          return { cardStars: { ...state.cardStars, [id]: STAR_THRESHOLDS[0] } }
+        })
+        return granted
+      },
+      checkArcadeCards: () => {
+        const st = get()
+        const snap = {
+          arcadeRounds: st.arcadeRounds,
+          arcadeBossesDown: st.arcadeBossesDown,
+          arcadeGamesPlayed: new Set(
+            ARCADE_GAMES.filter((g) => (st.arcadeScores[g.id] ?? 0) > 0).map((g) => g.subject),
+          ).size,
+        }
+        const granted: string[] = []
+        for (const card of ARCADE_CARDS) {
+          const goal = ARCADE_CARD_GOALS[card.id]
+          if (!goal) continue
+          if ((st.cardStars[card.id] ?? 0) >= STAR_THRESHOLDS[0]) continue
+          if (goal.progress(snap) >= goal.goal) {
+            if (get().grantArcadeCard(card.id)) granted.push(card.id)
+          }
+        }
+        return granted
+      },
+      recordArcadeRound: (_gameId, bossesDown = 0) => {
+        set((state) => {
+          const s: PlayerState = { ...state }
+          s.arcadeRounds = (s.arcadeRounds ?? 0) + 1
+          s.arcadeBossesDown = (s.arcadeBossesDown ?? 0) + Math.max(0, Math.round(bossesDown))
+          return s
+        })
+        return get().checkArcadeCards()
+      },
       addLuckyTickets: (n) => set((state) => ({ luckyTickets: state.luckyTickets + n })),
       consumeStreakChest: () => {
         let milestone: number | null = null
@@ -907,6 +1017,23 @@ export const usePlayer = create<PlayerState>()(
             for (const [k, v] of Object.entries(snap.shopInventory))
               mergedInv[k] = Math.max(mergedInv[k] ?? 0, v)
             next.shopInventory = mergedInv
+          }
+          if (snap.arcadeScores) {
+            const mergedScores: Record<string, number> = { ...state.arcadeScores }
+            for (const [k, v] of Object.entries(snap.arcadeScores)) {
+              if (typeof v === 'number' && Number.isFinite(v))
+                mergedScores[k] = Math.max(mergedScores[k] ?? 0, v)
+            }
+            next.arcadeScores = mergedScores
+          }
+          const scoresIn = (snap as Record<string, unknown>).arcadeScores as Record<string, number> | undefined
+          if (scoresIn && typeof scoresIn === 'object') {
+            const mergedScores: Record<string, number> = { ...state.arcadeScores }
+            for (const [k, v] of Object.entries(scoresIn)) {
+              if (typeof v === 'number' && Number.isFinite(v))
+                mergedScores[k] = Math.max(mergedScores[k] ?? 0, v)
+            }
+            next.arcadeScores = mergedScores
           }
           // Learning tracker arrives pre-merged from mergeCloudSave — apply
           // wholesale after normalising shapes from old/foreign saves.
@@ -1009,8 +1136,8 @@ export const usePlayer = create<PlayerState>()(
     }),
     {
       name: 'momomath-year2-player-v2',
-      version: 9,
-      migrate: (persisted, version) => {
+    version: 10,
+    migrate: (persisted, version) => {
         const p = { ...(persisted as PlayerState) }
         if (version < 4) {
           // Backfill any fields added after v3 (streak milestone rewards).
@@ -1084,6 +1211,15 @@ export const usePlayer = create<PlayerState>()(
             p.subject = 'math'
           }
         }
+        if (version < 10) {
+          // v10: arcade personal bests + exclusive-card progress counters.
+          const anyP = p as Partial<PlayerState>
+          if (!anyP.arcadeScores || typeof anyP.arcadeScores !== 'object') anyP.arcadeScores = {}
+          if (typeof anyP.arcadeRounds !== 'number') anyP.arcadeRounds = 0
+          if (typeof anyP.arcadeBossesDown !== 'number') anyP.arcadeBossesDown = 0
+          if (typeof anyP.arcadeCorrectToday !== 'number') anyP.arcadeCorrectToday = 0
+          if (typeof anyP.arcadeCorrectTodayDay !== 'string') anyP.arcadeCorrectTodayDay = firstDay
+        }
         return p
       },
     },
@@ -1091,11 +1227,13 @@ export const usePlayer = create<PlayerState>()(
 )
 
 export function questProgressSnapshot(s: PlayerState) {
+  const today = todayISO()
   return {
-    xpToday: s.todayXp,
-    lessonsToday: s.lessonsToday,
-    correctToday: s.correctToday,
-    subjectsToday: s.subjectsToday ?? [],
+    xpToday: s.todayXpDay === today ? s.todayXp : 0,
+    lessonsToday: s.lessonsTodayDay === today ? s.lessonsToday : 0,
+    correctToday: s.correctTodayDay === today ? s.correctToday : 0,
+    subjectsToday: s.subjectsTodayDay === today ? (s.subjectsToday ?? []) : [],
+    arcadeCorrectToday: s.arcadeCorrectTodayDay === today ? s.arcadeCorrectToday : 0,
   }
 }
 

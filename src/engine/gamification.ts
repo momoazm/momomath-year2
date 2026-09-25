@@ -362,6 +362,8 @@ export interface QuestSnapshot {
   correctToday: number
   /** Distinct subjects finished today (lesson prefixes resolved to Subject). */
   subjectsToday: string[]
+  /** Correct answers scored inside Arcade games today (day-rolled). */
+  arcadeCorrectToday: number
 }
 
 export const DAILY_QUESTS: QuestDef[] = [
@@ -387,6 +389,13 @@ export const DAILY_QUESTS: QuestDef[] = [
     progress: (s) => s.correctToday,
   },
   {
+    id: 'arcade10',
+    label: (g) => `Score ${g} points in the arcade`,
+    goal: 10,
+    reward: 20,
+    progress: (s) => s.arcadeCorrectToday,
+  },
+  {
     id: 'subjects2',
     label: (g) => `Play ${g} different subjects`,
     goal: 2,
@@ -401,6 +410,28 @@ export const DAILY_QUESTS: QuestDef[] = [
     progress: (s) => s.subjectsToday.length,
   },
 ]
+
+/* ---------------- Arcade game defs ---------------- */
+export interface ArcadeGameDef {
+  id: string
+  title: string
+  desc: string
+  icon: string
+  /** which subject this game exercises (shows a badge on the arcade list) */
+  subject: 'math' | 'english' | 'science'
+}
+
+export const ARCADE_GAMES: ArcadeGameDef[] = [
+  { id: 'boss-rush', title: 'Boss Rush', desc: 'Take down pixel bosses with perfect answers', icon: '⚔️', subject: 'math' },
+  { id: 'word-rescue', title: 'Word Rescue', desc: 'Pick the right spelling before time runs out', icon: '📚', subject: 'english' },
+  { id: 'lab-blitz', title: 'Lab Blitz', desc: 'Answer fast science questions to power the lab', icon: '🔬', subject: 'science' },
+  { id: 'pixel-run', title: 'Pixel Run', desc: 'Jump the spikes and clear math gates to the finish', icon: '🏃', subject: 'math' },
+]
+
+/** Alias for arcade.ts compatibility (docs lineage shows the full DAILY_QUESTS list). */
+export function rollQuestSet(_day: string): QuestDef[] {
+  return DAILY_QUESTS
+}
 
 /* ---------------- Achievements ---------------- */
 export interface AchievementDef {
@@ -420,6 +451,10 @@ export interface AchievementSnapshot {
   subjectCount: number
   /** Card album size (owned count) — for album achievements. */
   cardsOwned: number
+  /** Number of arcade games with a personal best (>0). */
+  arcadeBests: number
+  /** Highest arcade personal best score. */
+  arcadeTop: number
 }
 
 /**
@@ -458,4 +493,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   { id: 'subjects-5', title: 'Curriculum Tourist', desc: 'Finish lessons in 5 subjects', icon: '🧭', test: (s) => s.subjectCount >= 5 },
   { id: 'cards-10', title: 'Album Starter', desc: 'Collect 10 cards', icon: '🃏', test: (s) => s.cardsOwned >= 10 },
   { id: 'cards-40', title: 'Album Keeper', desc: 'Collect 40 cards', icon: '📚', test: (s) => s.cardsOwned >= 40 },
+  { id: 'arcade-debut', title: 'Arcade Debut', desc: 'Set a score in any arcade game', icon: '🕹️', test: (s) => s.arcadeBests >= 1 },
+  { id: 'arcade-3', title: 'Arcade Ace', desc: 'Set scores in 3 arcade games', icon: '🏆', test: (s) => s.arcadeBests >= 3 },
+  { id: 'arcade-100', title: 'High Scorer', desc: 'Score 100+ in an arcade game', icon: '🌟', test: (s) => s.arcadeTop >= 100 },
 ]

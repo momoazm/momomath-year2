@@ -1,10 +1,11 @@
-type Tab = 'path' | 'shop' | 'leagues' | 'quests' | 'profile'
+type Tab = 'path' | 'shop' | 'leagues' | 'quests' | 'arcade' | 'profile'
 
 const TABS: { id: Tab; icon: string; label: string }[] = [
   { id: 'path', icon: '🏁', label: 'Path' },
   { id: 'shop', icon: '🛍️', label: 'Shop' },
   { id: 'leagues', icon: '🏆', label: 'Leagues' },
   { id: 'quests', icon: '📜', label: 'Quests' },
+  { id: 'arcade', icon: '🕹️', label: 'Arcade' },
   { id: 'profile', icon: '🦔', label: 'You' },
 ]
 

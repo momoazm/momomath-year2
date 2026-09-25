@@ -48,6 +48,8 @@ export interface CloudSave {
   streakSavers: number
   doubleXpLessons: number
   luckyTickets: number
+  /** Arcade personal bests (max-merge). Optional: absent on old saves. */
+  arcadeScores?: Record<string, number>
   /** Learning-tracker slice (BKT skills + attempt log). Null on old saves. */
   adaptive: AdaptiveStore | null
   updatedAt: number
@@ -116,6 +118,7 @@ export function snapshotFromPlayer(p: {
   streakSavers: number
   doubleXpLessons: number
   luckyTickets: number
+  arcadeScores: Record<string, number>
   adaptive: AdaptiveStore
 }): CloudSave {
   // Trim the per-skill curves for the wire (local keeps 200 points).
@@ -147,6 +150,7 @@ export function snapshotFromPlayer(p: {
     streakSavers: p.streakSavers,
     doubleXpLessons: p.doubleXpLessons,
     luckyTickets: p.luckyTickets,
+    arcadeScores: p.arcadeScores ?? {},
     adaptive: p.adaptive ? { ...p.adaptive, masteryHistory } : null,
     updatedAt: Date.now(),
   }
@@ -271,6 +275,7 @@ export function mergeCloudSave(a: CloudSave | null, b: CloudSave | null): CloudS
     streakSavers: Math.max(a.streakSavers, b.streakSavers),
     doubleXpLessons: Math.max(a.doubleXpLessons, b.doubleXpLessons),
     luckyTickets: Math.max(a.luckyTickets, b.luckyTickets),
+    arcadeScores: mergeStars(a.arcadeScores ?? {}, b.arcadeScores ?? {}),
     adaptive: mergeAdaptive(a.adaptive, b.adaptive),
     updatedAt: Math.max(a.updatedAt || 0, b.updatedAt || 0, Date.now()),
   }

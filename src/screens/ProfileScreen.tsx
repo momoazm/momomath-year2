@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ACHIEVEMENTS, LEAGUES, LEAGUE_META, displayStreak, isStreakActive } from '../engine/gamification'
+import { ACHIEVEMENTS, ARCADE_GAMES, LEAGUES, LEAGUE_META, displayStreak, isStreakActive } from '../engine/gamification'
 import { usePlayer } from '../engine/store'
 import { GrownUpsReview } from '../components/ui/GrownUpsReview'
 import { MASCOTS, Mascot } from '../components/mascots/Mascots'
@@ -97,6 +97,12 @@ export function ProfileScreen({ onPracticeLesson, onPracticeRetry }: {
         />
         <Stat icon="👑" label="Crowns" value={String(crowns)} />
         <Stat icon="📚" label="Lessons" value={String(lessonsCompleted)} />
+        <Stat
+          icon="🕹️"
+          label="Arcade best"
+          value={String(Math.max(0, ...Object.values(s.arcadeScores ?? {})))}
+          sub={`${Object.values(s.arcadeScores ?? {}).filter((v) => v > 0).length}/${ARCADE_GAMES.length} games`}
+        />
       </section>
 
       {/* daily goal */}

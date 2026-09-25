@@ -9,6 +9,7 @@ import { QuestsScreen } from './screens/QuestsScreen'
 import { ProfileScreen } from './screens/ProfileScreen'
 import { ShopScreen } from './screens/ShopScreen'
 import { LibraryScreen } from './screens/LibraryScreen'
+import { ArcadeScreen } from './screens/ArcadeScreen'
 import { WelcomeGate } from './components/ui/WelcomeGate'
 import { AutoLeagueSettle } from './components/ui/AutoLeagueSettle'
 import { Scenery } from './components/ui/Scenery'
@@ -73,10 +74,11 @@ export default function App() {
           exit={{ opacity: 0, y: -8 }}
           transition={{ duration: 0.15 }}
         >
-{tab === 'path' && <PathScreen onStartLesson={(id) => setActiveLesson(id)} />}
+      {tab === 'path' && <PathScreen onStartLesson={(id) => setActiveLesson(id)} />}
       {tab === 'shop' && <ShopScreen />}
       {tab === 'leagues' && <LeaguesScreen />}
       {tab === 'quests' && <QuestsScreen />}
+      {tab === 'arcade' && <ArcadeScreen />}
       {tab === 'profile' && (
         <ProfileScreen
           onPracticeLesson={(id) => setActiveLesson(id)}
