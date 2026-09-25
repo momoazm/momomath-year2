@@ -364,6 +364,8 @@ export interface QuestSnapshot {
   subjectsToday: string[]
   /** Correct answers scored inside Arcade games today (day-rolled). */
   arcadeCorrectToday: number
+  /** Flashcard Sprints finished today (day-rolled, WS16). */
+  sprintsToday: number
 }
 
 export const DAILY_QUESTS: QuestDef[] = [
@@ -408,6 +410,13 @@ export const DAILY_QUESTS: QuestDef[] = [
     goal: 3,
     reward: 30,
     progress: (s) => s.subjectsToday.length,
+  },
+  {
+    id: 'sprint1',
+    label: () => 'Play a Flashcard Sprint',
+    goal: 1,
+    reward: 15,
+    progress: (s) => s.sprintsToday,
   },
 ]
 
@@ -455,6 +464,8 @@ export interface AchievementSnapshot {
   arcadeBests: number
   /** Highest arcade personal best score. */
   arcadeTop: number
+  /** Lifetime Flashcard Sprints finished (WS16). */
+  sprintRuns: number
 }
 
 /**
@@ -496,4 +507,5 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   { id: 'arcade-debut', title: 'Arcade Debut', desc: 'Set a score in any arcade game', icon: '🕹️', test: (s) => s.arcadeBests >= 1 },
   { id: 'arcade-3', title: 'Arcade Ace', desc: 'Set scores in 3 arcade games', icon: '🏆', test: (s) => s.arcadeBests >= 3 },
   { id: 'arcade-100', title: 'High Scorer', desc: 'Score 100+ in an arcade game', icon: '🌟', test: (s) => s.arcadeTop >= 100 },
+  { id: 'sprint-debut', title: 'Word Sprinter', desc: 'Finish a Flashcard Sprint', icon: '💨', test: (s) => s.sprintRuns >= 1 },
 ]

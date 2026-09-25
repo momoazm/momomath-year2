@@ -5,6 +5,7 @@
   "framework": "vite",
   "rewrites": [
     { "source": "/api/year2/explain", "destination": "/api/year2/explain" },
-    { "source": "/api/year2/review", "destination": "/api/year2/review" }
+    { "source": "/api/year2/review", "destination": "/api/year2/review" },
+    { "source": "/api/year2/followup", "destination": "/api/year2/followup" }
   ]
 }

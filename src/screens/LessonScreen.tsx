@@ -14,7 +14,7 @@ import { Mascot } from '../components/mascots/Mascots'
 import { sfx } from '../engine/sfx'
 import { hashString, mulberry32, shuffle } from '../content/rng'
 import { layoutMatchColumns } from '../content/matchLayout'
-import { primaryCode, questionPrompt, useAdaptiveLesson } from '../engine/adaptive'
+import { fetchFollowup, primaryCode, questionPrompt, useAdaptiveLesson } from '../engine/adaptive'
 import type { RetryItem } from '../engine/adaptive'
 import type {
   LetterTilesQuestion,
@@ -173,12 +173,15 @@ function NumberPad({ value, onChange }: { value: string; onChange: (v: string) =
 
 type Phase = 'intro' | 'playing' | 'done'
 
-export function LessonScreen({ lessonId, onExit, retryItems }: {
+export function LessonScreen({ lessonId, onExit, retryItems, checkup }: {
   lessonId: string
   onExit: () => void
   /** Wrong-question practice: replay these exact snapshots instead of
    *  generating a fresh lesson. XP only — no crowns, no chests. */
   retryItems?: RetryItem[]
+  /** Daily check-up: a mixed due-skill + wrong-question round. Same XP-only
+   *  flow as retry; only the intro/done copy differs. */
+  checkup?: boolean
 }) {
   const subject = usePlayer((s) => s.subject)
   // Retry mode never generates: entry is only needed for fresh lessons.
@@ -251,6 +254,11 @@ export function LessonScreen({ lessonId, onExit, retryItems }: {
   // the same object, so retries never count as new first attempts — no
   // flawless-bonus leak and no double BKT updates)
   const [seenQuestions, setSeenQuestions] = useState<Set<Question>>(new Set())
+  // AI follow-up ("Try a similar one") — prefetched on a wrong first attempt,
+  // shown only once it exists; the id guards against a late answer landing
+  // on the wrong question after the child moved on.
+  const [followupQ, setFollowupQ] = useState<Question | null>(null)
+  const followupReqId = useRef(0)
 
   const q: Question | undefined = queue[qIdx]
 
@@ -263,6 +271,9 @@ export function LessonScreen({ lessonId, onExit, retryItems }: {
   useEffect(() => {
     adaptive.reset()
     adaptive.markShown()
+    // Any in-flight follow-up now belongs to a previous question.
+    followupReqId.current += 1
+    setFollowupQ(null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [qIdx])
 
@@ -279,6 +290,8 @@ export function LessonScreen({ lessonId, onExit, retryItems }: {
     setQueueMeta(meta)
     missedRef.current.clear()
     setMissedCount(0)
+    followupReqId.current += 1
+    setFollowupQ(null)
     setQIdx(0); setPhase('playing'); setFeedback(null)
     setFirstAttemptCorrect(0); setTotalFirstAttempts(0); setSeenQuestions(new Set())
     resetQState()
@@ -409,6 +422,22 @@ export function LessonScreen({ lessonId, onExit, retryItems }: {
         isFirstAttempt: true,
         enabled: true,
       })
+      if (!ok) {
+        // AI follow-up: start fetching the "similar one" now so the offer is
+        // ready by the time the child finishes reading the feedback. The
+        // request id guards against a late answer landing on a later
+        // question.
+        const myId = ++followupReqId.current
+        void fetchFollowup({
+          prompt: questionPrompt(q),
+          studentAnswer: studentAnswerString(),
+          correctAnswer: correctAnswerString(),
+          objectiveCode: origin.objectiveCode,
+          lessonId: origin.lessonId,
+        }).then((r) => {
+          if (r && followupReqId.current === myId) setFollowupQ(r.question)
+        })
+      }
     }
     setFeedback(ok ? 'correct' : 'wrong')
   }
@@ -431,19 +460,30 @@ export function LessonScreen({ lessonId, onExit, retryItems }: {
     }
   }
 
+  /** Wrong first attempt + follow-up ready: insert the similar question as
+   *  the VERY NEXT one, then continue — handleContinue re-queues the missed
+   *  one at the end as usual, so the child practises the similar one first
+   *  and retries the original later. Both queue and origin-meta are spliced
+   *  at the same index, so they stay index-aligned. */
+  function trySimilar() {
+    if (!followupQ || feedback !== 'wrong') return
+    const origin = retry ? (queueMeta[qIdx] ?? { lessonId, objectiveCode: lessonCode }) : { lessonId, objectiveCode: lessonCode }
+    sfx.tap()
+    setQueue((qq) => {
+      const next = [...qq]
+      next.splice(qIdx + 1, 0, followupQ)
+      return next
+    })
+    setQueueMeta((mm) => {
+      const next = [...mm]
+      next.splice(qIdx + 1, 0, origin)
+      return next
+    })
+    setFollowupQ(null)
+    handleContinue()
+  }
+
   function finishLesson() {
-    const isBoss = entry!.lesson.id.endsWith('boss')
-    const base = isBoss ? 20 : entry!.lesson.id.endsWith('term') ? 20 : 10
-    const expectedCount = questionsForLesson(lessonId, QUESTIONS_PER_LESSON)
-    const bonus = firstAttemptCorrect === expectedCount ? 5 : 0
-    let gained = base + bonus
-
-    // Apply double XP boost
-    if (player.doubleXpLessons > 0) {
-      gained *= 2
-      player.useDoubleXp()
-    }
-
     const accuracy = totalFirstAttempts > 0
       ? Math.round((firstAttemptCorrect / totalFirstAttempts) * 100)
       : 100
@@ -452,9 +492,12 @@ export function LessonScreen({ lessonId, onExit, retryItems }: {
     setFirstAttemptMistakes(firstAttemptMistakes)
     setMissedCount(missedRef.current.size)
 
-    // Retry practice: XP only (1 XP per fixed mistake), streak + dailies move,
-    // but lessonProgress crowns/completions and chests are untouched — loot
-    // stays reserved for fresh clears, so retrying can't farm rewards.
+    // Retry / check-up practice: XP only (1 XP per fixed mistake), streak +
+    // dailies move, but lessonProgress crowns/completions and chests are
+    // untouched — loot stays reserved for fresh clears, so retrying can't
+    // farm rewards. Runs FIRST: sessions entered via retryItems (Profile
+    // "tricky ones", daily check-up) have no lesson entry, so nothing below
+    // that dereferences `entry` or consumes boosts may run for them.
     if (retry) {
       let retryGained = firstAttemptCorrect
       if (player.doubleXpLessons > 0) {
@@ -471,6 +514,18 @@ export function LessonScreen({ lessonId, onExit, retryItems }: {
       confetti({ particleCount: firstAttemptMistakes === 0 ? 120 : 60, spread: 75, origin: { y: 0.7 }, disableForReducedMotion: true })
       setPhase('done')
       return
+    }
+
+    const isBoss = entry!.lesson.id.endsWith('boss')
+    const base = isBoss ? 20 : entry!.lesson.id.endsWith('term') ? 20 : 10
+    const expectedCount = questionsForLesson(lessonId, QUESTIONS_PER_LESSON)
+    const bonus = firstAttemptCorrect === expectedCount ? 5 : 0
+    let gained = base + bonus
+
+    // Apply double XP boost
+    if (player.doubleXpLessons > 0) {
+      gained *= 2
+      player.useDoubleXp()
     }
 
     // Redos (replays of an already-completed lesson) earn XP but never
@@ -583,6 +638,31 @@ export function LessonScreen({ lessonId, onExit, retryItems }: {
 
   /* ------------------------------ INTRO ------------------------------ */
   if (phase === 'intro') {
+    if (checkup && retry?.length) {
+      return (
+        <div className="mx-auto flex h-[100dvh] max-w-xl flex-col items-center justify-center px-6 pb-28 pt-16">
+          <motion.div initial={{ scale: 0.6, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+            transition={{ type: 'spring', stiffness: 260, damping: 18 }}
+            className="h-44 w-44 gpu animate-float-y">
+            <Mascot id={player.mascot} expression="happy" />
+          </motion.div>
+          <h1 className="mt-4 text-center font-display text-3xl font-extrabold">Daily check-up 🔔</h1>
+          <p className="mt-2 max-w-sm text-center font-body text-lg font-semibold leading-relaxed text-slate-500">
+            {retry.length} quick question{retry.length === 1 ? '' : 's'} — a mix of skills due for a
+            refresh and the ones you missed recently. Keep them fresh!
+          </p>
+          <div className="card-white mt-4 text-center text-sm font-bold text-slate-400">
+            Mixed review · XP only · no chest
+          </div>
+          <button onClick={() => { sfx.tap(); startLesson() }} className="btn3d btn-green mt-8 gpu">
+            Let's check! 🚀
+          </button>
+          <button onClick={onExit} className="mt-3 font-display text-sm font-bold text-slate-400 hover:text-slate-600">
+            ← Back
+          </button>
+        </div>
+      )
+    }
     if (retry?.length) {
       return (
         <div className="mx-auto flex h-[100dvh] max-w-xl flex-col items-center justify-center px-6 pb-28 pt-16">
@@ -1092,6 +1172,11 @@ export function LessonScreen({ lessonId, onExit, retryItems }: {
             </motion.div>
           )}
         </AnimatePresence>
+        {feedback === 'wrong' && followupQ && (
+          <button onClick={trySimilar} className="btn3d btn-blue mb-2 w-full !py-2 text-sm">
+            🔁 Try a similar one
+          </button>
+        )}
         {!feedback ? (
           <button disabled={!canCheck} onClick={handleCheck} className={`btn3d w-full ${canCheck ? 'btn-green' : 'btn-grey'}`}>
             Check

@@ -24,6 +24,7 @@ import type { SkillState } from './adaptive/types'
 import { ADAPTIVE_CONFIG } from './adaptive/config'
 import { capSnapshots } from './adaptive/attempts'
 import { recordPick } from './adaptive/recommender'
+import { addActivityDay, isIsoDay, mergeActivityDays, normaliseActivityDays } from './recap'
 
 const initialAdaptive = (): AdaptiveStore => ({
   snapshot: { skills: {}, seenCodes: [], recentPicks: [], lastRecommendation: null },
@@ -128,6 +129,20 @@ interface PlayerState {
   arcadeRounds: number
   /** lifetime Boss Rush bosses beaten (drives the Bark unlock) */
   arcadeBossesDown: number
+  /** capped log of ISO days the child practised (~60; union-merged on sync).
+   *  Drives the Profile practice-calendar month grid (WS15). */
+  activityDays: string[]
+  /** cards won this league week (weekly-recap counter; local-only). */
+  cardsWonWeek: number
+  /** league week key `cardsWonWeek` counts against — stale key ⇒ recap shows 0. */
+  cardsWonWeekKey: string
+  /** lifetime Flashcard Sprint best score (WS16; local-only display record). */
+  sprintBest: number
+  /** lifetime Flashcard Sprints finished (drives the sprint achievement). */
+  sprintRuns: number
+  /** day-rolled count of sprints finished today (feeds the sprint1 quest) */
+  sprintsTodayDay: string
+  sprintsToday: number
   /** timestamp (ms) of last successful cloud sync */
   lastSyncedAt: number | null
 
@@ -157,6 +172,9 @@ interface PlayerState {
   /** XP-only practice (wrong-question retry): moves XP/gems/dailies/streak but
    *  never touches lessonProgress crowns or chests — loot stays on fresh clears. */
   recordPractice: (args: { xp: number; correct: number; totalQuestions: number }) => void
+  /** Record a finished Flashcard Sprint run (WS16): lifetime runs/best +
+   *  day-rolled quest counter. XP is paid separately via recordPractice. */
+  finishSprint: (score: number) => void
   setDailyGoal: (g: number) => void
   setName: (n: string) => void
   setMascot: (m: MascotId) => void
@@ -227,6 +245,10 @@ function rollDay(s: PlayerState) {
     s.arcadeCorrectTodayDay = today
     s.arcadeCorrectToday = 0
   }
+  if (s.sprintsTodayDay !== today) {
+    s.sprintsTodayDay = today
+    s.sprintsToday = 0
+  }
 }
 
 /** Lesson-id prefix → subject (fast path for daily subject quests). */
@@ -239,6 +261,21 @@ function subjectOfLesson(lessonId: string): Subject | null {
   if (lessonId.startsWith('d')) return 'social'
   if (lessonId.startsWith('u')) return 'math'
   return null
+}
+
+/** WS15: log today into the capped practice calendar (dedupe + cap inside). */
+function markActivity(s: PlayerState) {
+  s.activityDays = addActivityDay(s.activityDays, todayISO())
+}
+
+/** WS15: +n cards into the weekly-recap counter (lazy reset when the league
+ *  week rolled — avoids touching every weeklyXp reset site). */
+function bumpCardsWon(state: PlayerState, n: number): { cardsWonWeek: number; cardsWonWeekKey: string } {
+  const sameWeek = state.cardsWonWeekKey === state.weeklyXpWeek
+  return {
+    cardsWonWeek: (sameWeek ? state.cardsWonWeek : 0) + n,
+    cardsWonWeekKey: state.weeklyXpWeek,
+  }
 }
 
 /** Fields of PlayerState that weekly league settlement reads/writes. */
@@ -483,6 +520,7 @@ function checkAchievements(s: PlayerState) {
     cardsOwned,
     arcadeBests,
     arcadeTop,
+    sprintRuns: s.sprintRuns ?? 0,
   }
   let gained = false
   for (const a of ACHIEVEMENTS) {
@@ -572,6 +610,13 @@ export const usePlayer = create<PlayerState>()(
       arcadeScores: {},
       arcadeRounds: 0,
       arcadeBossesDown: 0,
+      activityDays: [],
+      cardsWonWeek: 0,
+      cardsWonWeekKey: todayISO(),
+      sprintBest: 0,
+      sprintRuns: 0,
+      sprintsTodayDay: firstDay,
+      sprintsToday: 0,
       lastSyncedAt: null,
 
       // --- adaptive learning ---
@@ -585,6 +630,7 @@ export const usePlayer = create<PlayerState>()(
           }
           rollDay(s)
           rollWeek(s)
+          markActivity(s)
 
           const prev = s.lessonProgress[lessonId] ?? {
             crown: 0,
@@ -635,6 +681,7 @@ export const usePlayer = create<PlayerState>()(
           const s: PlayerState = { ...state }
           rollDay(s)
           rollWeek(s)
+          markActivity(s)
 
           s.xpTotal += xp
           s.gems += Math.round(xp / 10)
@@ -658,6 +705,18 @@ export const usePlayer = create<PlayerState>()(
 
           if (!wasStreakActive && s.streakCurrent > 1) sfx.streak()
 
+          return s
+        }),
+
+      finishSprint: (score) =>
+        set((state) => {
+          const s: PlayerState = { ...state }
+          rollDay(s)
+          markActivity(s)
+          s.sprintRuns += 1
+          s.sprintBest = Math.max(s.sprintBest, Math.max(0, Math.round(Number(score) || 0)))
+          s.sprintsToday += 1
+          checkAchievements(s)
           return s
         }),
 
@@ -768,6 +827,7 @@ export const usePlayer = create<PlayerState>()(
           const s: PlayerState = { ...state }
           rollDay(s)
           rollWeek(s)
+          markActivity(s)
           s.xpTotal += amt
           s.todayXp += amt
           s.weeklyXp += amt
@@ -867,7 +927,12 @@ export const usePlayer = create<PlayerState>()(
           // what is persisted here — invariant D); a cardless chest never
           // doubles (no cards = no maxed cards).
           const payout = chestPayout(chest, cardStars)
-          return { gems: state.gems + payout.gems + payout.dust, cardStars, cardPity: pity }
+          return {
+            gems: state.gems + payout.gems + payout.dust,
+            cardStars,
+            cardPity: pity,
+            ...bumpCardsWon(state, chest.cards.length),
+          }
         }),
       submitArcadeScore: (gameId, score) => {
         const key = String(gameId ?? '').slice(0, 32)
@@ -889,7 +954,10 @@ export const usePlayer = create<PlayerState>()(
         set((state) => {
           if ((state.cardStars[id] ?? 0) >= STAR_THRESHOLDS[0]) return state
           granted = true
-          return { cardStars: { ...state.cardStars, [id]: STAR_THRESHOLDS[0] } }
+          return {
+            cardStars: { ...state.cardStars, [id]: STAR_THRESHOLDS[0] },
+            ...bumpCardsWon(state, 1),
+          }
         })
         return granted
       },
@@ -1035,6 +1103,14 @@ export const usePlayer = create<PlayerState>()(
             }
             next.arcadeScores = mergedScores
           }
+          // WS15 practice calendar: union-merge so a day practised on ANY
+          // device stays lit on this one's month grid.
+          if (Array.isArray((snap as Partial<PlayerState>).activityDays)) {
+            next.activityDays = mergeActivityDays(
+              state.activityDays,
+              (snap as Partial<PlayerState>).activityDays,
+            )
+          }
           // Learning tracker arrives pre-merged from mergeCloudSave — apply
           // wholesale after normalising shapes from old/foreign saves.
           const ad = (snap as Record<string, unknown>).adaptive as AdaptiveStore | null | undefined
@@ -1136,7 +1212,7 @@ export const usePlayer = create<PlayerState>()(
     }),
     {
       name: 'momomath-year2-player-v2',
-    version: 10,
+    version: 11,
     migrate: (persisted, version) => {
         const p = { ...(persisted as PlayerState) }
         if (version < 4) {
@@ -1220,6 +1296,23 @@ export const usePlayer = create<PlayerState>()(
           if (typeof anyP.arcadeCorrectToday !== 'number') anyP.arcadeCorrectToday = 0
           if (typeof anyP.arcadeCorrectTodayDay !== 'string') anyP.arcadeCorrectTodayDay = firstDay
         }
+        if (version < 11) {
+          // v11 (WS15): practice calendar + weekly-recap counters. Backfill
+          // the activity log from the last active day so returning players
+          // see at least their most recent practised day on the month grid.
+          const anyP = p as Partial<PlayerState>
+          anyP.activityDays = normaliseActivityDays(
+            Array.isArray(anyP.activityDays)
+              ? anyP.activityDays
+              : anyP.lastActiveDay
+                ? [anyP.lastActiveDay]
+                : [],
+          )
+          if (typeof anyP.cardsWonWeek !== 'number') anyP.cardsWonWeek = 0
+          if (!isIsoDay(anyP.cardsWonWeekKey)) {
+            anyP.cardsWonWeekKey = isIsoDay(anyP.weeklyXpWeek) ? anyP.weeklyXpWeek : firstDay
+          }
+        }
         return p
       },
     },
@@ -1234,6 +1327,7 @@ export function questProgressSnapshot(s: PlayerState) {
     correctToday: s.correctTodayDay === today ? s.correctToday : 0,
     subjectsToday: s.subjectsTodayDay === today ? (s.subjectsToday ?? []) : [],
     arcadeCorrectToday: s.arcadeCorrectTodayDay === today ? s.arcadeCorrectToday : 0,
+    sprintsToday: s.sprintsTodayDay === today ? s.sprintsToday : 0,
   }
 }
 

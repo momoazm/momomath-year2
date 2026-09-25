@@ -394,14 +394,14 @@ All roadmap docs live in `docs/`. Status legend: ✅ shipped · 🟡 partial · 
       (Turtle Dictation / word-bank build) already cover catalogue items
       3 and 13 adequately; roadmap §1's `audio-mcq`/`dictation` rows stay
       emulated. Revisit only post-launch if UX gaps show up in use.
-   3. ⬜ **Flashcard Sprint** exercise (roadmap catalogue #9) —
-      **deferred 2026-09-23** (confirmed still deferred): needs a new
-      timed rapid-fire UI mode in
-      `LessonScreen` (that file also carries the parallel chat's chest
-      rework — high regression risk for marginal fluency gain); exception-
-      word rapid recognition is already drilled by e4l5 letter-tiles +
-      mcq. Revisit as a pure-content sprint (mcq bank, no new kind) if
-      the audit asks for it.
+   3. [x] **Flashcard Sprint** exercise (roadmap catalogue #9) —
+       **DONE 2026-09-25 (§12 WS16)**: shipped as a STANDALONE screen
+       (`src/screens/SprintScreen.tsx` + pure `src/engine/sprint.ts`),
+       deliberately NOT a `LessonScreen` mode — that sidesteps the
+       parallel chest-rework file entirely (the original deferral risk).
+       60s rapid-fire over the existing English MCQ banks, streak +
+       best-score persist + XP-only payout, `sprint1` quest +
+       `sprint-debut` achievement. History: deferred 2026-09-23 (see §8).
    4. [x] **Adaptive tail** (Phase D: last 1–2 exercises swap harder on
       high accuracy) — **POST-LAUNCH (2026-09-23)**: generators are
       mostly difficulty-agnostic (see adaptive-spec §difficulty), so a
@@ -467,7 +467,8 @@ All roadmap docs live in `docs/`. Status legend: ✅ shipped · 🟡 partial · 
 - Gaps (from the docs themselves, low priority / post-launch):
   ⬜ per-difficulty generator ranges (data now logged, re-introduce
   knobs later), ⬜ response-time-driven adaptation (flag exists, unused),
-  ⬜ LLM follow-up question generation, ⬜ re-fit BKT params from real
+  ✅ LLM follow-up question generation (**shipped 2026-09-25 §12 WS14**),
+  ⬜ re-fit BKT params from real
   logs. Do NOT touch `src/engine/adaptive/**` in WS1–WS4 except where
   WS4a forces catalog updates.
 
@@ -668,8 +669,10 @@ Arcade* / Pixel* / arcade tabs. Chest-rework files still build-on-top only
 - **Match rights may repeat**: science s1l4 sort exercise maps many lefts → 2 rights (living/non-living). `matchLayout` already de-dupes rights for the UI grid; lefts stay unique. Not a bug.
 - **Raw MCQ choice uniqueness** asserted (no diacritic-normalized false positives). Fingerprint uniqueness covered by `everyLesson` + this suite over 8 seeds.
 
-**Deferred unchanged**: Flashcard Sprint, audio-mcq/dictation kinds, adaptive
-tail / per-difficulty ranges / LLM follow-ups, Monte-Carlo drop sim.
+**Deferred unchanged**: audio-mcq/dictation kinds, adaptive
+tail / per-difficulty ranges, Monte-Carlo drop sim. *(Since this §9 pass:
+LLM follow-ups **shipped WS14**, Flashcard Sprint **shipped WS16** — see
+§12.)*
 
 ---
 
@@ -778,6 +781,174 @@ Port the full Arcade experience from `C:\Users\momo\momomath-year2` into this
 
 ---
 
+## 12. Additional features (user "do it", 2026-09-25) — WS12–WS16
+
+Coordination: §0 rules still bind — the §11 arcade port is **staged but
+uncommitted**; build on top, stage only my own hunks. Free-only budget
+(no paid services/APIs). Deploy (`node scripts/deploy.mjs`) ONLY when the
+user asks. Gates per WS: `npx tsc -b` → full `npx vitest run` →
+`npm run verify` → dev smoke `:3200`.
+
+### WS12 — PWA install + offline (platform/polish)
+- [x] `manifest.webmanifest` (name, icons from `favicon.svg` → PNG,
+      `start_url` honoring gh-pages base path, theme color) + link tags in
+      `index.html`.
+- [x] Hand-rolled `public/sw.js`: precache hashed build assets, cache-first
+      static, network-only `/api/*` + cloudsave, offline shell fallback,
+      versioned precache list (bump on deploy).
+- [x] Fix stale metadata: title/meta still "Maths Adventure" though the app
+      has 7 subjects.
+- [x] Tests/smoke: `tests/pwa.test.ts` (9 green); offline Playwright smoke
+      (`tmp/pwa/offline-smoke.cjs` on `vite preview:3210`): SW controls page,
+      `momo-shell-v1`/`momo-assets-v1` caches, offline reload renders shell,
+      0 pageerrors. Icons: `icon-192/512.png` + `apple-touch-icon.png`
+      (Edge headless render of favicon.svg → ffmpeg derive).
+      **Done 2026-09-25**.
+
+### WS13 — "Daily check-up" mixed review session (study effectiveness)
+- [x] New session mode: due-for-review skills (all 7 subjects,
+      `isDueForReview`) + wrong-question retry items → one ~10-question
+      mixed round.
+- [x] Entries: PathScreen "N skills due 🔔" banner button + Profile;
+      reuse `retryItems`/`practiceRound` XP-only flow (no chest side
+      effects).
+- [x] Tests: due-skill selection determinism, session composition,
+      XP-only accounting untouched.
+      **Done 2026-09-25** — new `src/engine/adaptive/checkup.ts`
+      (`dueSkillCodes` + `buildCheckup`: day-number seed, most-overdue-first
+      deterministic order, fingerprint dedupe, due/wrong round-robin,
+      `CHECKUP_SIZE` 10 / due cap 7 / wrong cap 5); LessonScreen gained a
+      `checkup` prop + intro (existing retry intro untouched). **Fixed a
+      latent crash**: `finishLesson` dereferenced `entry!` (null for ANY
+      prop-entered session) and consumed double-XP before the retry branch
+      — retry/check-up payout now runs first, fresh-lesson path unchanged.
+      Entries: PathScreen "N skills due 🔔" banner + Profile "Daily
+      check-up" card (both hide when no round exists); App `retryCheckup`
+      state. Tests: `tests/adaptive/checkup.test.ts` 15 green. Gates:
+      `npx tsc -b` ✓, full `npx vitest run` **89 files / 2489 green**,
+      `npm run verify` ✓, dev smoke `tmp/ws13-checkup-smoke.mjs` on :3213
+      (banner → intro → question → quit; Profile card; seed-no-due →
+      banner/card hidden; retry 5/5 finish `ALL FIXED` + xpTotal 50→55
+      through the old crash path; **0 pageerrors**; port 3213 because 3200
+      is held by another session's vite — left untouched).
+
+### WS14 — AI follow-up question after a mistake (AI; adaptive-spec deferred item)
+- [x] `api/year2/followup.ts`: strict JSON `{prompt, choices, answer…}`
+      with caps; BYOK headers first, deterministic fallback = sibling-
+      generator re-roll (existing `makeLesson` sibling-walk).
+- [x] Client `src/engine/adaptive/followup.ts` modeled on `explanations.ts`
+      (cache, timeout, template fallback, never throws).
+- [x] LessonScreen: "Try a similar one" offer after first-attempt wrong
+      (additive hunk only — file carries chest work).
+- [x] Tests: route validation + fallback; client cache/timeout.
+      **Done 2026-09-25** — `api/year2/followup.ts` (standalone: BYOK-first
+      free-provider chain copied from `/explain`, strict MCQ JSON validated
+      by the SHARED `parseLlmMcq` — prompt ≤300, 2–4 unique choices ≤80,
+      answerIndex/`answer` in range, fences/prose stripped — else next
+      provider; total failure → deterministic sibling re-roll `{source:
+      'sibling'}`, unknown lesson → `{source:'none'}`) + `vercel.json`
+      rewrite. Client `src/engine/adaptive/followup.ts` (cache 60,
+      timeout 3000 ms, local sibling re-roll seed = `hashString(lessonId|
+      code|prompt)` so one mistake → one stable question, never throws —
+      works offline and on gh-pages where `/api/*` 404s) + `FOLLOWUP_*`
+      config + barrel export. LessonScreen (additive hunk): prefetch on
+      wrong first attempt (request-id guard), 🔁 button in footer, `trySimilar`
+      **splices the follow-up at `qIdx+1`** — first version appended at the
+      queue END (behind remaining originals); the smoke caught it and the
+      insert-next splice fixed it, original still requeued at the end by
+      `handleContinue`. Tests `tests/adaptive/followup.test.ts` **21 green**
+      (route: 405/400/BYOK/sibling-determinism/LLM+fences+cache/malformed→
+      sibling/none; parser caps; sibling determinism+skip-original; client
+      cache/404/throw/junk/timeout/never-throws; cache-key). Gates:
+      `npx tsc -b` ✓, full `npx vitest run` **90 files / 2510 green**,
+      `npm run verify` ✓, dev smoke `tmp/ws14-followup-smoke.mjs` on :3213
+      EXIT=0 — offer after wrong ✓ → sibling "What is 1 less than 27?" ✓ →
+      insert-next ordering (remaining original → requeued original) ✓ →
+      correct first attempt has NO offer ✓ → retry finish `ALL FIXED` +
+      xpTotal 50→52, **0 pageerrors**.
+
+### WS15 — Streak calendar + weekly recap (engagement)
+- [x] Persist capped activity log (`activityDays`, ~60 entries, max-merge
+      union in cloudsave) — store persist-version bump.
+      **Done 2026-09-25**: `src/engine/recap.ts` (normalise/add/merge,
+      `ACTIVITY_DAYS_CAP` 60); `store.ts` v10→**v11** migrate backfills from
+      `lastActiveDay` + seeds `cardsWonWeek`/`cardsWonWeekKey`; the three XP
+      actions (`completeLesson`/`recordPractice`/`addArcadeXp`) call
+      `markActivity`; `grantChest`/`grantArcadeCard` feed the weekly card
+      counter (lazy reset on league-week roll); `applySyncedSnapshot`
+      union-merges. Cloudsave both sides: client `CloudSave.activityDays` +
+      `snapshotFromPlayer`/`mergeCloudSave`, server `lib/year2/cloudsave.js`
+      (Default Project) sanitize + `unionDays` merge (node --check ✓).
+- [x] Profile: month grid (practised days) + weekly recap card (XP,
+      accuracy, subjects touched, cards won — deterministic, child-safe,
+      no AI). **Done 2026-09-25**: `ProfileScreen` two new cards after the
+      daily-goal section — Monday-first `buildMonthGrid` (green practised
+      days, today border, future greyed) + `buildWeeklyRecap` 4-stat row
+      (league-week XP, windowed accuracy %, distinct subjects canonical
+      order, cards won) + "Practised N of the last 7 days" line.
+- [x] Tests: day-roll, cloudsave union merge, recap math.
+      **Done 2026-09-25**: `tests/recap.test.ts` **25 green** — helper
+      normalise/add/merge caps+dedupe; store day-roll (practice/lesson/
+      arcade marks, 60-cap, applySyncedSnapshot union); cloudsave snapshot
+      whitelist + merge union + old-save tolerance; recap window/accuracy/
+      subjects/cards-stale-key/active-days; month grid Monday-first + today/
+      future; chest/arcade card counters + lazy week reset. Gates: `tsc -b`
+      ✓, full `npx vitest run` **91 files / 2535 green**, `npm run verify`
+      ✓ (no dup it-titles), dev smoke `tmp/ws15-recap-smoke.mjs` on :3213
+      EXIT=0 (v10 seed → migrate filters junk → grid 2 green + today unlit →
+      recap XP 42 / 50% / math·english / 0 cards / 2 active → live
+      recordPractice lights today (3 active) → grantChest → cards 1 in UI →
+      persisted `version: 11`, **0 pageerrors**).
+
+### WS16 — Flashcard Sprint (english; previously deferred — now standalone screen)
+- [x] Standalone screen (NOT a `LessonScreen` mode — avoids chest-rework
+      file): 60s rapid-fire from existing English MCQ banks, streak
+      counter, best-score persist, XP-only payout.
+      **Done 2026-09-25**: new pure `src/engine/sprint.ts` (bank harvest
+      `collectUnitMcqs`/`buildSprintBank` from `getCurriculum('english')`
+      lesson generators — mcq-kind, validated shape, deduped, audio-only
+      prompts excluded since the sprint has no playback; deterministic
+      `sprintDeck` mulberry32 shuffle; `applySprintAnswer` streak rules;
+      `sprintXpFor` 1 XP/correct; `sprintRemainingMs`/`isSprintTimeUp`
+      clamp; `isNewSprintBest` strictly-greater; `sprintAccuracy`).
+      New `src/screens/SprintScreen.tsx` (intro/playing/done, 100ms timer
+      interval, 450ms feedback lock, deck reshuffle on exhaustion, ✕ pays
+      out current score, NEW BEST badge). Store: local-only `sprintBest`
+      / `sprintRuns` / `sprintsTodayDay` + `sprintsToday` (day-roll reset;
+      **no persist-version bump** — new fields default via shallow merge),
+      `finishSprint(score)` action (rollDay + counters + `markActivity` +
+      `checkAchievements`), XP-only paid separately via `recordPractice`
+      (no crowns/chests, lessons counter untouched). `App.tsx`
+      `sprintOpen` branch + `PathScreen` english-only banner (best score)
+      after the check-up banner.
+- [x] Quest (`sprint1`) + achievement (additive `gamification.ts`).
+      **Done 2026-09-25**: `QuestSnapshot.sprintsToday` (fed by
+      `questProgressSnapshot` day-rolled) + `sprint1` quest (goal 1,
+      reward 15); `AchievementSnapshot.sprintRuns` + `sprint-debut`
+      "Word Sprinter" 💨; fixtures in `questsMultiSubject.test.ts`
+      extended (additive fields).
+- [x] Tests: timer/score rules, bank non-empty per unit.
+      **Done 2026-09-25**: `tests/sprint.test.ts` **14 green** — timer
+      countdown/clamp/skew, score streak rules, XP/best/accuracy, bank
+      non-empty for every english unit + well-formed/deduped/visual-only,
+      deck determinism + permutation, store `finishSprint` (runs/best/
+      today/calendar, day-roll reset, best never downgraded), `sprint1`
+      quest progress, `sprint-debut` unlock. Gates: `npx tsc -b` ✓, full
+      `npx vitest run` **92 files / 2549 green**, `npm run verify` ✓ (no
+      dup it-titles), dev smoke `tmp/ws16-sprint-smoke.mjs` on :3213
+      **EXIT=0 ×2** — banner (best 0) → intro → 60s timer + 4 choices →
+      2 correct answers via bank lookup (⭐2 🔥2) → forced time-up →
+      done `TIME'S UP!` + NEW BEST + ⚡2 → store sprintBest 2 / runs 1 /
+      sprintsToday 1 / xpTotal 50→52 / `sprint-debut` unlocked / quest 1 /
+      activity marked / lessons still 0 → back to path "Best score: 2" →
+      persisted version stays **11** (additive), **0 pageerrors**.
+
+**Explicitly out of scope**: paid APIs/push, friend systems, per-difficulty
+generator ranges + BKT re-fit (stay post-launch), touching uncommitted
+arcade hunks.
+
+---
+
 ## 8. Session changelog
 
 | Date | Session | What happened |
@@ -801,3 +972,8 @@ Port the full Arcade experience from `C:\Users\momo\momomath-year2` into this
 | 2026-09-23 | WS5-gameplay | **Pixel Run gameplay revision (user request): Sonic character, coin-friendly jump, safe coin placement, gate benefit/drawback.** (1) Player = Sonic `<Mascot id="sonic">` (happy/excited/cheer expressions, cyan shield ring; `aria-label="Runner"` kept for smoke scripts; PLAYER_W 22?26). (2) Jump retuned so a well-timed jump sweeps the whole coin arc: GRAVITY 0.55?0.6, JUMP_V?10.2 (apex �87 > coin top 52), coin hitbox +6px generous, arc spacing 24 / heights 8/34/52/34/8. (3) Coins never lead into obstacles: new pure `planFeatures(rand, fromX, untilX)` sequential spawner (spike ~45% / arc ~55%, shared cursor, `GATE_CLEAR=80`, `COIN_GAP_AFTER=130`, stops before finish-140) + layout-invariant tests. (4) Gate outcomes clear: correct = GATE_SCORE 20?**50** + 30 coins + **4s shield** (spikes pass through, cyan ring); wrong = -1 life + **WRONG_PENALTY=30** score (floor 0) + i-frames; live HUD ???/?n; over-screen shows wrong total. (5) ProfileScreen `/3 games` ? `ARCADE_GAMES.length`. Exclusives confirmed still rendering (Library panel 3 tiles). **Verify**: tsc clean; vitest 32 files/**1022** tests (pixelRun 13 incl. planFeatures invariants); precommit OK; local smoke **13/13** (jump +73px, gate overlay + HUD penalty, exclusives); deployed gh-pages `index-CxsAI_FX.js`; live `verify-gamification` **42/42**. Files: src/components/arcade/PixelRun.tsx, src/screens/ProfileScreen.tsx, tests/pixelRun.test.ts, both PLAN.md. |
 | 2026-09-23 | §10 arcade-exclusives | **Fang/Bean/Bark moved to arcade exclusives (user decisions locked).** (1) `cards.ts`: `source?: 'chest'|'arcade'`; removed trio from `CARDS` → chest pool **97 (39/25/18/10/5)**; added `ARCADE_CARDS` (all exclusive, source arcade, unlock-condition flavors), `ALL_CARDS` (100), `ARCADE_CARD_BY_ID`; `drawCardId`/`mastered` still read `CARDS` only. (2) Library: top `🕹️ Arcade Exclusives` panel (x/3 collected, existing gray locked style: dimmed art + 🔒 + condition line); header total = `ALL_CARDS.length` (100); locked toast + modal obtain copy branch on `source === 'arcade'`; tier/search/Owned still filter only the 97-card main grid. (3) Profile unique-cards + ★ distribution use `ALL_CARDS`. (4) Tests: chestCards band → 39/25/18/10/5 + `toBe(97)` + new arcade describe (`ALL_CARDS` 100, ARCADE disjoint/exclusive/source/images, `rollChest` never drops them); cardStars art contract over `ALL_CARDS` (100-entry map kept). (5) PLAN §7 renumbered + Arcade subsection; §10 checklist. **Gates**: `npx tsc -b` clean; full `npx vitest run` **85 files / 2442 tests green**; `npm run verify` OK. Local smoke: arcade panel 3 tiles, header `/100`, main grid 97, exclusive tab 5, search fang → 0 main + panel intact. Files: src/engine/cards.ts, src/screens/LibraryScreen.tsx, src/screens/ProfileScreen.tsx, tests/{chestCards,cardStars}.test.ts, PLAN.md. |
 | 2026-09-23 | §11 arcade-tab | **Ported the full Arcade tab from the home clone into this 100-card tree (user: additional page, keep library).** Surgical file port (no `git merge` — 16 conflicts). Copied 11 arcade files incl. dirty Pixel Run fixes (`JUMP_V 10.2`, `planFeatures`); wired `ARCADE_GAMES` (4) + `rollQuestSet` stub, `arcade10` quest, 3 arcade achievements, `ARCADE_CARD_GOALS`, BottomNav+App arcade tab, store arcade state/actions persist **v10**, Library locked goal/progress text, Profile arcade best, cloudsave optional `arcadeScores` max-merge. Fixed tests for this clone (`PITY_LIMIT`/`ChestResult.cards`, quest/achievement snapshot fields). **Gates**: `npx tsc -b` clean; full `npx vitest run` **87 files / 2465 tests green**; `npm run verify` OK. Smoke: Arcade tab → Retro Arcade + 4 games; Library panel + `/100` intact (CORS leaderboard noise local-only). Files: arcade engine/content/screens/components + App, BottomNav, cards, gamification, store, cloudsave, LibraryScreen, ProfileScreen, tests, PLAN.md §11. |
+| 2026-09-25 | WS12-pwa | **PWA install + offline (§12).** `public/manifest.webmanifest` (base-path-aware `start_url`, theme color) + link tags; hand-rolled `public/sw.js` (versioned `momo-shell-v1`/`momo-assets-v1` precache, cache-first static, network-first navigations, network-only `/api/*` + cloudsave, offline shell fallback); `icon-192/512.png` + `apple-touch-icon.png` (Edge headless render of favicon.svg → ffmpeg); stale "Maths Adventure" title/meta → "Momo Year 2 Cambridge · Learning Adventure"; SW registration in `src/main.tsx` (PROD + http only). Tests `tests/pwa.test.ts` 9 green; offline Playwright smoke on `vite preview` (SW controls page, both caches present, offline reload renders shell, 0 pageerrors). Not committed. |
+| 2026-09-25 | WS13-checkup | **Daily check-up mixed review session (§12) + fixed a latent crash in `LessonScreen.finishLesson`.** New pure `src/engine/adaptive/checkup.ts`: `dueSkillCodes` (cross-subject `isDueForReview`, most-overdue-first, insertion-order independent, ties break on code) + `buildCheckup` (day-number default seed → stable per day; due items generated from each code's own lesson slot; wrong items = exact `recentWrong` snapshots; round-robin due-first interleave; `questionFingerprint` dedupe; caps 10/7/5; never mutates inputs; empty round → entries hidden). LessonScreen: `checkup?: boolean` prop + check-up intro before the untouched retry intro; **bugfix** — `finishLesson` ran `entry!.lesson…` (crash: `entry` is null for every prop-entered retry) and consumed double-XP before the retry branch; retry/check-up payout now returns first (XP-only `recordPractice`, no crowns/chests), fresh path unchanged. App `retryCheckup` state; PathScreen "N skills due 🔔" banner; ProfileScreen "Daily check-up" card. Tests `tests/adaptive/checkup.test.ts` **15 green** (due selection/determinism, composition/dedupe/caps, seed stability, no mutation, XP-only store accounting). Gates: `npx tsc -b` ✓; full `npx vitest run` **89 files / 2489 green**; `npm run verify` ✓; dev smoke `tmp/ws13-checkup-smoke.mjs` :3213 — banner/intro/question/quit, Profile card, hidden-when-empty, retry 5/5 `ALL FIXED · +5 XP` + xpTotal 50→55 through the old crash path, 0 pageerrors (3200 occupied by another session's vite — not touched). Files: src/engine/adaptive/{checkup,lessons,index}.ts, src/screens/{LessonScreen,PathScreen,ProfileScreen}.tsx, src/App.tsx, tests/adaptive/checkup.test.ts, PLAN.md. Not committed/deployed. |
+| 2026-09-25 | WS14-followup | **AI follow-up question after a mistake (§12 WS14).** New `api/year2/followup.ts` (standalone: BYOK-first ranked free-provider chain copied from `/explain`; strict MCQ JSON `{prompt, choices, answerIndex|answer}` validated by the SHARED `parseLlmMcq` with caps — prompt ≤300 chars, 2–4 unique choices ≤80, index in range, markdown fences/prose stripped — malformed reply skips to the next provider; no keys/all fail → deterministic sibling-generator re-roll `{source:'sibling'}`, unknown lesson → `{source:'none'}`) + `vercel.json` rewrite. New client `src/engine/adaptive/followup.ts` modeled on `explanations.ts` (in-memory cache 60, 3000 ms timeout, `byokHeaders`, local sibling re-roll with seed `hashString(lessonId|code|prompt)` → one mistake always maps to one stable question; never throws — works offline and on gh-pages where `/api/*` 404s) + `FOLLOWUP_ROUTE/CACHE_SIZE/TIMEOUT_MS` in config + barrel exports. LessonScreen **additive hunks only**: prefetch on wrong first attempt (request-id guard against late answers), 🔁 "Try a similar one" footer button, `trySimilar` splices the follow-up at `qIdx+1` (initial version appended at queue END — dev smoke caught it showing a remaining original first; insert-next fixed it while `handleContinue` still requeues the missed original at the end). Tests `tests/adaptive/followup.test.ts` **21 green** (route validation/BYOK/sibling determinism/LLM+fences+per-cacheKey caching/malformed→fallback/none; parser caps; client cache/404/throw/junk/timeout-never-throws; cache-key stability). Gates: `npx tsc -b` ✓; full `npx vitest run` **90 files / 2510 green**; `npm run verify` ✓; dev smoke `tmp/ws14-followup-smoke.mjs` on :3213 **EXIT=0** — offer after wrong → browser-predicted sibling question ("What is 1 less than 27?") renders → insert-next ordering verified (remaining original → requeued original) → correct first attempt gets NO offer → retry `ALL FIXED` + xpTotal 50→52, **0 pageerrors**. Files: api/year2/followup.ts, src/engine/adaptive/{followup,config,index}.ts, src/screens/LessonScreen.tsx, vercel.json, tests/adaptive/followup.test.ts, tmp/ws14-followup-smoke.mjs, PLAN.md. Not committed/deployed. |
+| 2026-09-25 | WS15-recap | **Streak calendar + weekly recap (§12 WS15).** New pure `src/engine/recap.ts`: capped activity-day log (`ACTIVITY_DAYS_CAP` 60 — normalise filter/dedupe/sort/slice, `addActivityDay`, `mergeActivityDays` union) + `buildWeeklyRecap` (7-day local window: league-week XP passthrough, windowed accuracy % rounded, distinct subjects in canonical order, cards won gated on week-key match, active days in window) + Monday-first `buildMonthGrid` (today highlight, future greyed, practisedCount) + `subjectOfLesson` mirror. `store.ts` persist **v10→v11** (migrate backfills `activityDays` from `lastActiveDay`, seeds `cardsWonWeek`/`cardsWonWeekKey`; initial state fields); `completeLesson`/`recordPractice`/`addArcadeXp` mark the day; `grantChest` (+cards.length) / `grantArcadeCard` (+1) feed `cardsWonWeek` with a lazy reset when the league week rolls (bump helper, no churn at the weeklyXp reset sites); `applySyncedSnapshot` union-merges `activityDays`. Cloudsave union both sides: client `CloudSave.activityDays?` + `snapshotFromPlayer`/`mergeCloudSave`, server `lib/year2/cloudsave.js` (Default Project — sanitize ISO-only + sort + 60-cap, `unionDays` in `mergeSaves`; `node --check` ✓; not deployed). ProfileScreen two additive cards after daily goal: practice calendar (green practised cells / today border / `M T W T F S S` header / "Month · N days") + weekly recap (⚡ XP · 🎯 accuracy % + x/y answers · 🗂️ subjects · 🃏 cards won + "Practised N of the last 7 days"). Tests `tests/recap.test.ts` **25 green** (helper caps/dedupe; day-roll via fake `Date` for practice/lesson/arcade + 60-cap + snapshot union; cloudsave snapshot whitelist/merge union/old-save tolerance; recap window/accuracy/subjects/stale-key/active-days/XP passthrough; month grid Monday-first/today/future; card counters incl. real `rollChest` + lazy week reset). Gates: `npx tsc -b` ✓; full `npx vitest run` **91 files / 2535 green**; `npm run verify` ✓; dev smoke `tmp/ws15-recap-smoke.mjs` :3213 **EXIT=0** — v10 seed migrate filters `bad-day` → grid 2 green, today unlit → recap ⚡42 / 🎯50% 1/2 / math·english / 🃏0 / 2 active → live `recordPractice` lights today (3 active) → `grantChest` → 🃏1 in UI → persisted `version: 11`, **0 pageerrors**. Files: src/engine/{recap,store,cloudsave}.ts, src/screens/ProfileScreen.tsx, lib/year2/cloudsave.js (Default Project), tests/recap.test.ts, tmp/ws15-recap-smoke.mjs, PLAN.md. Not committed/deployed. |
+| 2026-09-25 | WS16-sprint | **Flashcard Sprint (§12 WS16 — the last workstream).** New pure `src/engine/sprint.ts`: 60s round constants; `collectUnitMcqs`/`buildSprintBank` harvest validated mcq-kind questions from every english unit's `lesson.generate` (2–4 unique choices, in-range answerIndex, prompt-deduped, audio-only prompts excluded — the sprint is fully visual), deterministic mulberry32 `sprintDeck`, `applySprintAnswer` (correct +1 score + streak, wrong resets streak, bestStreak kept), `sprintXpFor` 1 XP/correct, clamped `sprintRemainingMs`/`isSprintTimeUp`, strictly-greater `isNewSprintBest`, `sprintAccuracy` (rounded % or null). New `src/screens/SprintScreen.tsx` (intro → playing → done; 100ms interval timer + progress bar, 450ms feedback lock, deck reshuffle on exhaustion, ✕ during play pays out the current score, done screen shows score/best-streak/accuracy/XP/NEW BEST + Play again). Store additive fields `sprintBest`/`sprintRuns`/`sprintsTodayDay`/`sprintsToday` (**no version bump** — v11 shallow-merge defaults), day-roll reset in `rollDay`, `finishSprint(score)` action (counters + `markActivity` + `checkAchievements`); XP-only payout goes through the existing `recordPractice` (streak/dailies/calendar move; lessons/crowns/chests untouched). `gamification.ts` additive: `QuestSnapshot.sprintsToday` + `sprint1` quest (goal 1, reward 15), `AchievementSnapshot.sprintRuns` + `sprint-debut` "Word Sprinter" 💨; `questProgressSnapshot` feeds the day-rolled counter; `checkAchievements` snap extended. UI wiring: `App.tsx` `sprintOpen` full-screen branch, `PathScreen` english-only sprint banner (current best) after the check-up banner. Tests `tests/sprint.test.ts` **14 green** (timer countdown/clamp/skew, streak rules, XP/best/accuracy, **bank non-empty for every english unit** + shape/dedupe/visual-only, deck determinism/permutation, `finishSprint` runs/best/today/calendar + day-roll + no-best-downgrade, `sprint1` progress, `sprint-debut` unlock) + `questsMultiSubject` fixtures extended. Gates: `npx tsc -b` ✓; full `npx vitest run` **92 files / 2549 green**; `npm run verify` ✓ (no dup it-titles); dev smoke `tmp/ws16-sprint-smoke.mjs` :3213 **EXIT=0 ×2** — banner→intro→60s timer/4 choices→2 correct taps (⭐2 🔥2)→forced time-up→done NEW BEST + ⚡2→store sprintBest 2/runs 1/today 1/xp 50→52/`sprint-debut` unlocked/quest 1/activity marked/lessons 0→banner "Best score: 2"→persist version stays 11, **0 pageerrors**. Files: src/engine/sprint.ts (new), src/screens/SprintScreen.tsx (new), src/{engine/store,engine/gamification,screens/PathScreen,App}.tsx, tests/sprint.test.ts (new), tests/questsMultiSubject.test.ts, tmp/ws16-sprint-smoke.mjs, PLAN.md. Not committed/deployed. **§12 WS12–WS16 complete.** |

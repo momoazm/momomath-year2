@@ -106,6 +106,15 @@ export const ADAPTIVE_CONFIG = {
   /** Per-request timeout (parent-initiated, can wait longer than a lesson). */
   REVIEW_TIMEOUT_MS: 20000,
 
+  /** "Try a similar one" — one AI follow-up question after a wrong first
+   *  attempt. Provider chain lives in api/year2/followup.ts. */
+  FOLLOWUP_ROUTE: '/api/year2/followup',
+  /** Client-side cache size for follow-up questions. */
+  FOLLOWUP_CACHE_SIZE: 60,
+  /** Per-request timeout — the offer only appears once the question exists
+   *  (server answer or the local sibling re-roll, whichever comes first). */
+  FOLLOWUP_TIMEOUT_MS: 3000,
+
   /** Student-facing age band. Used only for tone in LLM fallback prompts; the model
    *  is never told names or ids. */
   AGE_BAND: 'Year 2 (age 6-7)',

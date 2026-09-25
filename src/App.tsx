@@ -10,6 +10,7 @@ import { ProfileScreen } from './screens/ProfileScreen'
 import { ShopScreen } from './screens/ShopScreen'
 import { LibraryScreen } from './screens/LibraryScreen'
 import { ArcadeScreen } from './screens/ArcadeScreen'
+import { SprintScreen } from './screens/SprintScreen'
 import { WelcomeGate } from './components/ui/WelcomeGate'
 import { AutoLeagueSettle } from './components/ui/AutoLeagueSettle'
 import { Scenery } from './components/ui/Scenery'
@@ -22,13 +23,25 @@ export default function App() {
   const [activeLesson, setActiveLesson] = useState<string | null>(null)
   /** Wrong-question practice round (snapshots from the tracker). */
   const [retryItems, setRetryItems] = useState<RetryItem[] | null>(null)
+  /** true when retryItems came from the daily check-up (XP-only too, but the
+   *  intro copy differs). Reset on exit so a later retry round is normal. */
+  const [retryCheckup, setRetryCheckup] = useState(false)
   const [showLibrary, setShowLibrary] = useState(false)
+  /** WS16 — Flashcard Sprint overlay (standalone full-screen round). */
+  const [sprintOpen, setSprintOpen] = useState(false)
 
   // Same Google account → same progress on every device. Pulls the cloud save
   // on sign-in and pushes (debounced) on every change; local play always works.
   useEffect(() => {
     startCloudSync()
   }, [])
+
+  /** Daily check-up entry (Path banner + Profile card). */
+  function startCheckup(items: RetryItem[]) {
+    if (items.length === 0) return
+    setRetryItems(items)
+    setRetryCheckup(true)
+  }
 
   if (new URLSearchParams(window.location.search).has('gallery')) {
     return <MascotGallery />
@@ -49,12 +62,17 @@ export default function App() {
     )
   }
 
+  if (sprintOpen) {
+    return <SprintScreen onExit={() => setSprintOpen(false)} />
+  }
+
   if (activeLesson || retryItems) {
     return (
       <LessonScreen
         lessonId={retryItems?.[0]?.lessonId ?? activeLesson!}
         retryItems={retryItems ?? undefined}
-        onExit={() => { setActiveLesson(null); setRetryItems(null) }}
+        checkup={retryCheckup}
+        onExit={() => { setActiveLesson(null); setRetryItems(null); setRetryCheckup(false) }}
       />
     )
   }
@@ -74,7 +92,13 @@ export default function App() {
           exit={{ opacity: 0, y: -8 }}
           transition={{ duration: 0.15 }}
         >
-      {tab === 'path' && <PathScreen onStartLesson={(id) => setActiveLesson(id)} />}
+      {tab === 'path' && (
+        <PathScreen
+          onStartLesson={(id) => setActiveLesson(id)}
+          onStartCheckup={startCheckup}
+          onStartSprint={() => setSprintOpen(true)}
+        />
+      )}
       {tab === 'shop' && <ShopScreen />}
       {tab === 'leagues' && <LeaguesScreen />}
       {tab === 'quests' && <QuestsScreen />}
@@ -82,7 +106,8 @@ export default function App() {
       {tab === 'profile' && (
         <ProfileScreen
           onPracticeLesson={(id) => setActiveLesson(id)}
-          onPracticeRetry={(items) => setRetryItems(items)}
+          onPracticeRetry={(items) => { setRetryItems(items); setRetryCheckup(false) }}
+          onStartCheckup={startCheckup}
         />
       )}
         </motion.main>

@@ -4,6 +4,7 @@ import { usePlayer } from './store'
 import { LEAGUES, type LeagueName } from './gamification'
 import type { MascotId, Subject } from '../content/types'
 import { capSnapshots } from './adaptive/attempts'
+import { mergeActivityDays, normaliseActivityDays } from './recap'
 import type {
   AdaptiveStore,
   AdaptiveTelemetry,
@@ -50,6 +51,8 @@ export interface CloudSave {
   luckyTickets: number
   /** Arcade personal bests (max-merge). Optional: absent on old saves. */
   arcadeScores?: Record<string, number>
+  /** Practice-calendar days (union-merge, capped 60). Absent on old saves. */
+  activityDays?: string[]
   /** Learning-tracker slice (BKT skills + attempt log). Null on old saves. */
   adaptive: AdaptiveStore | null
   updatedAt: number
@@ -119,6 +122,7 @@ export function snapshotFromPlayer(p: {
   doubleXpLessons: number
   luckyTickets: number
   arcadeScores: Record<string, number>
+  activityDays: string[]
   adaptive: AdaptiveStore
 }): CloudSave {
   // Trim the per-skill curves for the wire (local keeps 200 points).
@@ -151,6 +155,7 @@ export function snapshotFromPlayer(p: {
     doubleXpLessons: p.doubleXpLessons,
     luckyTickets: p.luckyTickets,
     arcadeScores: p.arcadeScores ?? {},
+    activityDays: normaliseActivityDays(p.activityDays),
     adaptive: p.adaptive ? { ...p.adaptive, masteryHistory } : null,
     updatedAt: Date.now(),
   }
@@ -276,6 +281,7 @@ export function mergeCloudSave(a: CloudSave | null, b: CloudSave | null): CloudS
     doubleXpLessons: Math.max(a.doubleXpLessons, b.doubleXpLessons),
     luckyTickets: Math.max(a.luckyTickets, b.luckyTickets),
     arcadeScores: mergeStars(a.arcadeScores ?? {}, b.arcadeScores ?? {}),
+    activityDays: mergeActivityDays(a.activityDays, b.activityDays),
     adaptive: mergeAdaptive(a.adaptive, b.adaptive),
     updatedAt: Math.max(a.updatedAt || 0, b.updatedAt || 0, Date.now()),
   }

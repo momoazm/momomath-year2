@@ -26,7 +26,7 @@ import type {
 } from './types'
 import type { RetryItem } from './questions'
 
-const ALL_SUBJECTS: Subject[] = [
+export const ALL_SUBJECTS: Subject[] = [
   'math',
   'english',
   'science',

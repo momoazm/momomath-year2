@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { ACHIEVEMENTS, ARCADE_GAMES, LEAGUES, LEAGUE_META, displayStreak, isStreakActive } from '../engine/gamification'
 import { usePlayer } from '../engine/store'
 import { GrownUpsReview } from '../components/ui/GrownUpsReview'
@@ -9,6 +9,8 @@ import { useSyncStatus } from '../engine/cloudsave'
 import { sfx } from '../engine/sfx'
 import { summariseSkill, type SkillSummary } from '../engine/adaptive'
 import {
+  buildCheckup,
+  dueSkillCodes,
   hardestByCode,
   lessonForCode,
   lessonsToRepeat,
@@ -18,12 +20,15 @@ import {
 } from '../engine/adaptive'
 import type { MascotId } from '../content/types'
 import { ALL_CARDS, STAR_THRESHOLDS, toStar } from '../engine/cards'
+import { buildMonthGrid, buildWeeklyRecap } from '../engine/recap'
 
-export function ProfileScreen({ onPracticeLesson, onPracticeRetry }: {
+export function ProfileScreen({ onPracticeLesson, onPracticeRetry, onStartCheckup }: {
   /** Jump into a lesson (repeat highlights). */
   onPracticeLesson?: (lessonId: string) => void
   /** Start a wrong-question practice round with these snapshots. */
   onPracticeRetry?: (items: RetryItem[]) => void
+  /** Start the daily check-up (mixed due-skill + wrong-question round). */
+  onStartCheckup?: (items: RetryItem[]) => void
 }) {
   const s = usePlayer()
   const user = useAuth((a) => a.user)
@@ -48,8 +53,32 @@ export function ProfileScreen({ onPracticeLesson, onPracticeRetry }: {
   // Tricky questions: most recent misses, newest first.
   const wrong = recentWrong(s.adaptive.attempts, 5)
   const retryable = retryItemsFrom(wrong)
+  // Daily check-up: due-for-review skills (any subject) + recent misses.
+  const checkup = useMemo(() => {
+    const due = dueSkillCodes(s.adaptive.snapshot)
+    if (due.length === 0) return null
+    const session = buildCheckup({
+      snap: s.adaptive.snapshot,
+      attempts: s.adaptive.attempts,
+    })
+    if (session.items.length === 0) return null
+    return { count: due.length, items: session.items }
+  }, [s.adaptive.snapshot, s.adaptive.attempts])
   // Hardest-question (difficulty 3) record per skill, for the table.
   const hardest = hardestByCode(s.adaptive.attempts)
+
+  // WS15 — practice calendar (this month) + weekly recap. Pure local math
+  // (deterministic, no AI): tiny inputs (≤60 day strings, ≤500 attempts),
+  // recomputed per render so the grid rolls over at midnight.
+  const monthGrid = buildMonthGrid(new Date().getFullYear(), new Date().getMonth(), s.activityDays)
+  const recap = buildWeeklyRecap({
+    weeklyXp: s.weeklyXp,
+    weeklyXpWeek: s.weeklyXpWeek,
+    cardsWonWeek: s.cardsWonWeek,
+    cardsWonWeekKey: s.cardsWonWeekKey,
+    activityDays: s.activityDays,
+    attempts: s.adaptive.attempts,
+  })
 
   return (
     <div className="mx-auto w-full max-w-xl px-4 pb-28 pt-4">
@@ -116,6 +145,68 @@ export function ProfileScreen({ onPracticeLesson, onPracticeRetry }: {
             </button>
           ))}
         </div>
+      </section>
+
+      {/* WS15 — practice calendar (practised days of the current month) */}
+      <section className="card-white mt-4">
+        <div className="flex items-baseline justify-between">
+          <p className="font-display text-sm font-bold uppercase tracking-wide text-slate-400">Practice calendar</p>
+          <p className="text-xs font-semibold text-slate-400">
+            {monthGrid.monthLabel} · {monthGrid.practisedCount} {monthGrid.practisedCount === 1 ? 'day' : 'days'}
+          </p>
+        </div>
+        <div className="mt-3 grid grid-cols-7 gap-1 text-center text-[10px] font-bold uppercase text-slate-400">
+          {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => (
+            <span key={i}>{d}</span>
+          ))}
+        </div>
+        <div className="mt-1 grid grid-cols-7 gap-1">
+          {monthGrid.cells.map((c, i) =>
+            c === null ? (
+              <span key={i} />
+            ) : (
+              <span
+                key={i}
+                title={c.active ? `Practised on ${c.iso}` : c.iso}
+                className={`flex aspect-square items-center justify-center rounded-lg text-xs font-bold ${
+                  c.active
+                    ? 'bg-green-500 text-white shadow-sm'
+                    : c.isToday
+                      ? 'border-2 border-speed-blue text-slate-700'
+                      : c.future
+                        ? 'text-slate-300'
+                        : 'bg-slate-100 text-slate-500'
+                }`}
+              >
+                {c.day}
+              </span>
+            ),
+          )}
+        </div>
+      </section>
+
+      {/* WS15 — weekly recap (XP, accuracy, subjects touched, cards won) */}
+      <section className="card-white mt-4">
+        <p className="font-display text-sm font-bold uppercase tracking-wide text-slate-400">Your week</p>
+        <div className="mt-2 grid grid-cols-2 gap-3 text-center sm:grid-cols-4">
+          <Stat icon="⚡" label="XP" value={String(recap.xp)} sub="last 7 days" />
+          <Stat
+            icon="🎯"
+            label="Accuracy"
+            value={recap.accuracyPct === null ? '—' : `${recap.accuracyPct}%`}
+            sub={recap.attemptCount > 0 ? `${recap.correctCount}/${recap.attemptCount} answers` : 'no answers yet'}
+          />
+          <Stat
+            icon="🗂️"
+            label="Subjects"
+            value={String(recap.subjects.length)}
+            sub={recap.subjects.join(' · ') || 'none yet'}
+          />
+          <Stat icon="🃏" label="Cards won" value={String(recap.cardsWon)} sub="this week" />
+        </div>
+        <p className="mt-3 text-center text-xs font-semibold text-slate-400">
+          Practised {recap.activeDays} of the last 7 days
+        </p>
       </section>
 
       {/* optional extras: Deutsch + Arabic (Egyptian Tawassol Grade 2).
@@ -439,6 +530,29 @@ export function ProfileScreen({ onPracticeLesson, onPracticeRetry }: {
           </ul>
         )}
       </section>
+
+      {/* daily check-up — one mixed round of due skills + recent misses */}
+      {checkup && onStartCheckup && (
+        <section className="card-white mt-4">
+          <div className="flex items-center gap-2">
+            <div className="min-w-0 flex-1">
+              <p className="font-display text-sm font-bold uppercase tracking-wide text-slate-400">
+                🔔 Daily check-up
+              </p>
+              <p className="mt-1 text-xs font-semibold text-slate-500">
+                {checkup.count} skill{checkup.count === 1 ? '' : 's'} due for a refresh, plus your
+                recent misses — one quick mixed round.
+              </p>
+            </div>
+            <button
+              onClick={() => { sfx.tap(); onStartCheckup(checkup.items) }}
+              className="btn3d btn-green shrink-0 !px-3 !py-1.5 !text-xs"
+            >
+              Start ({checkup.items.length})
+            </button>
+          </div>
+        </section>
+      )}
 
       {/* tricky questions — retry the exact ones missed */}
       {wrong.length > 0 && (

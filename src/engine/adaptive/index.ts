@@ -82,6 +82,16 @@ export {
 
 export { buildCatalog, lessonCodes, primaryCode } from './catalog'
 
+export {
+  buildCheckup,
+  CHECKUP_DUE_MAX,
+  CHECKUP_SIZE,
+  CHECKUP_WRONG_MAX,
+  dueSkillCodes,
+  type BuildCheckupInput,
+  type CheckupSession,
+} from './checkup'
+
 export { useAdaptiveLesson, type AdaptiveLessonResult, type UseAdaptiveLessonArgs } from './useAdaptiveLesson'
 
 export {
@@ -93,6 +103,17 @@ export {
   type ExplainRequest,
   type ExplainResponse,
 } from './explanations'
+
+export {
+  buildFollowupCacheKey,
+  clearFollowupCache,
+  fetchFollowup,
+  parseLlmMcq,
+  siblingFollowup,
+  type FollowupClientOptions,
+  type FollowupRequest,
+  type FollowupResult,
+} from './followup'
 
 export {
   BYOK_PROVIDERS,
