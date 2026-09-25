@@ -292,12 +292,24 @@ async function main() {
       hp: /\d+\/\d+ HP/.test(body),
       flee: /flee/i.test(body),
       letsGo: /Let's go/i.test(body),
+      mission: /Today's mission/i.test(body),
       intro: /Boss time|Fight!/i.test(body),
+      // Phase 14: the guide panel renders lesson.teach lines (fallback intro.body)
+      teachLines: Array.from(document.querySelectorAll('.card-white p.rounded-xl'))
+        .map((p) => (p.textContent || '').trim()),
     }
   })
-  ok('node tap opens BattleScreen (not lesson intro)',
-    opened && chrome.battle && chrome.hp && chrome.flee && !chrome.letsGo && !chrome.intro,
-    JSON.stringify({ opened, ...chrome }))
+  ok('node tap opens BattleScreen guide (not lesson intro)',
+    opened && chrome.battle && chrome.hp && chrome.flee && chrome.letsGo && chrome.mission && !chrome.intro &&
+      chrome.teachLines.length >= 1 && chrome.teachLines.every((l) => l.length > 0),
+    JSON.stringify({ opened, ...chrome, teachLines: chrome.teachLines.slice(0, 2) }))
+  // Phase 14 guide panel sits above Q1 — dismiss it before auto-playing.
+  await page.evaluate(() => {
+    const b = Array.from(document.querySelectorAll('button'))
+      .find((x) => /Let's go/i.test((x.textContent || '').trim()) && !x.disabled)
+    b?.click()
+  })
+  await page.waitForTimeout(600)
 
   // --- auto-play battle: wrong×9 (refill + hint) then correct to win ---
   let stage = 'active'
@@ -432,14 +444,23 @@ async function main() {
         hp150: /150\/150 HP/.test(body),
         fight: /Fight!/i.test(body),
         letsGo: /Let's go/i.test(body),
+        mission: /Today's mission/i.test(body),
         introTitle: /Boss time/i.test(body),
       }
     })
-    ok('boss node opens tougher battle with intro',
-      bossOpened && bossChrome.boss && bossChrome.hp150 && bossChrome.fight &&
-      bossChrome.introTitle && !bossChrome.letsGo,
+    // Phase 14: the friendly guide panel ("Today's mission" + Let's go!) now
+    // sits ABOVE the Fight! intro — assert the guide, then step through both.
+    ok('boss node opens tougher battle with guide intro',
+      bossOpened && bossChrome.boss && bossChrome.hp150 && bossChrome.letsGo &&
+      bossChrome.mission && bossChrome.introTitle && !bossChrome.fight,
       JSON.stringify({ bossOpened, ...bossChrome }))
-    // Dismiss Fight! then flee back to path.
+    // Dismiss the guide, then Fight!, then flee back to path.
+    await page.evaluate(() => {
+      const g = Array.from(document.querySelectorAll('button'))
+        .find((b) => /Let's go/i.test((b.textContent || '').trim()) && !b.disabled)
+      g?.click()
+    })
+    await page.waitForTimeout(600)
     await page.evaluate(() => {
       const f = Array.from(document.querySelectorAll('button'))
         .find((b) => /^Fight!$/i.test((b.textContent || '').trim()) && !b.disabled)
