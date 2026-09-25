@@ -51,7 +51,7 @@ function gDasIst(rand: Rand): Question {
   const choices = shuffle(rand, [answer, ...others])
   return mcqFixed('Which “Das ist…” line fits?', choices, choices.indexOf(answer), {
     visual: { type: 'emoji-group', emojis: [item.emoji] },
-    hint: 'mein = my (masculine/neuter), meine = my (feminine).',
+    hint: '“mein” and “meine” both mean “my” — pick the line that says “my”!',
   })
 }
 
@@ -83,7 +83,7 @@ function gFamilyMatchDeEn(rand: Rand): Question {
   return matchDeEn(rand, FAMILY_GLOSS, 'Match the family: German to English')
 }
 
-/** mein (masculine) vs meine (feminine) — mirrors the gDasIst rule. */
+/** “my” for each family word — learned as whole lines, not as a grammar rule. */
 function meinFor(de: string): 'mein' | 'meine' {
   return de.startsWith('der') ? 'mein' : 'meine'
 }

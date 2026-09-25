@@ -42,46 +42,39 @@ function gRoomMatch(rand: Rand): Question {
   return matchQ(rand, 'Match the room thing', pairs)
 }
 
-const WHERE_SETS = [
-  [
-    { left: 'Das Buch ist…', right: 'auf dem Stuhl 🪑' },
-    { left: 'Die Lampe ist…', right: 'in dem Zimmer 🚪' },
-    { left: 'Der Ball ist…', right: 'unter dem Bett 🛏️' },
-    { left: 'Die Katze ist…', right: 'auf dem Bett 🛏️' },
-  ],
-  [
-    { left: 'Felix ist…', right: 'in dem Briefkasten 📮' },
-    { left: 'Der Käse ist…', right: 'in der Küche 🍳' },
-    { left: 'Das Schiff ist…', right: 'auf dem Wasser 💧' },
-    { left: 'Der Stern ist…', right: 'am Himmel ⭐' },
-  ],
+const WHERE_MEANINGS = [
+  { left: 'auf', right: 'on top ☝️' },
+  { left: 'in', right: 'inside 📦' },
+  { left: 'unter', right: 'under ⬇️' },
+  { left: 'neben', right: 'next to ↔️' },
 ]
 
 function gWhereMatch(rand: Rand): Question {
-  return matchQ(rand, 'Wo ist es? in / auf / unter', pick(rand, WHERE_SETS), {
-    hint: 'in = inside, auf = on top, unter = under.',
+  return matchQ(rand, 'Match the where-word', shuffle(rand, WHERE_MEANINGS), {
+    hint: 'Little words that tell you WHERE something is!',
   })
 }
 
-const ORDINALS = [
-  { de: 'erste', emoji: '🥇' }, { de: 'zweite', emoji: '🥈' },
-  { de: 'dritte', emoji: '🥉' }, { de: 'vierte', emoji: '4️⃣' },
+const CANDLE_COUNTS = [
+  { n: 2, de: 'zwei' }, { n: 3, de: 'drei' },
+  { n: 4, de: 'vier' }, { n: 5, de: 'fünf' },
 ]
 
-function gOrdinalPicture(rand: Rand): Question {
-  const item = pick(rand, ORDINALS)
-  const others = ORDINALS.filter((o) => o.de !== item.de).map((o) => o.de)
-  return mcqE(rand, 'Der wievielte? Ordinal!', item.de, others, {
-    visual: { type: 'emoji-group', emojis: [item.emoji] },
+function gCandleCount(rand: Rand): Question {
+  const item = pick(rand, CANDLE_COUNTS)
+  const others = CANDLE_COUNTS.filter((c) => c.de !== item.de).map((c) => c.de)
+  const flames = Array.from({ length: item.n }, () => '🕯️')
+  return mcqE(rand, 'Wie viele Kerzen? Count the candles!', item.de, others, {
+    visual: { type: 'emoji-group', emojis: ['🎂', ...flames] },
     ...say(item.de),
   })
 }
 
 const FEST_TF = [
-  { s: 'In Germany shops are closed on Sunday — family day.', a: true },
   { s: '“Alles Gute zum Geburtstag!” means Happy Birthday!', a: true },
-  { s: 'Nikolaus brings treats on 6 December.', a: true },
-  { s: 'Felix phones Germany without a country code.', a: false },
+  { s: '“Tschüss!” means hello.', a: false },
+  { s: 'Franzi is a duck. 🦆', a: true },
+  { s: 'You sing “Gute Nacht!” at a birthday party.', a: false },
 ]
 
 function gFestTrueFalse(rand: Rand): Question {
@@ -93,12 +86,10 @@ const LETTER_SETS: string[][] = [
   [
     'Liebe Franzi,',
     'Ich bin in Berlin.',
-    'Das Wetter ist schön.',
     'Bis bald! Felix',
   ],
   [
     'Hallo Franzi,',
-    'Ich spiele im Garten.',
     'Der Ball ist rot.',
     'Tschüss! Felix',
   ],
@@ -108,7 +99,7 @@ function gLetterOrder(rand: Rand): Question {
   const lines = pick(rand, LETTER_SETS)
   return orderQ('Put Felix’s letter in order', lines, {
     story: story('Ein Brief von Felix', ['🐸', '📮', '🇩🇪'], lines),
-    ...say('Liebe Franzi! Bis bald!'),
+    ...say(`${lines[0]} ${lines[lines.length - 1]}`),
   })
 }
 
@@ -148,23 +139,16 @@ function gRoomMatchDeEn(rand: Rand): Question {
   return matchDeEn(rand, ROOM_GLOSS, 'Match at home: German to English')
 }
 
-/** Preposition sentences use phrase chunks so the two English “the”s never
- *  collide as duplicate word-bank tiles (harness requires unique items). */
-const WHERE_BUILDS: { en: string; de: string[]; back: string[] }[] = [
-  { en: 'The book is on the chair.', de: ['Das Buch', 'ist', 'auf dem Stuhl'], back: ['The book', 'is', 'on the chair'] },
-  { en: 'The cat is on the bed.', de: ['Die Katze', 'ist', 'auf dem Bett'], back: ['The cat', 'is', 'on the bed'] },
-  { en: 'The lamp is in the room.', de: ['Die Lampe', 'ist', 'in dem Zimmer'], back: ['The lamp', 'is', 'in the room'] },
-  { en: 'The ball is under the bed.', de: ['Der Ball', 'ist', 'unter dem Bett'], back: ['The ball', 'is', 'under the bed'] },
-]
-
+/** “Das ist der Stuhl.” room builds — taught vocab with its article, no case grammar. */
 function gBuildWhereDe(rand: Rand): Question {
-  const s = pick(rand, WHERE_BUILDS)
-  return buildDe(s.en, s.de)
+  const item = pick(rand, ROOMS)
+  const [art, noun] = item.de.split(' ')
+  return buildDe(`This is the ${item.en}.`, ['Das', 'ist', art, `${noun}.`])
 }
 
 function gBuildWhereEn(rand: Rand): Question {
-  const s = pick(rand, WHERE_BUILDS)
-  return buildEn(s.de.join(' ') + '.', s.back)
+  const item = pick(rand, ROOMS)
+  return buildEn(`Das ist ${item.de}.`, ['This', 'is', 'the', `${item.en}.`])
 }
 
 function gBuildWishDe(rand: Rand): Question {
@@ -193,7 +177,7 @@ const g10l2 = makeLesson(
   ['4Gr.02', '4Sc.01'],
   'tails',
   'Verstecken!',
-  'Something nibbled the painting! Hunt it with in, auf and unter!',
+  'Something hid the painting! Where is it? Learn the little where-words: in, auf, unter, neben!',
   [gWhereMatch, gRoomPicture, gBuildWhereDe, gBuildWhereEn],
 )
 
@@ -203,8 +187,8 @@ const g10l3 = makeLesson(
   ['4Vl.01', '4Cu.02'],
   'amy',
   'Party!',
-  'Ordinal candles: erste, zweite, dritte! Plus Nikolaus and Sunday family-day facts!',
-  [gOrdinalPicture, gFestTrueFalse, gBuildWishDe, gBuildWishEn],
+  'Count Franzi’s birthday candles — zwei, drei, vier, fünf! — then make a wish!',
+  [gCandleCount, gFestTrueFalse, gBuildWishDe, gBuildWishEn],
 )
 
 const g10l4 = makeLesson(
@@ -213,7 +197,7 @@ const g10l4 = makeLesson(
   ['4Rm.01', '4Wc.01'],
   'cream',
   'Post!',
-  'Read Felix’s mini letter, order it, then read the birthday wish aloud!',
+  'Read Felix’s short letter, put it in order, then read the birthday wish aloud!',
   [gLetterOrder, gSpeakWish, gRoomMatchDeEn, gBuildWhereDe],
 )
 
@@ -223,7 +207,7 @@ const g10boss = makeLesson(
   ['4Gr.02', '4Cu.01'],
   'eggman',
   'BOSS TIME!',
-  'Home, prepositions, party and the big letter — the final Deutsch boss!',
+  'Home, where-words, party and Felix’s letter — the final Deutsch boss!',
   [gRoomMatchDeEn, gBuildWhereDe, gBuildWhereEn, gBuildWishDe, gPartyPick],
   gLetterOrder,
 )

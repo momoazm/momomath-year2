@@ -14,6 +14,13 @@ Vite + React + TS + Tailwind, zustand persist store, vitest. Deploys to GitHub P
 - ALWAYS commit before (or with) a deploy — never leave live code uncommitted. Order: finish work → gates green → `git add` + commit → `node scripts/deploy.mjs`. If you already deployed uncommitted work, commit immediately after and note it in `PLAN.md`.
 - Push `main` when the user asks; the gh-pages publish alone does NOT sync source.
 
+## No-deletion rule (standing, user-mandated)
+
+- NEVER delete features, pages/screens, mechanisms, or cards — not lesson content, node types, UI flows, games, mascots, endpoints, questions, or card entries. Only ADD or MODIFY.
+- The ONLY exception is the user explicitly saying "delete/remove X" in chat for that specific item. Never propose deletion as a cleanup/fix/refactor step.
+- "Remove from view/flow" is allowed ONLY by hiding, deprecating, or superseding — underlying code and data ids stay in the repo.
+- Persisted ids (lesson ids, card ids, arcade score keys, achievement ids, mascot ids) stay valid forever so old saves keep loading.
+
 ## Commands
 
 - `npx tsc --noEmit` — must pass; `npx vitest run` — all tests must pass (no duplicate `it()` titles, see `scripts/precommit.mjs`).

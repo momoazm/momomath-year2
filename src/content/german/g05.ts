@@ -55,7 +55,7 @@ function gArticleMatch(rand: Rand): Question {
     kind: 'match',
     prompt: 'Which article fits? der / die / das',
     pairs: shuffle(rand, pairs),
-    hint: 'der = masculine, die = feminine, das = neuter. Learn each noun WITH its article!',
+    hint: 'Say the whole thing together: der Frosch, die Ente, das Pferd — learn each word WITH its little front word!',
   }
 }
 
@@ -68,8 +68,8 @@ function gHearAnimal(rand: Rand): Question {
 const ZOO_TF = [
   { s: 'Felix Frosch comes from Zoo Berlin.', a: true },
   { s: 'Franzi Ente is a frog.', a: false },
-  { s: '“der, die, das” all mean “the”.', a: true },
-  { s: '“die Katze” needs no article.', a: false },
+  { s: '“Hund” means cat.', a: false },
+  { s: '“Ente” means duck.', a: true },
 ]
 
 function gZooTrueFalse(rand: Rand): Question {

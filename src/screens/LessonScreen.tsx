@@ -7,7 +7,8 @@ import { isLessonRedo, crownsEarned } from '../engine/path'
 import { usePlayer } from '../engine/store'
 import { rollChest, type ChestContext, type ChestResult } from '../engine/cards'
 import { chestGemMultiplier } from '../engine/shop'
-import { speakFor, speakSlowFor, stopSpeaking, ttsAvailable } from '../engine/tts'
+import { speakFor, stopSpeaking } from '../engine/tts'
+import { AudioBar } from '../components/AudioBar'
 import { Mascot } from '../components/mascots/Mascots'
 import { ChestReveal } from '../components/ui/ChestReveal'
 import { sfx } from '../engine/sfx'
@@ -558,29 +559,6 @@ function StoryPanelView({ panel }: { panel: StoryPanel }) {
         ))}
       </div>
     </motion.div>
-  )
-}
-
-function AudioBar({ audioText }: { audioText: string }) {
-  const subject = usePlayer((s) => s.subject)
-  if (!ttsAvailable()) return null
-  return (
-    <div className="mx-auto mt-2 flex w-fit items-center gap-2">
-      <button
-        onClick={() => { sfx.tap('audio'); speakFor(subject, audioText) }}
-        className="btn3d btn-blue flex items-center gap-2 !px-5 !py-3 text-xl"
-        title="Play again"
-      >
-        🔊 Listen
-      </button>
-      <button
-        onClick={() => { sfx.tap('slow'); speakSlowFor(subject, audioText) }}
-        className="btn3d btn-grey !px-4 !py-3 text-xl"
-        title="Slow replay (turtle mode)"
-      >
-        🐢
-      </button>
-    </div>
   )
 }
 

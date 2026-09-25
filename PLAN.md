@@ -131,4 +131,63 @@ Source of truth: `C:\Users\momo\Documents\momomath-year2` already shipped 100 ca
 - [x] 57. Consumers: drop `MascotId` import from cards if unused; Library header already `ALL_CARDS.length` → `/100`; Profile unique-cards already `ALL_CARDS.length`; star-distribution → `ALL_CARDS` if still `CARDS`; Phase 11 gray `<img>` paths auto-follow `card.image`. (Done: Profile star buckets use `ALL_CARDS`; card `#NN` uses `ALL_CARDS.findIndex`; verify scripts `/100` + "Fang the Sniper".)
 - [x] 58. Tests: port docs `cardStars` art contract (100-entry map, all `.webp`, `ALL_CARDS`/`CARDS`/`ARCADE_CARDS` = 100/97/3); fix `chestCards`/`arcadeCards` hard-coded 19→roster size + webp; add PLAN band assert 39/25/18/10/5; home single-pack economy tests stay (1 card per chest). (Done: band + exists-on-disk tests added; new-card probability test retuned for 97-card pool; `@types/node` added for `existsSync`.)
 - [x] 59. Gates: `npx tsc --noEmit` + `npx vitest run` + `node scripts/precommit.mjs`; smoke `?library` — header `/100`, locked gray art (Phase 11) uses `.webp`, zero `.svg` refs in `cards.ts`/`public/cards`. (**tsc 0**, **vitest 72 files / 1522 tests**, **precommit OK**, `scripts/pw-gray-cards.mjs` **13/13** — overall `1 / 100 collected`, gray=99, sample src `cards/fang.webp`, zero page errors.)
-- [x] 60. Deploy after explicit user approval ("deploy" 2026-09-24): `node scripts/deploy.mjs` → `assets/index-wox-MKYW.js` live + in-sync + markers + stale-cache 200; live verifies **verify-live 23/23** (first run hit a transient 503 resource error — re-run clean), **verify-gamification 50/50** (library `4 / 100 collected`, Fang "Fang the Sniper" art renders), **pw-gray-cards 13/13**. Commit of the working tree still awaits separate user approval.
+- [x] 60. Deploy after explicit user approval ("deploy" 2026-09-24): `node scripts/deploy.mjs` → `assets/index-wox-MKYW.js` live + in-sync + markers + stale-cache 200; live verifies **verify-live 23/23** (first run hit a transient 503 resource error — re-run clean), **verify-gamification 50/50** (library `4 / 100 collected`, Fang "Fang the Sniper" art renders), **pw-gray-cards 13/13**. (Commit later approved: `c882ddf` 111 files + `4237260` AGENTS rule, both pushed.)
+
+## Phase 13 — Battle listening replay + German Year-2 level fix (user report 2026-09-24)
+
+Two reports: (1) "listening lessons: no sound and no button to hear the word" — probe (`scripts/_tts_probe.mjs`) proved normal play = BattleScreen→`QuestionView`, which auto-speaks `audioText` ONCE (`BattleScreen.tsx:69-74`) and renders NO 🔊/🐢 buttons (`audioButtons: []`); the `AudioBar` exists only in `LessonScreen` (`?lesson=`/`?library` review). Autoplay can also be blocked (no-gesture contexts) → no sound AND no button.
+(2) German questions beyond Year-2/pre-A1 — user approved **"fix flagged hard spots"**: G10 dative preps + ordinals + trivia T/F + 4-line letter; G5 meta-grammar T/F (+ gender-theory hint); G6 mein/meine rule hint. Age-right vocab compounds stay (with audio).
+
+- [x] 61. Extract `AudioBar` → `src/components/AudioBar.tsx` (🔊 Listen + 🐢 slow, `ttsAvailable()` guard); render it in `QuestionView` for ANY question with `audioText` (mcq/match/order) so battle gets replay buttons (tap = user gesture → works where autoplay is blocked); LessonScreen imports the shared component (delete its local copy).
+- [x] 62. G10 rewrites (`g10.ts`): `gWhereMatch` → preposition ↔ meaning pairs (`auf/on top`, `in/inside`, `unter/under`, `neben/next to`) — zero case-marked strings; `gBuildWhereDe/En` → room "Das ist der/die/das X." builds (taught vocab, no dative); `gOrdinalPicture` → birthday candle-count MCQ (zwei/drei/vier/fünf, taught in G4, speaks the German number); `FEST_TF` → taught-content statements only (drop Nikolaus/Sunday-shops/country-code); `LETTER_SETS` → 3 short lines; update l2/l3/l4/boss intros.
+- [x] 63. G5/G6 (`g05.ts`, `g06.ts`): `ZOO_TF` meta-grammar items → taught-content ("Hund"=cat? false; "Ente"=duck? true); `gArticleMatch` hint → chunk-learning wording (no gender analysis); `gDasIst` hint → "mein/meine both mean my" (no paradigm).
+- [x] 64. Regression test `tests/german/year2Level.test.ts`: units G5/G6/G10 across seeds — no question may contain `auf dem |in dem |unter dem |am Himmel|Nikolaus|country code|masculine|neuter`, no `erste|zweite|dritte|vierte` ordinal words.
+- [x] 65. Gates: `npx tsc --noEmit` + `npx vitest run` + `node scripts/precommit.mjs`; local probe — battle listening question now shows 🔊/🐢, click logs `speak`, LessonScreen AudioBar still green; zero page errors.
+- [ ] 66. Commit (own files only) → deploy → live verify — both only on explicit user approval, commit BEFORE deploy per AGENTS.md standing rule.
+
+**Phase 13 verification (2026-09-25):** tsc=0; vitest 73 files / 1525 tests (incl. new year2Level 3/3); precommit OK; `rg` sweep = zero flagged German patterns left; probes: battle `audioButtons: ["🔊 Listen","🐢"]` + autoplay speak "wind"; `?lesson=` seeded probe: intro renders → "Let's go!" → 🔊 present → click logs 2 speak events. Step 66 awaits user go-ahead.
+
+## Phase 14 — Friendly Sonic-character lesson explanations (medium) (user request 2026-09-25)
+
+User: "a friendly explanation before each lesson using sonic characters to teach the lesson". Research: every lesson already has `intro { mascotId, title, body }` (`types.ts:131,167`, 19 renderable mascots) but `BattleScreen` NEVER shows it (only boss card at `BattleScreen.tsx:335-348`); `LessonScreen` intro phase exists only on the `?lesson=` review path.
+
+- [ ] 67. `BattleScreen` pre-question **guide phase**: before question 1, show the lesson's `intro` (big mascot + title + friendly body + objectives row + CTA "Let's go! 🚀" — tap doubles as the audio-unlock gesture). Boss lessons: guide phase first, then the existing boss warning card (boss card untouched). Show on first attempt (epoch 0), skip on loss-retries (no nagging).
+- [ ] 68. Real "teach" content: optional `teach?: string[]` (2–3 lines, each ≤12 words, friendly kid voice) on `LessonDef` — author for ALL 74 English nodes; 🔊 button speaks each line via `speakFor` (pre-readers must not need to read). Fallback when `teach` absent = render `intro.body` (all other subjects keep working with zero content edits).
+- [ ] 69. Character polish: use `intro.mascotId` variety (19 mascots already assigned per lesson), expression happy→excited across lines; verify both paths (normal + boss) at 360px via local probe.
+
+## Phase 15 — Unit books: 📖 5–10-page readers, Duolingo-Stories style (large) (user request 2026-09-25)
+
+- [ ] 70. Model (additive in `types.ts`): `BookPage { scene: string[]; text: string; focus?: string }`, `BookDef { id, unitId, title, pages: BookPage[] }` with 5–10 pages each. Content: `src/content/english/books/e01..e13.ts` — one book per English unit (13 total), story reuses each unit's own vocabulary + recurring Sonic cast (Tails, Cream, Amy…), simple kid sentences, last page = friendly recap line.
+- [ ] 71. `src/screens/BookScreen.tsx` + `?book=<id>` param in `App.tsx` (pattern like `?lesson=`): page-by-page reader — big text + emoji scene, 🔊 read-along speak per page + tap-word speak on `focus` words, page dots + ← → buttons + swipe, then "The End 🎉" finale.
+- [ ] 72. Rewards/state: store `version` 11→12 + migrate backfill `booksRead: Record<string, boolean>`; first full read → +20 gems + `sfx.streak` + celebration; completed book = ✅ on node. Add `booksRead` to `cloudsave.ts` whitelist (`CloudSave` + `snapshotFromPlayer`) AND to the momolearn-ai server whitelist if required — check `lib/year2/cloudsave` first, deploy API before client (commit-first rule).
+- [ ] 73. Roadmap: `PathScreen` renders an additive **📖 book node** as first node under each unit header that has a book (start: English's 13 units). Unlock = unit's first lesson unlocked; tap → BookScreen; completed → gold 📖 + "📖 read" badge on unit header. Zigzag layout + 🔒 styling reuse existing node logic — lesson nodes, `isLessonUnlocked`, and boss inference untouched (book node is synthetic, NOT added to `UnitDef.lessons`).
+- [ ] 74. Discovery polish: subtle ✨ pulse on unread books (active-node pulse pattern from `PathScreen.tsx:56-59`); unit header shows `📖 x/1` read state.
+
+## Phase 16 — Duolingo-for-kids roadmap additions, each subject (medium) (user request 2026-09-25)
+
+- [ ] 75. **Locked-node friendly popup**: tapping a 🔒 node opens a small encouraging card — "Finish {previous lesson} first — you've got this! 💪" (current behavior: silent/disabled). Additive overlay only.
+- [ ] 76. **Unit trophy celebration**: enhance the existing "Unit mastered!" block (`PathScreen.tsx:169-174`) into a celebration ladder — banner + 🏆 + cheering mascot bounce + gems bonus (+30, once per unit, new `unitsCelebrated` field → store v13 or fold into v12 migrate). Existing 🏅 badge logic stays.
+- [ ] 77. **🔁 Practice node**: synthetic node after each unit's boss, unlocked when unit is done; opens `BattleScreen` re-serving the unit's weakest lesson (lowest `bestAccuracy`, tie→first) with a fresh seed — "Practice makes perfect! 🔁". Derived from `lessonProgress`, no new persistence; id `<unitId>practice`, kept OUT of `UnitDef.lessons` (boss/harness invariants untouched).
+- [ ] 78. Explicit node typing helper in `PathScreen`: `kindFor(node) → 'lesson'|'boss'|'book'|'practice'` (keeps id-suffix fallback as-is; icons per kind 👑⭐📖🔁).
+- Backlog (NOT scheduled — only if user asks later): 🎧 dedicated listening nodes, tap-word glossary, personalized daily practice hub.
+
+## Phase 17 — Friends + referral codes to compete (large, two repos) (user request 2026-09-25)
+
+- [ ] 79. Recon in `C:\Users\momo\momomath-year2` → momolearn-ai backend (`lib/year2/leaderboard.js`, `cloudsave`): confirm Vercel Blob key layout, payload shape, auth/rate limits. Design: friends compete on **weekly XP** already tracked by the leaderboard → zero new score plumbing; friends list = id+name only.
+- [ ] 80. Server (momolearn-ai repo, `lib/year2/friends.js` + route wiring in `lib/year2/` routes):
+  - `POST /api/year2/friends/code` { playerId, name } → stable 6-char referral code (base32 hash of player id; regenerable to invalidate old codes; no PII stored).
+  - `POST /api/year2/friends/join` { playerId, name, code } → validate (≠ own code, code exists, ≤20 friends, once-only edge) → store friendship edge; returns `{ ok, friendName, firstJoin }`.
+  - `GET /api/year2/friends/list?playerId=` → friend ids+names; client pulls weekly XP from existing leaderboard GET.
+  - Abuse: per-id rate cap, size limits, no secrets in client.
+- [ ] 81. Server tests + ship: extend momolearn-ai verify script for the 3 endpoints; commit → Vercel deploy (hook + poll READY per global AGENTS) → verify on prod aliases. Commit-first rule applies.
+- [ ] 82. Client `src/screens/FriendsScreen.tsx` (Profile section entry to avoid bottom-nav re-layout): big **invite-code card** (🔊 read code aloud + copy button), join-by-code form with friendly toasts ("That code doesn't match — check the letters!"), friends list with weekly XP, rank medals (#1 👑), "vs you" highlighted row, empty state explaining how to invite ("Send your code to a friend!").
+- [ ] 83. Referral reward (achievable cross-device): first successful join → server returns `firstJoin` → joiner gets +30 gems + new achievement `made-a-friend` (store v12/v13 backfill); copy promises ONLY the joiner's bonus (no un-deliverable referrer gems). Regenerating your code revokes old edges for NEW joins (existing friendships persist — no deletion).
+- [ ] 84. Privacy: screen states "Friends see only your display name and weekly XP"; nothing else synced (auth email never leaves `cloudsave`).
+
+## Phase 18 — Gates, verify, ship (roll-up)
+
+- [ ] 85. New tests: book harness (each book 5–10 pages, non-empty text/scene, unique ids, unitId matches an English unit), store migrate (v11→v12/v13 backfills), path book/practice unlock rules, `teach` fallback, friends client with mocked fetch; extend `scripts/verify-gamification.mjs` (book read-through end-to-end + friends card visible).
+- [ ] 86. Full gates green (`tsc` / `vitest` / `precommit`) → commit (own files only) → `node scripts/deploy.mjs` → live verify — commit BEFORE deploy, both on explicit user approval.
+- [ ] 87. Phase 13 step 66 + all Phase 14–17 client deploys folded into the same approval windows; momolearn-ai server deploys tracked separately in that repo's PLAN/AGENTS.
+
+**Ordering note:** 14 → 15 → 16 are client-only and ship in one window; 17 needs the momolearn-ai server deploy first (81) before client work goes live (82–83).

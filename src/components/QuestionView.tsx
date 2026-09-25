@@ -4,6 +4,7 @@ import { correctAnswerText } from '../engine/questionText'
 import { gradeSpeak } from '../engine/speakGrade'
 import { speakFor } from '../engine/tts'
 import { usePlayer } from '../engine/store'
+import { AudioBar } from './AudioBar'
 
 export interface GradeResult {
   correct: boolean
@@ -99,6 +100,7 @@ export function QuestionView({ q, disabled, onSubmit }: Props) {
       <div>
         <p className="font-display text-lg font-extrabold text-slate-800">{q.prompt}</p>
         <Visual v={q.visual} />
+        {q.audioText && <AudioBar audioText={q.audioText} />}
         <div className="mt-3 grid grid-cols-2 gap-2">
           {mcqChoices.map((c, i) => (
             <button
@@ -199,6 +201,7 @@ export function QuestionView({ q, disabled, onSubmit }: Props) {
     return (
       <div>
         <p className="font-display text-lg font-extrabold text-slate-800">{q.prompt}</p>
+        {q.audioText && <AudioBar audioText={q.audioText} />}
         <div className="mt-2 grid grid-cols-2 gap-3">
           <div className="space-y-2">
             {q.pairs.map((p, i) => (
@@ -261,6 +264,7 @@ export function QuestionView({ q, disabled, onSubmit }: Props) {
     return (
       <div>
         <p className="font-display text-lg font-extrabold text-slate-800">{q.prompt}</p>
+        {q.audioText && <AudioBar audioText={q.audioText} />}
         <div className="mt-2 flex flex-wrap gap-2">
           {order.map((it, i) => (
             <button
