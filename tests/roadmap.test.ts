@@ -45,6 +45,7 @@ describe('roadmap node typing (PLAN 78)', () => {
     expect(new Set(icons).size).toBe(icons.length)
     expect(KIND_ICON.practice).toBe('🔁')
     expect(KIND_ICON.book).toBe('📖')
+    expect(KIND_ICON.activity).toBe('🎯')
   })
 })
 
@@ -110,6 +111,43 @@ describe('practice node derivation (PLAN 77)', () => {
     expect(allTried(progress)).toBe(true)
     progress[u.lessons[3].id] = { completions: 0, bestAccuracy: 0 }
     expect(allTried(progress)).toBe(false)
+  })
+})
+
+describe('persist migration backfills v13 fields (PLAN 22 step 104)', () => {
+  it('a v12 save gains an empty unitActivityBest without losing data', () => {
+    const old = { name: 'Momo', gems: 55, subject: 'english', xpTotal: 900 } as never
+    const m = migratePersisted(old, 12)
+    expect(m.unitActivityBest).toEqual({})
+    expect(m.gems).toBe(55)
+    expect(m.xpTotal).toBe(900)
+  })
+
+  it('corrupt v13 fields are repaired, valid ones kept', () => {
+    const m = migratePersisted({ unitActivityBest: 'nope' } as never, 12)
+    expect(m.unitActivityBest).toEqual({})
+    const m2 = migratePersisted({ unitActivityBest: { e1: 5 } } as never, 12)
+    expect(m2.unitActivityBest).toEqual({ e1: 5 })
+  })
+})
+
+describe('recordUnitActivity reward (PLAN 104)', () => {
+  it('pays correct×4 XP always and gems on a new best (5 perfect, else 2)', () => {
+    const st = usePlayer.getState()
+    usePlayer.setState({ gems: 0, xpTotal: 0, todayXp: 0, todayXpDay: '', weeklyXp: 0, weeklyXpWeek: '', unitActivityBest: {} })
+    const r1 = usePlayer.getState().recordUnitActivity('e1', 6, 8)
+    expect(r1).toEqual({ xp: 24, gems: 2 })
+    expect(usePlayer.getState().unitActivityBest['e1']).toBe(6)
+    expect(usePlayer.getState().gems).toBe(2)
+    // worse run: XP still flows, but no gems and the best stays
+    const r2 = usePlayer.getState().recordUnitActivity('e1', 4, 8)
+    expect(r2).toEqual({ xp: 16, gems: 0 })
+    expect(usePlayer.getState().unitActivityBest['e1']).toBe(6)
+    // perfect new best: +5 gems
+    const r3 = usePlayer.getState().recordUnitActivity('e1', 8, 8)
+    expect(r3).toEqual({ xp: 32, gems: 5 })
+    expect(usePlayer.getState().unitActivityBest['e1']).toBe(8)
+    usePlayer.setState({ gems: st.gems, xpTotal: st.xpTotal, todayXp: st.todayXp, todayXpDay: st.todayXpDay, weeklyXp: st.weeklyXp, weeklyXpWeek: st.weeklyXpWeek, unitActivityBest: { ...st.unitActivityBest } })
   })
 })
 

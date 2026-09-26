@@ -13,7 +13,10 @@ import { ShopScreen } from './screens/ShopScreen'
 import { LibraryScreen } from './screens/LibraryScreen'
 import { ArcadeScreen } from './screens/ArcadeScreen'
 import { BookScreen } from './screens/BookScreen'
+import { UnitActivityScreen } from './screens/UnitActivityScreen'
 import { FriendsScreen } from './screens/FriendsScreen'
+import { getCurriculum } from './content/registry'
+import { usePlayer } from './engine/store'
 import { BOOKS_BY_ID } from './content/english/books'
 import { WelcomeGate } from './components/ui/WelcomeGate'
 import { AutoLeagueSettle } from './components/ui/AutoLeagueSettle'
@@ -30,6 +33,8 @@ export default function App() {
   const [reviewLesson, setReviewLesson] = useState<string | null>(
     () => new URLSearchParams(window.location.search).get('lesson'),
   )
+  const [activeActivity, setActiveActivity] = useState<string | null>(null)
+  const subject = usePlayer((s) => s.subject)
   const [reviewBook, setReviewBook] = useState<string | null>(
     () => new URLSearchParams(window.location.search).get('book'),
   )
@@ -109,6 +114,21 @@ export default function App() {
     )
   }
 
+  // 🎯 Unit fun-activity mini-game (PLAN 104): opens from the unit's 🎯 node
+  if (activeActivity) {
+    const unit = getCurriculum(subject).units.find((u) => u.id === activeActivity)
+    if (unit) {
+      return (
+        <UnitActivityScreen
+          key={activeActivity}
+          unit={unit}
+          subject={subject}
+          onExit={() => setActiveActivity(null)}
+        />
+      )
+    }
+  }
+
   // Path node tap → BattleScreen for all lesson/boss nodes
   if (activeBattle) {
     return (
@@ -142,6 +162,7 @@ export default function App() {
   <PathScreen
     onStartLesson={(id) => setActiveBattle({ lessonId: id, epoch: 0 })}
     onOpenBook={(id) => setReviewBook(id)}
+    onOpenActivity={(id) => setActiveActivity(id)}
   />
 )}
       {tab === 'shop' && <ShopScreen />}

@@ -122,6 +122,9 @@ interface PlayerState {
    *  Local-only: cloudsave whitelists its own fields, so this never syncs —
    *  the `made-a-friend` achievement id itself DOES sync via achievements. */
   friendsAdded: number
+  /** per-unit fun-activity best scores (PLAN 104) — local-only, outside the
+   *  cloudsave field whitelist (like arcadeRounds); backfilled by v12→v13. */
+  unitActivityBest: Record<string, number>
   /** timestamp (ms) of last successful cloud sync */
   lastSyncedAt: number | null
 
@@ -141,6 +144,9 @@ interface PlayerState {
   /** First-ever friend added: +30 gems + made-a-friend achievement (PLAN 83).
    *  Call once per successful server join; idempotent per player lifetime. */
   recordFriendJoin: () => void
+  /** Record a unit-activity run (PLAN 104): persists the per-unit best,
+   *  always pays correct×4 XP and pays gems on a new best (+5 perfect, +2). */
+  recordUnitActivity: (unitId: string, correct: number, total: number) => { xp: number; gems: number }
   setDailyGoal: (g: number) => void
   setName: (n: string) => void
   setMascot: (m: MascotId) => void
@@ -588,6 +594,7 @@ export const usePlayer = create<PlayerState>()(
       arcadeRounds: 0,
       arcadeBossesDown: 0,
       booksRead: {},
+      unitActivityBest: {},
       unitsCelebrated: [],
       friendsAdded: 0,
       lastSyncedAt: null,
@@ -662,6 +669,29 @@ export const usePlayer = create<PlayerState>()(
           }
           return { ...state, ...next } as PlayerState
         }),
+
+      recordUnitActivity: (unitId, correct, total) => {
+        const xp = Math.max(0, correct) * 4
+        let gems = 0
+        set((state) => {
+          const prev = state.unitActivityBest[unitId] ?? 0
+          const isBest = correct > prev
+          if (isBest && correct > 0) gems = correct >= total && total > 0 ? 5 : 2
+          const s: PlayerState = { ...state }
+          rollDay(s)
+          rollWeek(s)
+          if (isBest) s.unitActivityBest = { ...state.unitActivityBest, [unitId]: correct }
+          if (xp > 0) {
+            s.xpTotal += xp
+            s.todayXp += xp
+            s.weeklyXp += xp
+          }
+          if (gems > 0) s.gems += gems
+          checkAchievements(s)
+          return s
+        })
+        return { xp, gems }
+      },
 
       setDailyGoal: (g) => set({ dailyGoal: g }),
       setName: (n) => set({ name: n.trim() || 'Champion' }),
@@ -1091,7 +1121,7 @@ export const usePlayer = create<PlayerState>()(
     }),
     {
       name: 'momomath-year2-player-v2',
-      version: 12,
+      version: 13,
       migrate: migratePersisted,
     },
   ),
@@ -1195,6 +1225,11 @@ export function migratePersisted(persisted: unknown, version: number): PlayerSta
           p.booksRead = p.booksRead && typeof p.booksRead === 'object' ? p.booksRead : {}
           p.unitsCelebrated = Array.isArray(p.unitsCelebrated) ? p.unitsCelebrated : []
           p.friendsAdded = typeof p.friendsAdded === 'number' ? p.friendsAdded : 0
+        }
+        if (version < 13) {
+          // v13: per-unit fun-activity best scores (PLAN 104) — local-only,
+          // never merged from cloud (server whitelist has no such field).
+          p.unitActivityBest = p.unitActivityBest && typeof p.unitActivityBest === 'object' ? p.unitActivityBest : {}
         }
         return p
 }

@@ -3,6 +3,7 @@ import { motion } from 'framer-motion'
 import { getCurriculum } from '../content/registry'
 import { isLessonUnlocked, nextActiveLesson } from '../engine/path'
 import { usePlayer } from '../engine/store'
+import { CLASSIC_BOOKS } from '../content/english/classic'
 import { displayStreak, isStreakActive } from '../engine/gamification'
 import { Mascot } from '../components/mascots/Mascots'
 import { sfx } from '../engine/sfx'
@@ -11,8 +12,8 @@ import type { LessonDef, UnitDef } from '../content/types'
 const OFFSETS = [0, 44, 64, 0, -44, -64] // zigzag x-offsets like Duolingo's winding path
 
 /** Explicit roadmap node typing (PLAN 78) — id-suffix fallback stays authoritative. */
-export type NodeKind = 'lesson' | 'boss' | 'book' | 'practice'
-export const KIND_ICON: Record<NodeKind, string> = { lesson: '⭐', boss: '👑', book: '📖', practice: '🔁' }
+export type NodeKind = 'lesson' | 'boss' | 'book' | 'practice' | 'activity'
+export const KIND_ICON: Record<NodeKind, string> = { lesson: '⭐', boss: '👑', book: '📖', practice: '🔁', activity: '🎯' }
 export function kindFor(l: LessonDef): NodeKind {
   return l.id.endsWith('boss') ? 'boss' : 'lesson'
 }
@@ -35,9 +36,11 @@ function unitDone(u: UnitDef, progress: ProgressMap) {
 export function PathScreen({
   onStartLesson,
   onOpenBook,
+  onOpenActivity,
 }: {
   onStartLesson: (lessonId: string) => void
   onOpenBook: (bookId: string) => void
+  onOpenActivity: (unitId: string) => void
 }) {
   const player = usePlayer()
   const celebrateUnit = usePlayer((s) => s.celebrateUnit)
@@ -112,6 +115,29 @@ export function PathScreen({
           </p>
         </div>
       </div>
+
+      {/* 📚 Story Library (PLAN 100) — real public-domain tales, read + quiz */}
+      <section className="card-white mb-5" data-testid="story-library">
+        <div className="flex items-center justify-between">
+          <p className="font-display text-sm font-extrabold text-slate-700">📚 Story Library</p>
+          <span className="text-xs font-bold text-slate-400" data-testid="story-progress">
+            {CLASSIC_BOOKS.filter((b) => player.booksRead[b.id]).length}/{CLASSIC_BOOKS.length} read
+          </span>
+        </div>
+        <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
+          {CLASSIC_BOOKS.map((b) => (
+            <button
+              key={b.id}
+              data-testid="story-tile"
+              className="shrink-0 rounded-2xl border-2 border-b-4 border-slate-200 bg-sky-50 px-3 py-2 text-left transition-colors active:border-b-2"
+              onClick={() => { sfx.whoosh(); onOpenBook(b.id) }}
+            >
+              <span className="block text-lg">{player.booksRead[b.id] ? '📖✅' : '📖'}</span>
+              <span className="block max-w-28 truncate font-display text-xs font-extrabold text-slate-600">{b.title}</span>
+            </button>
+          ))}
+        </div>
+      </section>
 
       {units.map((u, ui) => {
         const done = unitDone(u, player.lessonProgress)
@@ -316,6 +342,62 @@ export function PathScreen({
                   </li>
                 )
               })()}
+              {/* 🎯 Unit fun-activity node (PLAN 104) — renders like the 🔁
+                practice node but opens the subject-themed mini-game for
+                THIS unit. Unlocked once any lesson in the unit is tried. */}
+              {(() => {
+                const anyTried = u.lessons.some(
+                  (l) => (player.lessonProgress[l.id]?.completions ?? 0) > 0,
+                )
+                const offsetA = OFFSETS[(ui * 3 + u.lessons.length + 1) % OFFSETS.length]
+                const unitBest = player.unitActivityBest[u.id] ?? 0
+                return (
+                  <li key={`${u.id}activity`} style={{ transform: `translateX(${offsetA}px)` }}>
+                    <button
+                      aria-disabled={!anyTried}
+                      data-testid="activity-node"
+                      className={`gpu group relative flex flex-col items-center transition-transform duration-150 ${
+                        anyTried ? 'hover:scale-105 active:scale-95' : 'cursor-not-allowed opacity-55'
+                      }`}
+                      title={
+                        anyTried
+                          ? `🎯 Unit challenge${unitBest > 0 ? ` — best ${unitBest}` : ''}`
+                          : 'Finish any lesson in this unit to unlock the fun game!'
+                      }
+                      onClick={() => {
+                        if (!anyTried) {
+                          sfx.tap()
+                          setLockedMsg('Finish any lesson in this unit first to unlock the fun game — you\'ve got this! 💪')
+                          return
+                        }
+                        sfx.whoosh()
+                        onOpenActivity(u.id)
+                      }}
+                    >
+                      <span className="relative rounded-full bg-white p-1.5 shadow-pop">
+                        {anyTried && unitBest === 0 && (
+                          <span className="animate-pulse-ring absolute inset-0 rounded-full border-4 border-violet-400" />
+                        )}
+                        <span
+                          className={`relative flex h-14 w-14 items-center justify-center rounded-full border-b-4 text-xl ${
+                            anyTried ? 'border-black/15 text-white' : 'border-black/5 bg-slate-300 text-white'
+                          }`}
+                          style={
+                            anyTried
+                              ? { backgroundImage: 'linear-gradient(180deg,#8b5cf6,#7c3aed)' }
+                              : undefined
+                          }
+                        >
+                          {anyTried ? KIND_ICON.activity : '🔒'}
+                        </span>
+                      </span>
+                      <span className="mt-1.5 max-w-36 truncate rounded-full bg-white/80 px-2 py-0.5 text-center font-display text-xs font-bold text-slate-500 shadow-sm">
+                        🎯 Unit game{unitBest > 0 ? ` · ${unitBest}` : ''}
+                      </span>
+                    </button>
+                  </li>
+                )
+              })()}
             </ol>
 
             {done && (
@@ -342,6 +424,7 @@ export function PathScreen({
             animate={{ scale: 1, opacity: 1 }}
             transition={{ type: 'spring', stiffness: 300, damping: 20 }}
             className="card-white w-full max-w-xs text-center"
+            data-testid="locked-popup"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="text-4xl">💪</div>

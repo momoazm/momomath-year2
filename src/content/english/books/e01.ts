@@ -13,4 +13,9 @@ export const BOOK_E1: BookDef = {
     { scene: ['🎉', '🔎'], text: '“Case solved!” he cheered. The sound was found!' },
     { scene: ['🏅', '🔍'], text: 'Sneaky sounds hide inside words — listen closely!', focus: 'listen' },
   ],
+  questions: [
+    { kind: 'mcq', prompt: 'What sound does the letter S make?', choices: ['sss', 'meow', 'woof'], answerIndex: 0, hint: 'The kitten said it!' },
+    { kind: 'mcq', prompt: 'Who heard the sneaky sound at night?', choices: ['Captain Amy', 'Detective Tails', 'Shadow'], answerIndex: 1, hint: 'He wore a hat and a cape.' },
+    { kind: 'mcq', prompt: 'What should you do to find sounds in words?', choices: ['Close your eyes', 'Listen closely', 'Run away'], answerIndex: 1, hint: 'The last page tells you.' },
+  ],
 }

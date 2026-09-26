@@ -12,6 +12,7 @@ import { BOOK_E10 } from './e10'
 import { BOOK_E11 } from './e11'
 import { BOOK_E12 } from './e12'
 import { BOOK_E13 } from './e13'
+import { CLASSIC_BOOKS } from '../classic'
 
 /** All English unit storybooks (one per unit, 5-10 pages each). */
 export const ENGLISH_BOOKS: BookDef[] = [
@@ -24,3 +25,8 @@ for (const b of ENGLISH_BOOKS) BOOKS_BY_UNIT[b.unitId] = b
 
 export const BOOKS_BY_ID: Record<string, BookDef> = {}
 for (const b of ENGLISH_BOOKS) BOOKS_BY_ID[b.id] = b
+
+// Classic public-domain stories (PLAN 99): reachable via ?book=<id> and the
+// 📚 Story Library panel. NOT added to ENGLISH_BOOKS / BOOKS_BY_UNIT so every
+// unit's roadmap book node keeps pointing at its own unit book.
+for (const b of CLASSIC_BOOKS) BOOKS_BY_ID[b.id] = b

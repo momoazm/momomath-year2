@@ -71,6 +71,24 @@ export function speakSlowFor(subject: Subject, text: string): void {
   speak(text, 0.55, ttsLangFor(subject))
 }
 
+/** Sonic's teaching voice: faster and brighter than the default narration so
+ *  the slideshow sounds like Sonic talking (PLAN 92). Silent no-op without TTS. */
+export function speakAsSonic(text: string): void {
+  if (!ttsAvailable() || !text) return
+  try {
+    window.speechSynthesis.cancel()
+    const u = new SpeechSynthesisUtterance(text)
+    const v = bestVoice('en-GB')
+    if (v) u.voice = v
+    u.lang = v?.lang ?? 'en-GB'
+    u.rate = 1.05
+    u.pitch = 1.4
+    window.speechSynthesis.speak(u)
+  } catch {
+    /* ignore */
+  }
+}
+
 export function stopSpeaking(): void {
   if (ttsAvailable()) {
     try {

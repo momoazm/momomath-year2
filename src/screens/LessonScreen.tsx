@@ -10,6 +10,7 @@ import { chestGemMultiplier } from '../engine/shop'
 import { speakFor, stopSpeaking } from '../engine/tts'
 import { AudioBar } from '../components/AudioBar'
 import { Mascot } from '../components/mascots/Mascots'
+import { LessonSlideshow } from '../components/lesson/LessonSlideshow'
 import { ChestReveal } from '../components/ui/ChestReveal'
 import { sfx } from '../engine/sfx'
 import { hashString, mulberry32, shuffle } from '../content/rng'
@@ -169,7 +170,7 @@ function NumberPad({ value, onChange }: { value: string; onChange: (v: string) =
 
 /* --------------------------- main screen ----------------------------- */
 
-type Phase = 'intro' | 'playing' | 'done'
+type Phase = 'intro' | 'teaching' | 'playing' | 'done'
 
 export function LessonScreen({ lessonId, onExit }: { lessonId: string; onExit: () => void }) {
   const subject = usePlayer((s) => s.subject)
@@ -372,13 +373,27 @@ export function LessonScreen({ lessonId, onExit }: { lessonId: string; onExit: (
         <div className="card-white mt-4 text-center text-sm font-bold text-slate-400">
           Cambridge objectives · {entry.lesson.objectiveCodes.join(' · ') || 'Review boss level'}
         </div>
-        <button onClick={() => { sfx.tap(); startLesson() }} className="btn3d btn-green mt-8 gpu">
+        <button onClick={() => { sfx.tap(); setPhase('teaching') }} className="btn3d btn-green mt-8 gpu">
           Let's go! 🚀
         </button>
         <button onClick={onExit} className="mt-3 font-display text-sm font-bold text-slate-400 hover:text-slate-600">
           ← Back to path
         </button>
       </div>
+    )
+  }
+
+  /* ------------------------------ TEACHING --------------------------- */
+  // PLAN 94: Sonic teaches the lesson (slideshow + anti-skip timer) before practice
+  if (phase === 'teaching') {
+    return (
+      <LessonSlideshow
+        lesson={entry.lesson}
+        title={entry.lesson.intro.title}
+        lines={entry.lesson.teach ?? [entry.lesson.intro.body]}
+        objectives={entry.lesson.objectiveCodes}
+        onDone={startLesson}
+      />
     )
   }
 

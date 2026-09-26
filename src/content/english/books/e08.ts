@@ -5,6 +5,11 @@ export const BOOK_E8: BookDef = {
   id: 'bk-e8',
   unitId: 'e8',
   title: 'The Time-Traveling Verbs',
+  questions: [
+    { kind: 'mcq', prompt: '"I played the game" is which tense?', choices: ['past', 'present', 'future'], answerIndex: 0, hint: 'It says yesterday.' },
+    { kind: 'mcq', prompt: '"I am playing" means it is happening...', choices: ['right now', 'yesterday', 'next year'], answerIndex: 0, hint: 'The -ing gives it away.' },
+    { kind: 'mcq', prompt: 'Present tense tells about...', choices: ['now', 'before', 'tomorrow'], answerIndex: 0, hint: 'I play the game now.' },
+  ],
   pages: [
     { scene: ['🛠️', '⏰'], text: 'Cream built a time machine for verbs.' },
     { scene: ['🎮', '➡️'], text: 'Present: I play the game now.' },

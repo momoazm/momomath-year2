@@ -15,9 +15,16 @@
 //   9. quests / shop / dust / login calendar (kept from the previous release)
 //  10. mobile 360px viewport checks
 //  11. English storybook read-through end-to-end: open unlocked book node →
-//      page to The End → +20 gems reward → booksRead persisted + gold node (PLAN 15)
+//      page through the comprehension quiz → passed → +20 gems reward →
+//      booksRead persisted + gold node (PLAN 15 + 96-98)
 //  12. Profile → Friends entry → friends screen: invite code, join form,
 //      empty state, privacy line (PLAN 17; friends API mocked for hermeticity)
+//  13. Sonic lesson slideshow before Q1: deck renders, anti-skip gate asserted
+//      (Next starts disabled), mission slide walked, battle starts (PLAN 90-95)
+//  14. referral code inline on the Profile Friends card + FriendsScreen
+//      "Your referral code" invite card (PLAN 106-107)
+//  15. per-unit 🎯 fun activity: locked popup, theme + timer, full run to the
+//      results screen (PLAN 102-105)
 import { createRequire } from 'node:module'
 import { mkdirSync } from 'node:fs'
 
@@ -81,7 +88,11 @@ async function main() {
   page.setDefaultTimeout(20000)
 
   const url = `${URL_BASE}?cb=${Date.now()}`
+  await page.addInitScript(() => {
+    window.__FAST_SLIDES = true
+  })
   await page.goto(url, { waitUntil: 'domcontentloaded' })
+
   await page.evaluate((seed) => {
     localStorage.setItem('momomath-year2-player-v2', JSON.stringify(seed))
     localStorage.setItem('momomath-year2-auth', JSON.stringify({ state: { user: { sub: 'qa-seed', name: 'Momo', email: 'qa@example.com' }, credential: null, guestName: null }, version: 0 }))
@@ -117,9 +128,9 @@ async function main() {
   await page.goto(url, { waitUntil: 'domcontentloaded' })
   await page.waitForTimeout(900)
 
-  // --- 1. migration ran: v7 -> v12, arcade counters backfilled ---
+  // --- 1. migration ran: v7 -> v13, arcade counters + unitActivity backfilled ---
   const persisted = await page.evaluate((k) => JSON.parse(localStorage.getItem(k)), PLAYER_KEY)
-  ok('persist migrated to v12', persisted.version === 12, `version=${persisted.version}`)
+  ok('persist migrated to v13', persisted.version === 13, `version=${persisted.version}`)
   const st = persisted.state
   ok(
     'v10 arcade counters backfilled to 0',
@@ -135,6 +146,11 @@ async function main() {
     'v12 roadmap fields backfilled (booksRead/unitsCelebrated/friendsAdded)',
     st.booksRead && typeof st.booksRead === 'object' && Array.isArray(st.unitsCelebrated) && st.friendsAdded === 0,
     `booksRead=${JSON.stringify(st.booksRead)} unitsCelebrated=${JSON.stringify(st.unitsCelebrated)} friendsAdded=${st.friendsAdded}`,
+  )
+  ok(
+    'v13 unit activity best backfilled to empty record',
+    st.unitActivityBest && typeof st.unitActivityBest === 'object' && Object.keys(st.unitActivityBest).length === 0,
+    `unitActivityBest=${JSON.stringify(st.unitActivityBest)}`,
   )
   ok(
     'earlier fields still backfilled (dust/login/arcadeScores)',
@@ -159,9 +175,13 @@ async function main() {
   const comingSoon = await page.getByText(/coming soon/i).first().isVisible().catch(() => false)
   ok('no "coming soon" empty state', !comingSoon, `comingSoon=${comingSoon}`)
 
-  // --- 2b. battle smoke: node tap → BattleScreen; wrong answer shows hint; flee ---
+  // --- 2b. battle smoke: node tap → BattleScreen; advance Sonic slideshow → battle; wrong answer shows hint; flee ---
   // JS click: the node unmounts the instant BattleScreen mounts, which makes
   // Playwright's post-click actionability wait hang.
+  // __FAST_SLIDES (init script) floors the anti-skip timer to 0s for speed —
+  // turn it OFF across the gate probe so slide 0 really starts disabled,
+  // then turn it back on so the walk below doesn't wait out real timers.
+  await page.evaluate(() => { window.__FAST_SLIDES = false })
   const battleOpened = await page.evaluate(() => {
     const b = Array.from(document.querySelectorAll('button[title]'))
       .find((x) => /Count Everything/.test(x.title || '') && !x.disabled)
@@ -169,7 +189,39 @@ async function main() {
     b.click()
     return true
   })
-  await page.waitForTimeout(1000)
+  const slideshowShown = await page
+    .waitForSelector('[data-testid="lesson-slideshow"]', { timeout: 8000 })
+    .then(() => true)
+    .catch(() => false)
+  // PLAN 93/95: anti-skip gate — Next must start DISABLED while the slide's
+  // minimum read time is still running.
+  const slideGated = await page.evaluate(() => {
+    const b = document.querySelector('[data-testid="slide-next"]')
+    return !!b && b.disabled
+  })
+  await page.evaluate(() => { window.__FAST_SLIDES = true })
+  const sawSlideshow = slideshowShown
+  let sawMissionSlide = false
+  // Detect the mission slide by its Let's go button TEXT (immune to the
+  // AnimatePresence exit animation leaving a stale Next button mounted).
+  // Wait out each slide's gated timer (never force-click a disabled button).
+  for (let s = 0; s < 16; s++) {
+    const letsGo = page.getByRole('button', { name: /Let's go/i })
+    if (await letsGo.first().isVisible().catch(() => false)) {
+      sawMissionSlide = true
+      await letsGo.first().click().catch(() => {})
+      break
+    }
+    const enabled = await page
+      .waitForSelector('[data-testid="slide-next"]:not([disabled])', { timeout: 15000 })
+      .then(() => true)
+      .catch(() => false)
+    if (!enabled) break
+    await page.evaluate(() => document.querySelector('[data-testid="slide-next"]')?.click())
+    await page.waitForTimeout(300)
+  }
+  await page.waitForTimeout(400)
+
   const battleChrome = await page.evaluate(() => {
     const body = document.body.innerText
     // .btn3d is CSS uppercase — innerText has FLEE/ATTACK!; match /i.
@@ -179,16 +231,15 @@ async function main() {
       flee: /flee/i.test(body),
       letsGo: /Let's go/i.test(body),
       mission: /Today's mission/i.test(body),
-      // Phase 14: the guide panel renders lesson.teach lines (fallback intro.body)
+      // Phase 14/20: mission slide carries the lesson's teach lines in p.rounded-xl
       teachLines: Array.from(document.querySelectorAll('.card-white p.rounded-xl')).map((p) => (p.textContent || '').trim()),
     }
   })
-  ok('lesson node opens BattleScreen (not lesson intro)',
-    battleOpened && battleChrome.battle && battleChrome.hp && battleChrome.flee && battleChrome.letsGo &&
-      battleChrome.mission && battleChrome.teachLines.length >= 1 && battleChrome.teachLines.every((l) => l.length > 0),
-    JSON.stringify({ battleOpened, ...battleChrome, teachLines: battleChrome.teachLines.slice(0, 2) }))
+  ok('lesson node opens BattleScreen with Sonic slideshow',
+    battleOpened && sawSlideshow && slideGated && sawMissionSlide && battleChrome.battle && battleChrome.hp && battleChrome.flee,
+    JSON.stringify({ battleOpened, sawSlideshow, slideGated, sawMissionSlide, ...battleChrome, teachLines: battleChrome.teachLines.slice(0, 2) }))
   await shot(page, '01b-battle')
-  // Phase 14 guide panel sits above the question — dismiss it before answering.
+  // Dismiss the slideshow (Let's go! on the mission slide) before answering.
   await page.evaluate(() => {
     const b = Array.from(document.querySelectorAll('button'))
       .find((x) => /Let's go/i.test((x.textContent || '').trim()) && !x.disabled)
@@ -316,27 +367,44 @@ async function main() {
   await page.waitForTimeout(600)
   const bookHead = await page.evaluate(() => document.body.innerText)
   ok('book reader opens at page 1', /· 1\/\d+/.test(bookHead), (bookHead.match(/📖 .{0,30}/) || [''])[0])
-  // page to the end (books are 5-10 pages; → swaps to "The End" on the last)
+  // page to the end (books are 5-10 pages; → swaps to "Quiz time!" or "The End")
   let bookPages = 0
   for (let i = 0; i < 15; i++) {
-    const atEnd = await page.getByRole('button', { name: /The End/ }).isVisible().catch(() => false)
+    const atEnd = await page.getByTestId('book-end').isVisible().catch(() => false)
     if (atEnd) break
     const moved = await jsClick(page, '^→$')
     if (!moved) break
     bookPages++
     await page.waitForTimeout(220)
   }
-  const endShown = await page.getByRole('button', { name: /The End/ }).isVisible().catch(() => false)
-  ok('paged through to The End', endShown, `pages=${bookPages}`)
-  await jsClick(page, 'The End')
+  const endShown = await page.getByTestId('book-end').isVisible().catch(() => false)
+  ok('paged through to The End / Quiz', endShown, `pages=${bookPages}`)
+  await page.getByTestId('book-end').click().catch(() => {})
   await page.waitForTimeout(600)
+
+  // PLAN 98: answer the 3 comprehension quiz questions by TEXT (index-free, robust)
+  const sawQuiz = await page.getByTestId('book-quiz').isVisible().catch(() => false)
+  const bookAnswers = ['sss', 'Detective Tails', 'Listen closely'] // bk-e1 comic quiz
+  for (const ans of bookAnswers) {
+    for (let tries = 0; tries < 14; tries++) {
+      const btn = page.getByTestId('quiz-choice').filter({ hasText: ans }).first()
+      if (await btn.isVisible().catch(() => false)) {
+        await btn.click().catch(() => {})
+        break
+      }
+      await page.waitForTimeout(250)
+    }
+    await page.waitForTimeout(450)
+  }
+
   const rewardUi = await page.evaluate(() => ({
-    reward: /You read the whole book!/.test(document.body.innerText),
+    reward: /You read it and passed the quiz!|You read the whole book!/.test(document.body.innerText),
     gemsLabel: /\+20\s*💎/.test(document.body.innerText),
     // .btn3d uppercases its label — innerText shows "KEEP GOING! 🚀"
     keep: /Keep going!/i.test(document.body.innerText),
+    score: /Quiz 3\/3/.test(document.body.innerText),
   }))
-  ok('first-read reward overlay (+20 gems)', rewardUi.reward && rewardUi.gemsLabel && rewardUi.keep, JSON.stringify(rewardUi))
+  ok('first-read reward overlay (+20 gems + quiz score)', rewardUi.reward && rewardUi.gemsLabel && rewardUi.keep, JSON.stringify(rewardUi))
   await shot(page, '02c-book-reward')
   const gemsAfterBook = (await readState(page)).gems
   const booksAfter = (await readState(page)).booksRead
@@ -349,7 +417,7 @@ async function main() {
   const readBack = await page.evaluate(() => ({
     goldNode: /✅ Read the book/.test(document.body.innerText),
     badge: !!Array.from(document.querySelectorAll('span[title="Book read!"]')).length,
-    readerClosed: !/The End/.test(document.body.innerText),
+    readerClosed: !/Quiz|The End/.test(document.body.innerText),
   }))
   ok('back on roadmap: gold book node + header badge', readBack.goldNode && readBack.badge && readBack.readerClosed,
     JSON.stringify(readBack))
@@ -359,6 +427,121 @@ async function main() {
   const mathPill = page.getByRole('button', { name: 'Maths', exact: true }).first()
   if (await mathPill.isVisible().catch(() => false)) await mathPill.click().catch(() => {})
   await page.waitForTimeout(400)
+
+  // PLAN 102-104: 🎯 Unit fun-activity node. Locked until any lesson in the
+  // unit is tried → then it opens the subject-themed timed challenge.
+  const activityBtn = page.getByTestId('activity-node').first()
+  const activityVisible = await activityBtn.isVisible().catch(() => false)
+  ok('unit activity node (🎯) rendered on roadmap', activityVisible, `activityVisible=${activityVisible}`)
+  if (activityVisible) {
+    // locked by default on this fresh seed (lessonProgress {}) → friendly popup
+    // (JS click: the node can sit under the sticky bottom nav → Playwright's
+    // actionability click would be intercepted)
+    const jsClickTestId = (id) =>
+      page.evaluate((sel) => {
+        const el = document.querySelector(sel)
+        if (!el) return false
+        el.click()
+        return true
+      }, `[data-testid="${id}"]`)
+    await jsClickTestId('activity-node')
+    await page.waitForTimeout(450)
+    const lockedPopup = await page.getByTestId('locked-popup').isVisible().catch(() => false)
+    ok('unit activity locked until a lesson is tried', lockedPopup, `lockedPopup=${lockedPopup}`)
+    await page.getByRole('button', { name: /Got it!/ }).first().click().catch(() => {})
+    await page.waitForTimeout(300)
+
+    // unlock: seed one tried lesson in unit 1 and reload
+    await page.evaluate((k) => {
+      const raw = JSON.parse(localStorage.getItem(k))
+      raw.state.lessonProgress = { ...(raw.state.lessonProgress || {}), u1l1: { completions: 1, bestAccuracy: 50, crown: 0 } }
+      localStorage.setItem(k, JSON.stringify(raw))
+    }, PLAYER_KEY)
+    await page.goto(`${URL_BASE}?cb=${Date.now()}`, { waitUntil: 'domcontentloaded' })
+    await page.waitForTimeout(900)
+
+    await jsClickTestId('activity-node')
+    await page.waitForTimeout(800)
+    const actUi = await page.evaluate(() => ({
+      screen: !!document.querySelector('[data-testid="unit-activity"]'),
+      title: (document.querySelector('[data-testid="activity-title"]')?.textContent || '').trim(),
+      timer: (document.querySelector('[data-testid="activity-timer"]')?.textContent || '').trim(),
+    }))
+    ok('unit activity screen opens with theme + timer',
+      actUi.screen && actUi.title.length > 0 && /\d+s/.test(actUi.timer),
+      JSON.stringify(actUi))
+
+    // Play the run. UnitActivityScreen renders QuestionView directly, whose
+    // kinds have DIFFERENT DOM per question (no shared .choice-btn class):
+    //   mcq/truefalse → rounded-2xl buttons that grade on tap ·
+    //   type-number   → input#numans then enabled Attack! ·
+    //   tap-count     → cells then Attack! · match → left col then right col ·
+    //   order/tiles   → pool items until Attack! enables · speak → "I said it".
+    // One driver step per iteration; a wrong answer flashes "Not quite!" for
+    // 950ms and the 12s countdown is the safety net if a step finds nothing.
+    let steps = []
+    for (let round = 0; round < 120; round++) {
+      if (await page.getByTestId('activity-results').isVisible().catch(() => false)) break
+      const step = await page.evaluate(() => {
+        const root = document.querySelector('[data-testid="unit-activity"]')
+        if (!root) return 'no-root'
+        if (document.querySelector('[data-testid="activity-results"]')) return 'done'
+        if (/Not quite/i.test(root.innerText)) return 'reveal'
+        const on = (b) => !b.disabled
+        const txt = (b) => (b.textContent || '').trim()
+        const live = Array.from(root.querySelectorAll('button')).filter(on)
+        // type-number: fill before its Attack! can enable
+        const input = root.querySelector('input#numans')
+        if (input && input.value === '') {
+          Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')
+            .set.call(input, '1')
+          input.dispatchEvent(new Event('input', { bubbles: true }))
+          return 'typed'
+        }
+        // speak: prefer the always-available self-check over 🎤 recognition
+        const said = live.find((b) => /I said it/i.test(txt(b)))
+        if (said) { said.click(); return 'said' }
+        // enabled submit (Attack!) closes type-number / tap-count / order / tiles
+        const submit = live.find((b) => b.classList.contains('btn-green'))
+        if (submit) { submit.click(); return 'submit' }
+        // match: pair the 👆-selected left with the first free right
+        const mg = Array.from(root.querySelectorAll('div')).find(
+          (d) => d.classList.contains('gap-3') &&
+            d.querySelectorAll(':scope > div').length === 2 &&
+            d.querySelector(':scope > div > button'),
+        )
+        if (mg) {
+          const [lc, rc] = mg.querySelectorAll(':scope > div')
+          const left = Array.from(lc.querySelectorAll('button')).filter(on)
+          const right = Array.from(rc.querySelectorAll('button')).filter(on)
+          const picked = left.find((b) => /👆/.test(txt(b)))
+          if (picked && right.length) { right[0].click(); return 'match-right' }
+          if (!picked && left.length) { left[0].click(); return 'match-left' }
+          return 'match-idle'
+        }
+        // mcq / truefalse grade on tap
+        const choice = live.find((b) => b.classList.contains('rounded-2xl'))
+        if (choice) { choice.click(); return 'choice' }
+        // letter-tiles pool (border-2 square tiles)
+        const tile = live.find((b) => b.classList.contains('h-9') && b.classList.contains('border-2'))
+        if (tile) { tile.click(); return 'tile' }
+        // tap-count cells + order pool + untouched match-less buttons
+        const cell = live.find((b) => b.className.includes('border-slate-200'))
+        if (cell) { cell.click(); return 'cell' }
+        const any = live.find((b) => b.className.includes('rounded-xl'))
+        if (any) { any.click(); return 'any' }
+        return 'idle'
+      })
+      steps.push(step)
+      if (step === 'done') break
+      await page.waitForTimeout(step === 'reveal' ? 1000 : 260)
+    }
+    const resultsShown = await page.getByTestId('activity-results').isVisible().catch(() => false)
+    ok('unit activity reaches results screen', resultsShown,
+      `resultsShown=${resultsShown} steps=${JSON.stringify(steps.slice(-14))}`)
+    await page.getByTestId('activity-back').click().catch(() => {})
+    await page.waitForTimeout(600)
+  }
 
   // --- 3. Arcade tab: 4 games + badges + subtitle ---
   const arcadeTab = page.getByRole('button', { name: /Arcade/i }).first()
@@ -641,13 +824,20 @@ async function main() {
 
   await page.locator('nav button', { hasText: 'You' }).first().click()
   await page.waitForTimeout(500)
-  const friendsCard = await jsClick(page, 'Share your code')
+  // PLAN 106: referral code is shown right on the Profile Friends entry card
+  const referralVisible = await page.getByTestId('profile-friends-entry').isVisible().catch(() => false)
+  const referralCodeUi = await page.getByTestId('referral-code').innerText().catch(() => '')
+  ok('profile shows referral entry + code inline',
+    referralVisible && referralCodeUi.length > 0,
+    `visible=${referralVisible} code=${referralCodeUi}`)
+
+  const friendsCard = await jsClick(page, 'Referral code')
   await page.waitForTimeout(800)
   const fui = await page.evaluate(() => {
     const body = document.body.innerText
     return {
       title: body.includes('Friends 🤝'),
-      codeLabel: /your friend code/i.test(body),
+      codeLabel: /your referral code/i.test(body),
       empty: body.includes('No friends yet'),
       codeShown: body.includes('K7QPM3'),
       joinInput: !!document.querySelector('input[aria-label="Friend code"]'),

@@ -1,12 +1,15 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ACHIEVEMENTS, LEAGUES, LEAGUE_META, ARCADE_GAMES, displayStreak, isStreakActive } from '../engine/gamification'
 import { usePlayer } from '../engine/store'
 import { MASCOTS, Mascot } from '../components/mascots/Mascots'
 import { GoogleSignInInline } from '../components/ui/AuthBadge'
 import { signOutGoogle, useAuth } from '../engine/auth'
 import { sfx } from '../engine/sfx'
+import { fetchMyCode } from '../engine/friends'
 import type { MascotId } from '../content/types'
 import { ALL_CARDS, STAR_THRESHOLDS, toStar } from '../engine/cards'
+
+const CODE_CACHE_KEY = 'momomath-year2-friendcode'
 
 export function ProfileScreen({ onOpenFriends }: { onOpenFriends?: () => void }) {
   const s = usePlayer()
@@ -16,6 +19,24 @@ export function ProfileScreen({ onOpenFriends }: { onOpenFriends?: () => void })
   const signGuestOut = useAuth((a) => a.signGuestOut)
   const [editing, setEditing] = useState(false)
   const [draftName, setDraftName] = useState(s.name)
+
+  // PLAN 106: show the referral code right on the Friends entry card so it is
+  // visible alongside the friend system (cached + fetched, never blocking).
+  const playerId = user?.sub ? `g:${user.sub}` : `name:${(s.name.trim() || 'Champion').toLowerCase()}`
+  const [referralCode, setReferralCode] = useState('')
+  const [copied, setCopied] = useState(false)
+  useEffect(() => {
+    try {
+      const cached = window.localStorage.getItem(`${CODE_CACHE_KEY}:${playerId}`)
+      if (cached) setReferralCode(cached)
+    } catch { /* storage optional */ }
+    let live = true
+    fetchMyCode(playerId, s.name.trim() || 'Champion')
+      .then((c) => { if (live && c) setReferralCode(c) })
+      .catch(() => { /* offline keeps the cached code */ })
+    return () => { live = false }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playerId])
 
   const lessonsCompleted = Object.values(s.lessonProgress).reduce((a, p) => a + p.completions, 0)
   const crowns = Object.values(s.lessonProgress).reduce((a, p) => a + p.crown, 0)
@@ -76,17 +97,40 @@ export function ProfileScreen({ onOpenFriends }: { onOpenFriends?: () => void })
         <Stat icon="🎁" label="Login streak" value={`${s.dailyLoginStreak}`} sub="daily calendar" />
       </section>
 
-      {/* friends entry (PLAN Phase 17) — Profile section, so the bottom nav never re-layouts */}
+      {/* friends entry (PLAN Phase 17 + PLAN 106) — Profile section, so the
+        bottom nav never re-layouts. Shows the referral code inline so kids
+        can share it right from here as well as inside FriendsScreen. */}
       <button
         onClick={() => { sfx.tap(); onOpenFriends?.() }}
         className="card-white mt-4 flex w-full items-center gap-3 text-left transition-transform hover:scale-[1.01]"
+        data-testid="profile-friends-entry"
       >
         <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-sky-100 text-xl">🤝</div>
         <div className="min-w-0 flex-1">
           <p className="font-display font-bold">Friends</p>
-          <p className="truncate text-xs font-bold text-slate-400">Share your code · see who's winning this week</p>
+          <p className="truncate text-xs font-bold text-slate-400">
+            Referral code <span className="font-display text-sky-600" data-testid="referral-code">{referralCode || '······'}</span>
+            {' '}· 🎁 +30 💎 when a friend joins
+          </p>
         </div>
         <span className="text-slate-300">→</span>
+      </button>
+      <button
+        className="btn3d btn-green mt-2 w-full !py-2 !text-sm"
+        data-testid="referral-copy"
+        disabled={!referralCode}
+        onClick={async () => {
+          if (!referralCode) return
+          try {
+            await navigator.clipboard.writeText(referralCode)
+            setCopied(true)
+            window.setTimeout(() => setCopied(false), 2000)
+          } catch {
+            /* clipboard optional — the Friends screen can read it aloud */
+          }
+        }}
+      >
+        {copied ? '✅ Copied!' : '📋 Copy my referral code'}
       </button>
 
       {/* daily goal */}

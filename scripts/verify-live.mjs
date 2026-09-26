@@ -42,6 +42,59 @@ const jsClick = async (page, src) =>
     return true
   }, src)
 
+/** PLAN 95: walk the Sonic lesson slideshow (PLAN 90-94) to its mission slide.
+ *  - ASSERTS the anti-skip gate: the Next button must start DISABLED.
+ *  - Then waits out each slide's minimum read time (real timers, no QA hook),
+ *    clicks the enabled button, and repeats until "Today's mission" shows.
+ *  Returns { sawSlideshow, gated, clicks } for the caller's assertions. */
+const advanceSlideshow = async (page) => {
+  const sawSlideshow = await page.getByTestId('lesson-slideshow').isVisible().catch(() => false)
+  // gating probe: the Next button exists and is disabled at slide 0
+  const gated = await page.evaluate(() => {
+    const b = document.querySelector('[data-testid="slide-next"]')
+    return !!b && b.disabled
+  })
+  let clicks = 0
+  let mission = false
+  const probe = () =>
+    page.evaluate(() => {
+      const b = document.querySelector('[data-testid="slide-next"]')
+      if (!b) return null
+      return { disabled: b.disabled, letsGo: /Let's go/i.test(b.textContent || '') }
+    })
+  for (let s = 0; s < 16; s++) {
+    let st = await probe()
+    if (!st) break
+    // While gated the mission button reads "🔒 Wait Ns" — its text only flips
+    // to "Let's go" once unlocked, so re-probe after every enable wait.
+    if (st.letsGo && !st.disabled) {
+      mission = true
+      await page.evaluate(() => document.querySelector('[data-testid="slide-next"]')?.click())
+      clicks++
+      break
+    }
+    const enabled = await page
+      .waitForSelector('[data-testid="slide-next"]:not([disabled])', { timeout: 15000 })
+      .then(() => true)
+      .catch(() => false)
+    if (!enabled) break
+    st = await probe()
+    if (st?.letsGo) {
+      // mission slide unlocked: tap Let's go → dismisses the slideshow
+      // (Q1 for a lesson, the boss card for a boss node).
+      mission = true
+      await page.evaluate(() => document.querySelector('[data-testid="slide-next"]')?.click())
+      clicks++
+      break
+    }
+    await page.evaluate(() => document.querySelector('[data-testid="slide-next"]')?.click())
+    clicks++
+    await page.waitForTimeout(300)
+  }
+  if (mission) await page.waitForTimeout(400)
+  return { sawSlideshow, gated, clicks, mission }
+}
+
 const AUTH_SEED = {
   state: { user: { sub: 'qa-seed', name: 'Momo', email: 'qa@example.com' }, credential: null, guestName: null },
   version: 0,
@@ -284,6 +337,8 @@ async function main() {
   })
   await page.waitForTimeout(1200)
   await shot(page, '02-battle-open')
+  // PLAN 95: walk the Sonic slideshow (asserting the anti-skip gate) to Q1
+  const flow = await advanceSlideshow(page)
   const chrome = await page.evaluate(() => {
     const body = document.body.innerText
     // .btn3d is CSS uppercase — innerText has FLEE/ATTACK!; match /i.
@@ -294,21 +349,12 @@ async function main() {
       letsGo: /Let's go/i.test(body),
       mission: /Today's mission/i.test(body),
       intro: /Boss time|Fight!/i.test(body),
-      // Phase 14: the guide panel renders lesson.teach lines (fallback intro.body)
-      teachLines: Array.from(document.querySelectorAll('.card-white p.rounded-xl'))
-        .map((p) => (p.textContent || '').trim()),
     }
   })
-  ok('node tap opens BattleScreen guide (not lesson intro)',
-    opened && chrome.battle && chrome.hp && chrome.flee && chrome.letsGo && chrome.mission && !chrome.intro &&
-      chrome.teachLines.length >= 1 && chrome.teachLines.every((l) => l.length > 0),
-    JSON.stringify({ opened, ...chrome, teachLines: chrome.teachLines.slice(0, 2) }))
-  // Phase 14 guide panel sits above Q1 — dismiss it before auto-playing.
-  await page.evaluate(() => {
-    const b = Array.from(document.querySelectorAll('button'))
-      .find((x) => /Let's go/i.test((x.textContent || '').trim()) && !x.disabled)
-    b?.click()
-  })
+  ok('node tap opens BattleScreen with Sonic slideshow (anti-skip gated)',
+    opened && flow.sawSlideshow && flow.gated && flow.mission &&
+      chrome.battle && chrome.hp && chrome.flee && !chrome.intro,
+    JSON.stringify({ opened, ...flow, ...chrome }))
   await page.waitForTimeout(600)
 
   // --- auto-play battle: wrong×9 (refill + hint) then correct to win ---
@@ -437,30 +483,23 @@ async function main() {
     })
     await page.waitForTimeout(1200)
     await shot(page, '05b-boss-intro')
+    // PLAN 95: the boss battle also gets the Sonic slideshow first — walk it
+    // (the Let's go  tap is inside advanceSlideshow) before the Fight! intro.
+    const bossFlow = await advanceSlideshow(page)
     const bossChrome = await page.evaluate(() => {
       const body = document.body.innerText
       return {
         boss: /👑 BOSS/i.test(body),
         hp150: /150\/150 HP/.test(body),
         fight: /Fight!/i.test(body),
-        letsGo: /Let's go/i.test(body),
-        mission: /Today's mission/i.test(body),
         introTitle: /Boss time/i.test(body),
       }
     })
-    // Phase 14: the friendly guide panel ("Today's mission" + Let's go!) now
-    // sits ABOVE the Fight! intro — assert the guide, then step through both.
-    ok('boss node opens tougher battle with guide intro',
-      bossOpened && bossChrome.boss && bossChrome.hp150 && bossChrome.letsGo &&
-      bossChrome.mission && bossChrome.introTitle && !bossChrome.fight,
-      JSON.stringify({ bossOpened, ...bossChrome }))
-    // Dismiss the guide, then Fight!, then flee back to path.
-    await page.evaluate(() => {
-      const g = Array.from(document.querySelectorAll('button'))
-        .find((b) => /Let's go/i.test((b.textContent || '').trim()) && !b.disabled)
-      g?.click()
-    })
-    await page.waitForTimeout(600)
+    ok('boss node: slideshow then 150 HP intro',
+      bossOpened && bossFlow.sawSlideshow && bossFlow.gated && bossFlow.mission &&
+      bossChrome.boss && bossChrome.hp150 && bossChrome.introTitle && bossChrome.fight,
+      JSON.stringify({ bossOpened, ...bossFlow, ...bossChrome }))
+    // Dismiss the Fight! intro, then flee back to path.
     await page.evaluate(() => {
       const f = Array.from(document.querySelectorAll('button'))
         .find((b) => /^Fight!$/i.test((b.textContent || '').trim()) && !b.disabled)

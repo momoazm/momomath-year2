@@ -196,16 +196,19 @@ export function FriendsScreen({ onClose }: { onClose: () => void }) {
         <h1 className="font-display text-2xl font-extrabold text-speed-blue">Friends 🤝</h1>
       </div>
 
-      {/* invite code */}
-      <section className="card-white bg-gradient-to-br from-sky-50 to-indigo-50 text-center">
-        <p className="font-display text-sm font-bold uppercase tracking-wide text-slate-400">Your friend code</p>
+      {/* invite code (PLAN 107 — now labelled as the referral code) */}
+      <section className="card-white bg-gradient-to-br from-sky-50 to-indigo-50 text-center" data-testid="referral-card">
+        <p className="font-display text-sm font-bold uppercase tracking-wide text-slate-400">Your referral code</p>
         <div className="mt-2 flex items-center justify-center gap-2">
-          <span className="font-display text-4xl font-extrabold tracking-[0.25em] text-slate-800">
+          <span className="font-display text-4xl font-extrabold tracking-[0.25em] text-slate-800" data-testid="referral-code">
             {loading && !code ? '······' : code || '······'}
           </span>
           <button onClick={onReadAloud} title="Read my code aloud" aria-label="Read my code aloud"
             className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-lg shadow-pop transition-transform hover:scale-110">🔊</button>
         </div>
+        <p className="mt-2 text-xs font-extrabold text-emerald-600" data-testid="referral-reward">
+          🎁 Give this code to a friend — when they add it, they get +30 💎!
+        </p>
         <div className="mt-3 flex justify-center gap-2">
           <button onClick={onCopy} className="btn3d btn-green !px-4 !py-2 !text-sm" disabled={!code}>📋 Copy</button>
           <button onClick={onRegenerate} disabled={busy || !code} className="btn3d btn-grey !px-4 !py-2 !text-sm">

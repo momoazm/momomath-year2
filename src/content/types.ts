@@ -188,6 +188,8 @@ export interface BookDef {
   unitId: string
   title: string
   pages: BookPage[]
+  /** end-of-book comprehension check (PLAN 96-98) — read first, then answer */
+  questions?: McqQuestion[]
 }
 
 export interface UnitDef {
