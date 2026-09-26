@@ -197,7 +197,7 @@ export function BattleScreen({
           className="mt-3 text-center font-display text-4xl font-extrabold text-yellow-500 drop-shadow">
           {kind === 'boss' ? 'BOSS DEFEATED!' : reward.redo ? 'Nice practice!' : battle.wrong === 0 ? 'PERFECT!' : 'Victory!'}
         </motion.h1>
-        <p className="mt-1 text-center font-body text-sm font-bold text-slate-400">
+        <p className="mt-1 text-center font-body text-sm font-bold text-slate-700">
           {reward.redo
             ? 'Replays earn XP — clear a fresh lesson for stars and chests!'
             : battle.wrong === 0
@@ -286,10 +286,10 @@ export function BattleScreen({
             <p className="text-[10px] font-bold text-white/80">{battle.playerHp}/{battle.playerHpMax} HP</p>
             <div className="mt-1 flex gap-0.5">
               {Array.from({ length: 3 }).map((_, i) => (
-                <span key={i} className={`h-2 w-6 rounded ${i < battle.charge ? 'bg-amber-300' : 'bg-white/30'}`} />
+                <span key={i} className={`h-2 w-6 rounded ${i < battle.charge ? 'bg-amber-400 shadow-[0_0_5px_rgba(251,191,36,0.9)]' : 'bg-white/40 ring-1 ring-white/20'}`} />
               ))}
             </div>
-            <p className="text-[10px] font-bold text-amber-200">⚡ charge {battle.charge}/3 (special at 3)</p>
+            <p className="mt-0.5 inline-block rounded-full bg-black/45 px-2 py-0.5 text-[10px] font-bold text-amber-200">⚡ charge {battle.charge}/3 (special at 3)</p>
           </div>
           <motion.div
             key={`en${battle.index}`}

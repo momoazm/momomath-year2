@@ -101,7 +101,11 @@ export function PathScreen({
           <p className="font-display text-sm font-bold text-slate-500">
             Daily goal ·{' '}
             <span className={isStreakActive(player) ? 'text-orange-500' : 'text-slate-400'}>
-              🔥 streak day {isStreakActive(player) ? displayStreak(player) || 'new!' : 'play a lesson today!'}
+              {isStreakActive(player)
+                ? displayStreak(player) > 0
+                  ? `🔥 ${displayStreak(player)}-day streak`
+                  : '🔥 Streak started today!'
+                : '🔥 Play a lesson today to start your streak!'}
             </span>
           </p>
           <div className="mt-1 h-3.5 w-full overflow-hidden rounded-full border border-orange-100 bg-slate-100">
@@ -116,28 +120,31 @@ export function PathScreen({
         </div>
       </div>
 
-      {/* 📚 Story Library (PLAN 100) — real public-domain tales, read + quiz */}
-      <section className="card-white mb-5" data-testid="story-library">
-        <div className="flex items-center justify-between">
-          <p className="font-display text-sm font-extrabold text-slate-700">📚 Story Library</p>
-          <span className="text-xs font-bold text-slate-400" data-testid="story-progress">
-            {CLASSIC_BOOKS.filter((b) => player.booksRead[b.id]).length}/{CLASSIC_BOOKS.length} read
-          </span>
-        </div>
-        <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
-          {CLASSIC_BOOKS.map((b) => (
-            <button
-              key={b.id}
-              data-testid="story-tile"
-              className="shrink-0 rounded-2xl border-2 border-b-4 border-slate-200 bg-sky-50 px-3 py-2 text-left transition-colors active:border-b-2"
-              onClick={() => { sfx.whoosh(); onOpenBook(b.id) }}
-            >
-              <span className="block text-lg">{player.booksRead[b.id] ? '📖✅' : '📖'}</span>
-              <span className="block max-w-28 truncate font-display text-xs font-extrabold text-slate-600">{b.title}</span>
-            </button>
-          ))}
-        </div>
-      </section>
+      {/* 📚 Story Library (PLAN 100) — reading lives on the ENGLISH roadmap
+          only; other subjects never render it (hidden, not removed). */}
+      {player.subject === 'english' && (
+        <section className="card-white mb-5" data-testid="story-library">
+          <div className="flex items-center justify-between">
+            <p className="font-display text-sm font-extrabold text-slate-700">📚 Story Library</p>
+            <span className="text-xs font-bold text-slate-400" data-testid="story-progress">
+              {CLASSIC_BOOKS.filter((b) => player.booksRead[b.id]).length}/{CLASSIC_BOOKS.length} read
+            </span>
+          </div>
+          <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
+            {CLASSIC_BOOKS.map((b) => (
+              <button
+                key={b.id}
+                data-testid="story-tile"
+                className="shrink-0 rounded-2xl border-2 border-b-4 border-slate-200 bg-sky-50 px-3 py-2 text-left transition-colors active:border-b-2"
+                onClick={() => { sfx.whoosh(); onOpenBook(b.id) }}
+              >
+                <span className="block text-lg">{player.booksRead[b.id] ? '📖✅' : '📖'}</span>
+                <span className="block max-w-28 truncate font-display text-xs font-extrabold text-slate-600">{b.title}</span>
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
 
       {units.map((u, ui) => {
         const done = unitDone(u, player.lessonProgress)
@@ -148,7 +155,7 @@ export function PathScreen({
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.25 }}
-              className="sticky top-14 z-20 mb-6 flex items-center justify-between rounded-2xl px-4 py-3 text-white shadow-pop"
+              className="sticky top-14 z-20 mb-10 flex items-center justify-between rounded-2xl px-4 py-3 text-white shadow-pop"
               style={{ backgroundColor: u.color }}
             >
               <div>
@@ -167,16 +174,21 @@ export function PathScreen({
               </div>
             </motion.header>
 
-            <ol className="flex flex-col items-center gap-4">
+            <ol className="flex flex-col items-center gap-8">
+              {/* 📖 Book node — a NORMAL roadmap node (same markup as lesson
+                  nodes), first in the unit so reading opens each unit. */}
               {u.book && (() => {
                 const bookUnlocked = isLessonUnlocked(ui, 0, player.lessonProgress, units)
                 const read = !!player.booksRead[u.book.id]
+                const offsetBook = OFFSETS[(ui * 3 + u.lessons.length + 2) % OFFSETS.length]
                 return (
-                  <li style={{ transform: `translateX(${OFFSETS[(ui * 3) % OFFSETS.length]}px)` }}>
+                  <li style={{ transform: `translateX(${offsetBook}px)` }}>
                     <button
                       aria-disabled={!bookUnlocked}
+                      data-testid="book-node"
                       onClick={() => {
                         if (!bookUnlocked) {
+                          // friendly locked popup (PLAN 75), like locked lessons
                           sfx.tap()
                           setLockedMsg('Finish the first lesson to unlock the book — you\'ve got this! 💪')
                           return
@@ -185,7 +197,7 @@ export function PathScreen({
                         onOpenBook(u.book!.id)
                       }}
                       className={`gpu group relative flex flex-col items-center transition-transform duration-150 ${
-                        bookUnlocked ? 'hover:scale-105 active:scale-95' : 'cursor-not-allowed opacity-55'
+                        bookUnlocked ? 'hover:scale-105 active:scale-95' : 'cursor-not-allowed opacity-70'
                       }`}
                       title={
                         bookUnlocked ? `📖 ${u.book.title}` : 'Finish the first lesson to unlock the book!'
@@ -196,7 +208,7 @@ export function PathScreen({
                           <span className="animate-pulse-ring absolute inset-0 rounded-full border-4 border-sky-400" />
                         )}
                         <span
-                          className={`relative flex h-14 w-14 items-center justify-center rounded-full border-b-4 text-xl ${
+                          className={`relative flex h-14 w-14 items-center justify-center rounded-full border-b-4 font-display text-xl ${
                             bookUnlocked ? 'border-black/15 text-white' : 'border-black/5 bg-slate-300 text-white'
                           }`}
                           style={
@@ -209,11 +221,11 @@ export function PathScreen({
                               : undefined
                           }
                         >
-                          {bookUnlocked ? '📖' : '🔒'}
+                          {bookUnlocked ? KIND_ICON.book : '🔒'}
                         </span>
                       </span>
-                      <span className="mt-1.5 max-w-36 truncate rounded-full bg-white/80 px-2 py-0.5 text-center font-display text-xs font-bold text-slate-500 shadow-sm">
-                        {read ? '✅ Read the book' : '📖 Read the book'}
+                      <span className="mt-1.5 max-w-36 truncate rounded-full bg-white px-2 py-0.5 text-center font-display text-xs font-bold text-slate-600 shadow-sm">
+                        {read ? '✅ Read the book' : `📖 ${u.book.title}`}
                       </span>
                     </button>
                   </li>
@@ -249,7 +261,7 @@ export function PathScreen({
                         onStartLesson(l.id)
                       }}
                       className={`gpu group relative flex flex-col items-center transition-transform duration-150 ${
-                        unlocked ? 'hover:scale-105 active:scale-95' : 'cursor-not-allowed opacity-55'
+                        unlocked ? 'hover:scale-105 active:scale-95' : 'cursor-not-allowed opacity-70'
                       }`}
                       title={unlocked ? l.title : 'Finish the previous lesson with 100% to unlock!'}
                     >
@@ -282,7 +294,7 @@ export function PathScreen({
                           )}
                         </span>
                       </span>
-                      <span className="mt-1.5 max-w-36 truncate rounded-full bg-white/80 px-2 py-0.5 text-center font-display text-xs font-bold text-slate-500 shadow-sm">
+                      <span className="mt-1.5 max-w-36 truncate rounded-full bg-white px-2 py-0.5 text-center font-display text-xs font-bold text-slate-600 shadow-sm">
                         {crowns > 0 && !isBoss ? '★'.repeat(crowns) + ' ' : ''}
                         {l.title}
                       </span>
@@ -304,7 +316,7 @@ export function PathScreen({
                     <button
                       aria-disabled={!allTried}
                       className={`gpu group relative flex flex-col items-center transition-transform duration-150 ${
-                        allTried ? 'hover:scale-105 active:scale-95' : 'cursor-not-allowed opacity-55'
+                        allTried ? 'hover:scale-105 active:scale-95' : 'cursor-not-allowed opacity-70'
                       }`}
                       title={
                         allTried
@@ -335,7 +347,7 @@ export function PathScreen({
                           {allTried ? KIND_ICON.practice : '🔒'}
                         </span>
                       </span>
-                      <span className="mt-1.5 max-w-36 truncate rounded-full bg-white/80 px-2 py-0.5 text-center font-display text-xs font-bold text-slate-500 shadow-sm">
+                      <span className="mt-1.5 max-w-36 truncate rounded-full bg-white px-2 py-0.5 text-center font-display text-xs font-bold text-slate-600 shadow-sm">
                         🔁 Practice
                       </span>
                     </button>
@@ -357,7 +369,7 @@ export function PathScreen({
                       aria-disabled={!anyTried}
                       data-testid="activity-node"
                       className={`gpu group relative flex flex-col items-center transition-transform duration-150 ${
-                        anyTried ? 'hover:scale-105 active:scale-95' : 'cursor-not-allowed opacity-55'
+                        anyTried ? 'hover:scale-105 active:scale-95' : 'cursor-not-allowed opacity-70'
                       }`}
                       title={
                         anyTried
@@ -391,7 +403,7 @@ export function PathScreen({
                           {anyTried ? KIND_ICON.activity : '🔒'}
                         </span>
                       </span>
-                      <span className="mt-1.5 max-w-36 truncate rounded-full bg-white/80 px-2 py-0.5 text-center font-display text-xs font-bold text-slate-500 shadow-sm">
+                      <span className="mt-1.5 max-w-36 truncate rounded-full bg-white px-2 py-0.5 text-center font-display text-xs font-bold text-slate-600 shadow-sm">
                         🎯 Unit game{unitBest > 0 ? ` · ${unitBest}` : ''}
                       </span>
                     </button>

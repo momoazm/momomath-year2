@@ -188,7 +188,7 @@ export function LeaguesScreen() {
         <h1 className="font-display text-2xl font-extrabold" style={{ color: meta.color }}>
           {s.currentLeague} League
         </h1>
-        <p className="text-center font-body text-sm font-bold text-slate-400">
+        <p className="text-center font-body text-sm font-bold text-slate-700">
           Reach {goal} XP to be promoted &middot; you&rsquo;re #{myRank}
         </p>
         {/* live countdown to Monday reset */}

@@ -193,7 +193,7 @@ export function FriendsScreen({ onClose }: { onClose: () => void }) {
     <div className="mx-auto w-full max-w-xl px-4 pb-28 pt-4">
       <div className="mb-4 flex items-center gap-3">
         <button onClick={() => { stopSpeaking(); sfx.tap(); onClose() }} className="btn3d btn-grey !px-3 !py-2" aria-label="Back">←</button>
-        <h1 className="font-display text-2xl font-extrabold text-speed-blue">Friends 🤝</h1>
+        <h1 className="font-display text-2xl font-extrabold text-slate-800">Friends 🤝</h1>
       </div>
 
       {/* invite code (PLAN 107 — now labelled as the referral code) */}
@@ -242,8 +242,8 @@ export function FriendsScreen({ onClose }: { onClose: () => void }) {
       {/* friends + me, ranked by this week's XP */}
       <section className="mt-5">
         <div className="mb-2 flex items-baseline justify-between">
-          <h2 className="font-display text-sm font-bold uppercase tracking-wide text-slate-400">This week's battle ⚡</h2>
-          <span className="text-xs font-bold text-slate-400">monday → sunday</span>
+          <h2 className="font-display text-sm font-bold uppercase tracking-wide text-slate-700">This week's battle ⚡</h2>
+          <span className="text-xs font-bold text-slate-700">monday → sunday</span>
         </div>
 
         {friends.length === 0 && !loading ? (
@@ -277,7 +277,7 @@ export function FriendsScreen({ onClose }: { onClose: () => void }) {
         )}
       </section>
 
-      <p className="mt-6 text-center text-xs font-bold text-slate-400">
+      <p className="mt-6 text-center text-xs font-bold text-slate-700">
         🔒 Friends see only your display name and weekly XP — nothing else ever leaves your device.
       </p>
 

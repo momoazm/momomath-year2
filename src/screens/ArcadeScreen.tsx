@@ -24,8 +24,8 @@ export function ArcadeScreen() {
   return (
     <div className="mx-auto w-full max-w-xl px-4 pb-28 pt-4">
       <div className="mb-5 text-center">
-        <h1 className="font-display text-2xl font-extrabold text-speed-blue">Retro Arcade</h1>
-        <p className="font-body text-sm font-bold text-slate-400">
+        <h1 className="font-display text-2xl font-extrabold text-slate-800">Retro Arcade</h1>
+        <p className="font-body text-sm font-bold text-slate-700">
           Retro games · earn ⚡ XP and set high scores
         </p>
       </div>

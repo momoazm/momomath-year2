@@ -174,6 +174,9 @@ async function main() {
   ok('maths roadmap shows unit headers', mathUnits >= 1, `unit headers=${mathUnits}`)
   const comingSoon = await page.getByText(/coming soon/i).first().isVisible().catch(() => false)
   ok('no "coming soon" empty state', !comingSoon, `comingSoon=${comingSoon}`)
+  // reading is ENGLISH-only: the Story Library panel must not render on Maths
+  const libOnMaths = await page.getByTestId('story-library').isVisible().catch(() => false)
+  ok('Story Library hidden on Maths roadmap', !libOnMaths, `visible=${libOnMaths}`)
 
   // --- 2b. battle smoke: node tap → BattleScreen; advance Sonic slideshow → battle; wrong answer shows hint; flee ---
   // JS click: the node unmounts the instant BattleScreen mounts, which makes
@@ -354,6 +357,9 @@ async function main() {
   const engPill2 = page.getByRole('button', { name: 'English', exact: true }).first()
   if (await engPill2.isVisible().catch(() => false)) await engPill2.click().catch(() => {})
   await page.waitForTimeout(500)
+  // reading lives on the English roadmap only (Story Library + unit book nodes)
+  const libOnEnglish = await page.getByTestId('story-library').isVisible().catch(() => false)
+  ok('Story Library visible on English roadmap', libOnEnglish, `visible=${libOnEnglish}`)
   // Only unit 1's book is unlocked on the fresh seed (isLessonUnlocked(ui, 0));
   // locked books carry a different title attribute.
   const bookBtn = page.locator('button[title^="📖 "]').first()

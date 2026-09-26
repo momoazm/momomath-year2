@@ -179,7 +179,7 @@ function ArcadeExclusives({
                     onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
                     className="absolute inset-0 h-full w-full object-contain p-3 opacity-40 grayscale pointer-events-none"
                   />
-                  <div className="relative z-10 flex flex-col items-center">
+                  <div className="relative z-10 flex flex-col items-center rounded-xl bg-white/85 px-2 py-2 shadow-sm backdrop-blur-sm">
                     <span className="text-2xl">🔒</span>
                     <p className="mt-1 font-display text-[11px] font-extrabold text-amber-600">Exclusive</p>
                     <p className="mt-1 text-[9px] font-bold leading-tight text-slate-500">{goalText(card.id)}</p>
@@ -292,7 +292,7 @@ function CardGrid({ cards, isOwned, onCardClick, getHiddenCardStyle, cardStars }
                     onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
                     className="absolute inset-0 h-full w-full object-contain p-6 opacity-40 grayscale pointer-events-none"
                   />
-                  <div className="relative z-10 flex flex-col items-center">
+                  <div className="relative z-10 flex flex-col items-center rounded-xl bg-white/85 px-2 py-2 shadow-sm backdrop-blur-sm">
                     <div
                       className="w-16 h-16 rounded-full mb-3 flex items-center justify-center"
                       style={{

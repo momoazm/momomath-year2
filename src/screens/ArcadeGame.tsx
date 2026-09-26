@@ -150,8 +150,8 @@ export function ArcadeGame({ game, onExit }: { game: ArcadeGameDef; onExit: () =
     return (
       <div className="mx-auto w-full max-w-xl px-4 pb-28 pt-8 text-center">
         <div className="text-6xl">{game.icon}</div>
-        <h2 className="mt-3 font-display text-2xl font-extrabold text-speed-blue">{game.title}</h2>
-        <p className="mt-1 font-body text-sm font-bold text-slate-400">{game.desc}</p>
+        <h2 className="mt-3 font-display text-2xl font-extrabold text-slate-800">{game.title}</h2>
+        <p className="mt-1 font-body text-sm font-bold text-slate-700">{game.desc}</p>
         <div className="card-white mx-auto mt-6 max-w-sm text-left text-sm font-bold text-slate-500">
           <p>⏱ {ROUND_SECONDS}s round</p>
           <p>
@@ -175,17 +175,18 @@ export function ArcadeGame({ game, onExit }: { game: ArcadeGameDef; onExit: () =
   if (phase === 'over') {
     return (
       <div className="mx-auto w-full max-w-xl px-4 pb-28 pt-8 text-center">
-        <motion.div initial={{ scale: 0.6, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}>
+        <motion.div initial={{ scale: 0.6, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+          className="card-white mx-auto mt-3 max-w-xs text-center">
           <div className="text-6xl">{finalScore > 0 ? '🎉' : '😅'}</div>
-          <h2 className="mt-3 font-display text-2xl font-extrabold text-speed-blue">Time's up!</h2>
-          <p className="mt-2 font-display text-4xl font-extrabold text-emerald-500">{finalScore}</p>
+          <h2 className="mt-3 font-display text-2xl font-extrabold text-slate-800">Time's up!</h2>
+          <p className="mt-2 font-display text-4xl font-extrabold text-emerald-600">{finalScore}</p>
           {rewards.xp + rewards.gems > 0 && (
-            <p className="mt-1 font-display font-extrabold text-sky-500">
+            <p className="mt-1 font-display font-extrabold text-sky-600">
               ⚡ +{rewards.xp} XP · 💎 +{rewards.gems}
             </p>
           )}
-          {isPb && <p className="mt-1 font-display font-bold text-amber-500">⭐ NEW PERSONAL BEST!</p>}
-          <p className="mt-1 text-sm font-bold text-slate-400">Previous best: {best || '—'}</p>
+          {isPb && <p className="mt-1 font-display font-bold text-amber-600">⭐ NEW PERSONAL BEST!</p>}
+          <p className="mt-1 text-sm font-bold text-slate-500">Previous best: {best || '—'}</p>
         </motion.div>
 
         {unlockedDef && (

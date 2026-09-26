@@ -104,13 +104,13 @@ export function UnitActivityScreen({
         <h2 className="mt-2 font-display text-3xl font-extrabold text-slate-800">
           {correct}/{Math.max(total, 1)} {newBest ? '— new best! 🏆' : ''}
         </h2>
-        <p className="mt-1 font-body text-sm font-bold text-slate-500">
+        <p className="mt-1 font-body text-sm font-bold text-slate-700">
           {theme.game} · {unit.icon} {unit.title}
         </p>
         {newBest && best > 0 && (
-          <p className="mt-0.5 text-xs font-bold text-slate-400">Beat your best of {best}! 🎉</p>
+          <p className="mt-0.5 text-xs font-bold text-slate-700">Beat your best of {best}! 🎉</p>
         )}
-        <p className="mt-3 font-display text-xl font-extrabold text-emerald-500" data-testid="activity-rewards">
+        <p className="mt-3 rounded-full bg-white/90 px-4 py-1.5 font-display text-xl font-extrabold text-emerald-600 shadow-sm" data-testid="activity-rewards">
           +{activityXp(correct)} XP · +{reward?.gems ?? 0} gems
         </p>
         <button

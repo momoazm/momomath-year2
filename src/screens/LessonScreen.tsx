@@ -410,7 +410,7 @@ export function LessonScreen({ lessonId, onExit }: { lessonId: string; onExit: (
           className="mt-3 text-center font-display text-4xl font-extrabold text-yellow-500 drop-shadow">
           {isRedoResult ? 'Nice practice!' : firstAttemptMistakes === 0 ? 'PERFECT!' : 'Lesson complete!'}
         </motion.h1>
-        <p className="mt-1 text-center font-body text-sm font-bold text-slate-400">
+        <p className="mt-1 text-center font-body text-sm font-bold text-slate-700">
           {isRedoResult
             ? 'Replays earn XP — clear a fresh lesson for stars and chests!'
             : firstAttemptMistakes === 0 ? 'Flawless run - every answer right!' : `${firstAttemptMistakes} mistake${firstAttemptMistakes === 1 ? '' : 's'} on first try. Practice makes perfect!`}

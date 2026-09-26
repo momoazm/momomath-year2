@@ -13,9 +13,9 @@ export function QuestsScreen() {
     <div className="mx-auto w-full max-w-xl px-4 pb-28 pt-4">
       <div className="mb-5 flex items-center justify-center gap-3">
         <div className="h-16 w-16 gpu animate-bob"><Mascot id="tails" expression="excited" /></div>
-        <h1 className="font-display text-2xl font-extrabold text-speed-blue">Daily Quests</h1>
+        <h1 className="font-display text-2xl font-extrabold text-slate-800">Daily Quests</h1>
       </div>
-      <p className="mb-4 text-center font-body text-sm font-bold text-slate-400">
+      <p className="mb-4 text-center font-body text-sm font-bold text-slate-700">
         Fresh quests every midnight · earn 💎 gems
       </p>
 
@@ -58,7 +58,7 @@ export function QuestsScreen() {
 
       {s.achievements.length > 0 && (
         <section className="mt-6">
-          <h2 className="mb-2 font-display text-sm font-bold uppercase tracking-wide text-slate-400">
+          <h2 className="mb-2 font-display text-sm font-bold uppercase tracking-wide text-slate-700">
             Achievements unlocked ({s.achievements.length}/{ACHIEVEMENTS.length})
           </h2>
           <ul className="space-y-2">
@@ -73,7 +73,7 @@ export function QuestsScreen() {
               )
             })}
           </ul>
-          <p className="mt-2 text-center text-xs font-bold text-slate-400">
+          <p className="mt-2 text-center text-xs font-bold text-slate-700">
             See all {ACHIEVEMENTS.length} achievements on your profile →
           </p>
         </section>
