@@ -39,6 +39,7 @@ Vite + React + TS + Tailwind, zustand persist store, vitest. Deploys to GitHub P
 ## Gotchas
 
 - Shell is Windows PowerShell: chain with `;`, not `&&`.
+- PowerShell 5.1 `Get-Content`/`Set-Content` WITHOUT explicit `-Encoding UTF8` reads/writes BOM-less UTF-8 files as ANSI and double-encodes them (this is exactly how `src/content/curriculum.ts` got its 2026-09 mojibake, and PLAN.md briefly got corrupted in-session). Never round-trip repo files through default-encoding cmdlets — use the edit/write tools, or pass `-Encoding UTF8` on BOTH read and write.
 - Two of everything is NOT true here — single app, `src/` + `public/` + `tests/`.
 - Card economy: `CARDS` = 97 chest-pool rows + separate `ARCADE_CARDS` (3 exclusives, `source: 'arcade'`, `ALL_CARDS`=100) — never merge arcade rows into `CARDS` (uniform pick/pity/novelty/odds all read `CARDS`). All art is `.webp` (10 legacy SVGs deleted in Phase 12).
 - `cardStars` keys sync via cloudsave as-is (server accepts any sane key); counters like `arcadeRounds`/`arcadeBossesDown` are local-only (server field whitelist).
