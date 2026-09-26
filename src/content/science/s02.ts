@@ -1,14 +1,14 @@
 import type { Question } from '../types'
 import {
   LIVING_BANK, mcqE, matchQ, orderQ, tfQ,
-  pick, pickOthers, shuffle, type Gen, type Rand,
+  pick, pickOthers, randInt, shuffle, type Gen, type Rand,
   makeLesson, unitDef,
 } from './helpers'
 
-const HEALTHY = ['do regular exercise', 'eat fruit and vegetables', 'wash your hands many times a day', 'sleep well at night']
+const HEALTHY = ['do regular exercise', 'eat fruit and vegetables', 'wash your hands many times a day', 'sleep well at night', 'brush your teeth every day', 'drink plenty of water', 'play outside to stay active']
 const UNEHEALTHY = ['never wash hands', 'only eat sweets all day', 'never run or play', 'never sleep']
-const FEVER_SIGNS = ['fever', 'coughing a lot', 'runny nose', 'feeling cold and hot']
-const NOT_ILL = ['a big smile', 'a full tummy', 'playing with toys', 'a bright red face']
+const FEVER_SIGNS = ['fever', 'coughing a lot', 'runny nose', 'feeling cold and hot', 'a sore throat', 'sneezing again and again', 'a tummy ache']
+const NOT_ILL = ['a big smile', 'a full tummy', 'playing with toys', 'a bright red face', 'laughing with friends', 'sweating after a race', 'feeling hungry before lunch']
 const COVERINGS: Record<string, string> = {
   fish: '🐟 scales', dog: '🐶 fur', cat: '🐱 fur', bird: '🐦 feathers', snake: '🐍 scales',
   frog: '🐸 wet skin', whale: '🐋 blubber', elephant: '🐘 thick skin', giraffe: '🦒 spots',
@@ -19,7 +19,18 @@ const BABY: Record<string, string> = {
 }
 const TOOTH_FUNC: Record<string, string> = {
   'front teeth (incisors)': 'cut food', 'pointed teeth (canines)': 'tear food', 'back teeth (molars)': 'grind food',
+  'premolars (cheek teeth)': 'crush food', 'baby teeth (milk teeth)': 'chew food until adult teeth arrive',
 }
+const TEETH_TF: { statement: string; answer: boolean }[] = [
+  { statement: 'You should brush your teeth twice a day once in the morning and once before bed.', answer: true },
+  { statement: 'Sugar in sweets and drinks can cause tooth decay.', answer: true },
+  { statement: 'Visiting the dentist regularly helps keep your teeth healthy.', answer: true },
+  { statement: 'Drinking water after a snack helps rinse your teeth.', answer: true },
+  { statement: 'Going to bed with food left on your teeth can harm them.', answer: true },
+  { statement: 'Baby teeth do not matter at all because they fall out anyway.', answer: false },
+  { statement: 'You should skip brushing on Sundays to give your teeth a rest.', answer: false },
+  { statement: 'Your front teeth are for cutting, so you should never brush them.', answer: false },
+]
 
 function gHealthy(rand: Rand): Question {
   return mcqE(rand, 'Which habit helps you stay healthy and strong?', pick(rand, HEALTHY), UNEHEALTHY, { visual: { type: 'emoji-group', emojis: ['🍎', '🏃', '🦷', '😴'] } })
@@ -47,14 +58,16 @@ function gBabies(rand: Rand): Question {
   ])
 }
 function gTeeth(rand: Rand): Question {
-  const a = pick(rand, Object.keys(TOOTH_FUNC))
-  return matchQ(rand, 'Match the tooth type to what it does', [
-    { left: a, right: TOOTH_FUNC[a] },
-    ...pickOthers(rand, Object.keys(TOOTH_FUNC), a, 2).map((b) => ({ left: b, right: TOOTH_FUNC[b] })),
-  ])
+  const all = Object.keys(TOOTH_FUNC)
+  const howMany = randInt(rand, 2, 3)
+  const keys = shuffle(rand, all).slice(0, Math.min(howMany, all.length))
+  return matchQ(rand, 'Match the tooth type to what it does',
+    keys.map((k) => ({ left: k, right: TOOTH_FUNC[k] })),
+  )
 }
 function gTeethCareTF(rand: Rand): Question {
-  return tfQ('Dental care', 'You should brush your teeth twice a day once in the morning and once before bed.', true, { visual: { type: 'emoji-group', emojis: ['🦷', '🪥'] } })
+  const t = pick(rand, TEETH_TF)
+  return tfQ('Dental care', t.statement, t.answer, { visual: { type: 'emoji-group', emojis: ['🦷', '🪥'] } })
 }
 function gGrow(rand: Rand): Question {
   return orderQ('Put a persons life stages in order, from youngest to oldest', ['baby', 'toddler', 'child', 'adult'], { visual: { type: 'emoji-group', emojis: ['🧒'] } })

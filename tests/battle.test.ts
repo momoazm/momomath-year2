@@ -5,6 +5,7 @@ import {
   createBattle,
   type BattleState,
 } from '../src/engine/battle'
+import { questionKey } from '../src/content/lessonQueue'
 
 function mkBattle(kind: 'lesson' | 'boss' = 'lesson'): BattleState {
   const lessonId = kind === 'boss' ? 'u1boss' : 'u1l1'
@@ -104,6 +105,16 @@ describe('Prodigy loop reducer', () => {
     expect(b.status).toBe('active')
     expect(b.questions.length).toBeGreaterThan(10)
     expect(battleAccuracy(b)).toBeCloseTo(0.6)
+  })
+
+  it('refilled batches never repeat a question the player already saw (PLAN 127)', () => {
+    let b = mkBattle()
+    // survive past the first batch so a refill appends
+    b = { ...b, enemyHp: 9999, enemyHpMax: 9999, playerHp: 9999, playerHpMax: 9999 }
+    for (let i = 0; i < 14 && b.status === 'active'; i++) b = answerBattle(b, true)
+    expect(b.questions.length).toBeGreaterThan(10)
+    const keys = b.questions.map(questionKey)
+    expect(new Set(keys).size, 'a refilled batch repeated an already-served question').toBe(keys.length)
   })
 
   it('keeps refilling for many batches when HP cannot decide', () => {

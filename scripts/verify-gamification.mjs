@@ -434,8 +434,9 @@ async function main() {
   if (await mathPill.isVisible().catch(() => false)) await mathPill.click().catch(() => {})
   await page.waitForTimeout(400)
 
-  // PLAN 102-104: 🎯 Unit fun-activity node. Locked until any lesson in the
-  // unit is tried → then it opens the subject-themed timed challenge.
+  // PLAN 102-104/122: 🎯 Unit fun-activity node. Locked until EVERY lesson in
+  // the unit is tried (same gate as 🔁 practice) → then it opens the
+  // subject-themed timed challenge.
   const activityBtn = page.getByTestId('activity-node').first()
   const activityVisible = await activityBtn.isVisible().catch(() => false)
   ok('unit activity node (🎯) rendered on roadmap', activityVisible, `activityVisible=${activityVisible}`)
@@ -453,16 +454,36 @@ async function main() {
     await jsClickTestId('activity-node')
     await page.waitForTimeout(450)
     const lockedPopup = await page.getByTestId('locked-popup').isVisible().catch(() => false)
-    ok('unit activity locked until a lesson is tried', lockedPopup, `lockedPopup=${lockedPopup}`)
+    ok('unit activity locked until every lesson is tried', lockedPopup, `lockedPopup=${lockedPopup}`)
     await page.getByRole('button', { name: /Got it!/ }).first().click().catch(() => {})
     await page.waitForTimeout(300)
 
-    // unlock: seed one tried lesson in unit 1 and reload
-    await page.evaluate((k) => {
-      const raw = JSON.parse(localStorage.getItem(k))
-      raw.state.lessonProgress = { ...(raw.state.lessonProgress || {}), u1l1: { completions: 1, bestAccuracy: 50, crown: 0 } }
-      localStorage.setItem(k, JSON.stringify(raw))
-    }, PLAYER_KEY)
+    // PLAN 122: seed 6 of the 7 unit-1 lessons → must STAY locked (the old
+    // "any lesson" rule would have unlocked here), then the 7th opens it.
+    const unit1Ids = ['u1l1', 'u1l2', 'u1l3', 'u1l4', 'u1l5', 'u1l6', 'u1boss']
+    const seedTried = (ids) =>
+      page.evaluate(
+        ([k, lessonIds]) => {
+          const raw = JSON.parse(localStorage.getItem(k))
+          const lp = { ...(raw.state.lessonProgress || {}) }
+          for (const id of lessonIds) lp[id] = { completions: 1, bestAccuracy: 50, crown: 0 }
+          raw.state.lessonProgress = lp
+          localStorage.setItem(k, JSON.stringify(raw))
+        },
+        [PLAYER_KEY, ids],
+      )
+    await seedTried(unit1Ids.slice(0, -1))
+    await page.goto(`${URL_BASE}?cb=${Date.now()}`, { waitUntil: 'domcontentloaded' })
+    await page.waitForTimeout(900)
+    await jsClickTestId('activity-node')
+    await page.waitForTimeout(450)
+    const stillLocked = await page.getByTestId('locked-popup').isVisible().catch(() => false)
+    ok('unit activity still locked with 6 of 7 lessons tried', stillLocked, `stillLocked=${stillLocked}`)
+    await page.getByRole('button', { name: /Got it!/ }).first().click().catch(() => {})
+    await page.waitForTimeout(300)
+
+    // unlock: ALL 7 unit-1 lessons tried → reload
+    await seedTried(unit1Ids)
     await page.goto(`${URL_BASE}?cb=${Date.now()}`, { waitUntil: 'domcontentloaded' })
     await page.waitForTimeout(900)
 

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { getCurriculum } from '../content/registry'
-import { isLessonUnlocked, nextActiveLesson } from '../engine/path'
+import { isLessonUnlocked, isUnitActivityUnlocked, nextActiveLesson } from '../engine/path'
 import { usePlayer } from '../engine/store'
 import { CLASSIC_BOOKS } from '../content/english/classic'
 import { displayStreak, isStreakActive } from '../engine/gamification'
@@ -69,9 +69,10 @@ export function PathScreen({
     }
   }, [player.subject])
 
-  // pulse the first lesson that is unlocked and not yet mastered — never a
-  // locked node, so finishing lesson 6 below 100% keeps lesson 6 active
-  // (replay) until the boss unlocks
+  // pulse the NEXT LESSON TO BE DONE (PLAN 121): first unlocked lesson never
+  // tried — the badge moves forward as soon as a lesson is started; when every
+  // lesson has been tried it falls back to the first unlocked not-yet-perfected
+  // (replay). Never a locked node.
   const active = useMemo(
     () => nextActiveLesson(player.lessonProgress, units),
     [player.lessonProgress, units],
@@ -263,7 +264,7 @@ export function PathScreen({
                       className={`gpu group relative flex flex-col items-center transition-transform duration-150 ${
                         unlocked ? 'hover:scale-105 active:scale-95' : 'cursor-not-allowed opacity-70'
                       }`}
-                      title={unlocked ? l.title : 'Finish the previous lesson with 100% to unlock!'}
+                      title={unlocked ? l.title : 'Finish the previous lesson first to unlock!'}
                     >
                       <span className="relative rounded-full bg-white p-1.5 shadow-pop">
                         {isActive && (
@@ -354,32 +355,31 @@ export function PathScreen({
                   </li>
                 )
               })()}
-              {/* 🎯 Unit fun-activity node (PLAN 104) — renders like the 🔁
+              {/* 🎯 Unit fun-activity node (PLAN 104/122) — renders like the 🔁
                 practice node but opens the subject-themed mini-game for
-                THIS unit. Unlocked once any lesson in the unit is tried. */}
+                THIS unit. Unlocked only once EVERY lesson in the unit is
+                tried (isUnitActivityUnlocked — same gate as 🔁 practice). */}
               {(() => {
-                const anyTried = u.lessons.some(
-                  (l) => (player.lessonProgress[l.id]?.completions ?? 0) > 0,
-                )
+                const activityUnlocked = isUnitActivityUnlocked(u, player.lessonProgress)
                 const offsetA = OFFSETS[(ui * 3 + u.lessons.length + 1) % OFFSETS.length]
                 const unitBest = player.unitActivityBest[u.id] ?? 0
                 return (
                   <li key={`${u.id}activity`} style={{ transform: `translateX(${offsetA}px)` }}>
                     <button
-                      aria-disabled={!anyTried}
+                      aria-disabled={!activityUnlocked}
                       data-testid="activity-node"
                       className={`gpu group relative flex flex-col items-center transition-transform duration-150 ${
-                        anyTried ? 'hover:scale-105 active:scale-95' : 'cursor-not-allowed opacity-70'
+                        activityUnlocked ? 'hover:scale-105 active:scale-95' : 'cursor-not-allowed opacity-70'
                       }`}
                       title={
-                        anyTried
+                        activityUnlocked
                           ? `🎯 Unit challenge${unitBest > 0 ? ` — best ${unitBest}` : ''}`
-                          : 'Finish any lesson in this unit to unlock the fun game!'
+                          : 'Finish every lesson in this unit to unlock the fun game!'
                       }
                       onClick={() => {
-                        if (!anyTried) {
+                        if (!activityUnlocked) {
                           sfx.tap()
-                          setLockedMsg('Finish any lesson in this unit first to unlock the fun game — you\'ve got this! 💪')
+                          setLockedMsg('Finish every lesson in this unit first to unlock the fun game — you\'ve got this! 💪')
                           return
                         }
                         sfx.whoosh()
@@ -387,20 +387,20 @@ export function PathScreen({
                       }}
                     >
                       <span className="relative rounded-full bg-white p-1.5 shadow-pop">
-                        {anyTried && unitBest === 0 && (
+                        {activityUnlocked && unitBest === 0 && (
                           <span className="animate-pulse-ring absolute inset-0 rounded-full border-4 border-violet-400" />
                         )}
                         <span
                           className={`relative flex h-14 w-14 items-center justify-center rounded-full border-b-4 text-xl ${
-                            anyTried ? 'border-black/15 text-white' : 'border-black/5 bg-slate-300 text-white'
+                            activityUnlocked ? 'border-black/15 text-white' : 'border-black/5 bg-slate-300 text-white'
                           }`}
                           style={
-                            anyTried
+                            activityUnlocked
                               ? { backgroundImage: 'linear-gradient(180deg,#8b5cf6,#7c3aed)' }
                               : undefined
                           }
                         >
-                          {anyTried ? KIND_ICON.activity : '🔒'}
+                          {activityUnlocked ? KIND_ICON.activity : '🔒'}
                         </span>
                       </span>
                       <span className="mt-1.5 max-w-36 truncate rounded-full bg-white px-2 py-0.5 text-center font-display text-xs font-bold text-slate-600 shadow-sm">

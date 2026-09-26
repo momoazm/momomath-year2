@@ -22,6 +22,8 @@ const NILE_MATCH = [
   { left: 'المركب', right: PICTURE_BANK.مركب },
   { left: 'السمكة', right: PICTURE_BANK.سمكة },
   { left: 'الفلاح', right: PICTURE_BANK.فلاح },
+  { left: 'الحقل', right: '🌾 يسقيه ماء النيل' },
+  { left: 'الترعة', right: '💧 تنقل الماء إلى الحقل' },
 ]
 
 function d2NileMatch(rand: Rand): Question {
@@ -35,6 +37,9 @@ const NILE_TF: Array<[string, boolean]> = [
   ['نرمي القمامة في النيل', false],
   ['نحافظ على نظافة مياه النيل', true],
   ['النيل يجري في مصر من الجنوب إلى الشمال', true],
+  ['السمك يعيش في مياه النيل', true],
+  ['مياه النيل لا تصل إلى الحقول', false],
+  ['النيل يروي أرض مصر منذ آلاف السنين', true],
 ]
 
 function d2NileTF(rand: Rand): Question {
@@ -54,8 +59,26 @@ const d2l1 = makeLesson(
 
 /* ---------- d2l2: من النيل إلى الحقل ---------- */
 
+const JOURNEYS: Array<{ prompt: string; steps: string[] }> = [
+  {
+    prompt: 'رتب رحلة القمح من البذرة إلى الخبز',
+    steps: ['نزرع بذور القمح', 'نرش الماء على الحقل', 'ينمو القمح في الأرض', 'نحصد القمح الناضج', 'نطحنه في الطاحونة', 'نخبز الخبز'],
+  },
+  {
+    prompt: 'رتب رحلة القطن من الحقل إلى القميص',
+    steps: ['نزرع بذور القطن', 'يسقي الفلاح النبات', 'ينضج القطن الأبيض', 'نحصد القطن', 'نصنع الخيوط', 'نخيط القميص'],
+  },
+  {
+    prompt: 'رتب خطوات الفلاح في حقله',
+    steps: ['يفتح ترعة الماء', 'يزرع البذور في الأرض', 'يسقي زرعه', 'ينمو القمح في الحقل', 'يبيع المحصول في السوق'],
+  },
+]
+
 function d2JourneyOrder(rand: Rand): Question {
-  void rand
+  if (rand() < 0.75) {
+    const j = pick(rand, JOURNEYS)
+    return orderQ(j.prompt, j.steps, say(j.steps.join(' ثم ')))
+  }
   const steps = ['تمطر السماء في الجنوب', 'يجري النيل إلى مصر', 'يسقي الفلاح حقله', 'ينمو القمح', 'نخبز الخبز']
   return orderQ('رتب رحلة قطرة الماء من النيل إلى الخبز', steps, say(steps.join(' ثم ')))
 }
@@ -65,6 +88,9 @@ const FIELD_MATCH = [
   { left: 'القمح', right: '🌾 نصنع منه الخبز' },
   { left: 'القطن', right: '☁️ نصنع منه الملابس' },
   { left: 'التمر', right: '🌴 من النخلة' },
+  { left: 'الذرة', right: '🌽 نصنع منه العصيدة' },
+  { left: 'البطاطس', right: '🥔 نأكله مع الطعام' },
+  { left: 'الموز', right: '🍌 من أشجار البستان' },
 ]
 
 function d2FieldMatch(rand: Rand): Question {
@@ -85,13 +111,63 @@ const d2l2 = makeLesson(
 /* ---------- d2l3: نحمي مياهنا ---------- */
 
 function d2ProtectPick(rand: Rand): Question {
-  const item = pick(rand, ['نحافظ على نظافة النيل', 'نرشد استهلاك الماء', 'نزرع الأشجار'])
+  const item = pick(rand, [
+    'نحافظ على نظافة النيل',
+    'نرشد استهلاك الماء',
+    'نزرع الأشجار',
+    'نغلق الصنبور بعد الاستعمال',
+    'نضع القمامة في السلة',
+    'نركب الدراجة بدلا من السيارة',
+    'نبلغ عن تسريب المياه',
+    'نرشد استهلاك الكهرباء',
+  ])
   const others = ['نرمي القمامة في النيل', 'نترك الصنبور مفتوحا', 'نلوث الهواء']
   return mcqE(rand, 'أي تصرف يحمي بيئتنا؟', item, others, say(item))
 }
 
+const WATER_TAPS = [
+  {
+    prompt: 'اضغط على كل صنبور يجب إغلاقه',
+    target: 3,
+    targetEmoji: '🚰',
+    cells: ['🚰', '🔥', '🚰', '🌙', '🚰', '⭐', '🍎', '⚽'],
+    hint: 'الصنابير المفتوحة فقط!',
+  },
+  {
+    prompt: 'اضغط على كل سمكة في النهر',
+    target: 3,
+    targetEmoji: '🐟',
+    cells: ['🐟', '🔥', '🐟', '🌙', '🐟', '⭐', '🍎', '⚽'],
+    hint: 'السمك فقط!',
+  },
+  {
+    prompt: 'اضغط على كل شجرة نزرعها',
+    target: 4,
+    targetEmoji: '🌳',
+    cells: ['🌳', '💧', '🌳', '⭐', '🌳', '🔥', '🌳', '⚽'],
+    hint: 'الأشجار فقط!',
+  },
+  {
+    prompt: 'اضغط على كل غيمة تُمطر علينا',
+    target: 3,
+    targetEmoji: '☁️',
+    cells: ['☁️', '🌙', '☁️', '⭐', '☁️', '🍎', '⚽', '🔥'],
+    hint: 'الغيوم فقط!',
+  },
+  {
+    prompt: 'اضغط على كل زهرة نحافظ عليها',
+    target: 3,
+    targetEmoji: '🌸',
+    cells: ['🌸', '💧', '🌸', '🔥', '🌸', '🌙', '⭐', '⚽'],
+    hint: 'الأزهار فقط!',
+  },
+]
+
 function d2WaterTap(rand: Rand): Question {
-  void rand
+  if (rand() < 0.85) {
+    const t = pick(rand, WATER_TAPS)
+    return { kind: 'tap-count', ...t } as Question
+  }
   return {
     kind: 'tap-count',
     prompt: 'اضغط على كل قطرة ماء تراها',

@@ -9,6 +9,7 @@ import type {
   UnitDef,
 } from '../types'
 import { hashString, mulberry32, pick, randInt, shuffle, type Rand } from '../rng'
+import { buildLessonQueue } from '../lessonQueue'
 
 export { hashString, mulberry32, pick, randInt, shuffle, type Rand }
 
@@ -32,13 +33,8 @@ export function makeLesson(
     title,
     objectiveCodes,
     intro: { mascotId, title: introTitle, body: introBody },
-    generate(n, seed) {
-      const rand = mulberry32(hashString(id) ^ (seed * 2654435761))
-      const out: Question[] = []
-      for (let i = 0; i < n - 1; i++) out.push(gens[i % gens.length](rand))
-      const finalGen = challenge ?? gens[(n - 1) % gens.length]
-      out.push(finalGen(rand))
-      return out
+    generate(n, seed, exclude) {
+      return buildLessonQueue(id, seed, n, gens, challenge, exclude)
     },
   }
 }
@@ -214,6 +210,12 @@ export const MATERIAL_CHANGES: { item: string; result: string; kind: 'reversible
   { item: 'breaking a twig', result: 'two short pieces', kind: 'irreversible' },
   { item: 'burning paper', result: 'ash and smoke', kind: 'irreversible' },
   { item: 'mixing milk and juice', result: 'chocolatey drink', kind: 'irreversible' },
+  { item: 'melting chocolate', result: 'melted chocolate', kind: 'reversible' },
+  { item: 'freezing water into ice', result: 'an ice cube', kind: 'reversible' },
+  { item: 'bending a spoon', result: 'a bent spoon', kind: 'reversible' },
+  { item: 'tearing a sheet of paper', result: 'two pieces of paper', kind: 'irreversible' },
+  { item: 'cooking an egg', result: 'a fried egg', kind: 'irreversible' },
+  { item: 'rusting an iron nail', result: 'a rusty nail', kind: 'irreversible' },
 ]
 
 /** Light sources / darkness situations. */
@@ -228,12 +230,20 @@ export const SOCKET_DONTS = [
   'pour water near a plug socket',
   'touch a plug with wet hands',
   'stick objects into a socket',
+  'pull a plug out by pulling the cable',
+  'use a hairdryer or radio near the bath',
+  'poke a fork into a plug socket',
+  'carry a plugged-in appliance by its flex',
 ]
 export const SOCKET_DOES = [
   'switch off appliances when not in use',
   'tell an adult before plugging anything in',
   'keep sockets dry',
   'use only things grown-ups give you',
+  'keep cables and leads away from water',
+  'ask a grown-up to plug things in for you',
+  'switch off the kettle and toaster when you finish',
+  'hold the plug, not the cable, when you unplug',
 ]
 
 /** Tools for non-standard measurement. */
@@ -247,7 +257,7 @@ export const LIFE_STAGES = ['baby', 'toddler', 'child', 'adult'] as const
 export const ANIMAL_LIFE_CYCLES: Record<string, string[]> = {
   butterfly: ['egg', 'caterpillar', 'chrysalis', 'butterfly'],
   frog: ['egg', 'tadpole', 'tadpole with legs', 'froglet', 'frog'],
-  plant: ['seed', 'sprout', 'plant with leaves', 'flower', 'seed'],
+  plant: ['seed', 'sprout', 'plant with leaves', 'flower'],
 }
 
 export function emojiPair(word: string): string {

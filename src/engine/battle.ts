@@ -10,6 +10,7 @@
  */
 
 import type { Question, Subject } from '../content/types'
+import { questionKey } from '../content/lessonQueue'
 import { getCurriculum } from '../content/registry'
 import { QUESTIONS_PER_LESSON } from '../content/curriculum'
 
@@ -219,7 +220,10 @@ export function answerBattle(state: BattleState, wasCorrect: boolean, teachLine 
     const found = findLesson(state.cfg.subject, state.cfg.lessonId)
     if (found) {
       const seed = ((state.index + 1) * 7919 + state.correct * 31 + state.wrong * 7 + 1) % 1_000_000_007
-      questions = [...state.questions, ...found.generate(REFILL_BATCH, seed)]
+      // exclude everything already served this battle so the refill never
+      // repeats a question the player has seen (PLAN 127)
+      const exclude = new Set(state.questions.map(questionKey))
+      questions = [...state.questions, ...found.generate(REFILL_BATCH, seed, exclude)]
     }
   }
 

@@ -100,6 +100,64 @@ const VERSES: Verse[] = [
     frame: 'Drip, drop',
     decoys: ['hear the rain', 'on the pane', 'down the drain', 'splish splash', 'pitter patter'],
   },
+  {
+    panel: story('Buzz, Buzz', ['🐝', '🌼'], [
+      'Buzz, buzz, went the bee,',
+      'Buzz, buzz, round the tree,',
+      'Buzz, buzz, right back to me.',
+    ]),
+    lines: [
+      'Buzz, buzz, went the bee,',
+      'Buzz, buzz, round the tree,',
+      'Buzz, buzz, right back to me.',
+    ],
+    frame: 'Buzz, buzz',
+    decoys: ['went the bee', 'round the tree', 'right back to me', 'hum hum', 'tweet tweet'],
+  },
+  {
+    panel: story('Marching Song', ['🥁', '🪖'], [
+      'Left, right, left, right,',
+      'Marching through the town,',
+      'Drumming such a happy sound,',
+      'Never slow us down.',
+    ]),
+    lines: [
+      'Left, right, left, right,',
+      'Marching through the town,',
+      'Drumming such a happy sound,',
+      'Never slow us down.',
+    ],
+    frame: 'Left, right',
+    decoys: ['marching through the town', 'never slow us down', 'turn turn', 'one two three'],
+  },
+  {
+    panel: story('Pitter Patter', ['🌧️', '🪟'], [
+      'Pitter patter on the roof,',
+      'Pitter patter, that is the proof,',
+      'Pitter patter, sing it again.',
+    ]),
+    lines: [
+      'Pitter patter on the roof,',
+      'Pitter patter, that is the proof,',
+      'Pitter patter, sing it again.',
+    ],
+    frame: 'Pitter patter',
+    decoys: ['on the roof', 'that is the proof', 'sing it again', 'drip drop', 'splash splash'],
+  },
+  {
+    panel: story('Sing with Me', ['🎤', '🎶'], [
+      'Sing with me, sing with me,',
+      'Loud as loud as loud can be,',
+      'Sing with me under the tree.',
+    ]),
+    lines: [
+      'Sing with me, sing with me,',
+      'Loud as loud as loud can be,',
+      'Sing with me under the tree.',
+    ],
+    frame: 'Sing with me',
+    decoys: ['loud as loud', 'under the tree', 'as loud can be', 'dance with me', 'shout hooray'],
+  },
 ]
 
 function gRepeatLines(rand: Rand): Question {
@@ -177,6 +235,21 @@ const PERFORM_LINES: { prompt: string; target: string; hint?: string }[] = [
     target: '"Come and play!" called Mia.',
     hint: 'Sound like Mia calling her friends.',
   },
+  {
+    prompt: 'Shout this grumpy line aloud!',
+    target: '"Go away at once!" growled the troll.',
+    hint: 'Make it big and rumbly.',
+  },
+  {
+    prompt: 'Read this bouncy line aloud with a hop!',
+    target: 'Hop, hop, hop went the little frog.',
+    hint: 'Bounce on every hop!',
+  },
+  {
+    prompt: 'Read this sad line aloud, soft and slow.',
+    target: 'A single tear rolled down her cheek.',
+    hint: 'Keep your voice gentle.',
+  },
 ]
 
 const EXPRESSIONS: McqItem[] = [
@@ -184,6 +257,9 @@ const EXPRESSIONS: McqItem[] = [
   { q: 'Hush now, the stars are sleeping.', answer: 'quiet', wrong: ['excited', 'shouty', 'angry', 'bouncy', 'loud'] },
   { q: 'Slowly, slowly crept the snail.', answer: 'slow', wrong: ['excited', 'quick', 'loud', 'happy', 'shouty'] },
   { q: '"Wake up! Wake up! It is morning!"', answer: 'excited', wrong: ['quiet', 'slow', 'sad', 'sleepy', 'grumpy'] },
+  { q: 'Tears rolled down my cheeks as I waved goodbye.', answer: 'sad', wrong: ['excited', 'cheerful', 'loud', 'fast', 'proud'] },
+  { q: '"Shh! She is still asleep in there."', answer: 'quiet', wrong: ['shouty', 'fast', 'angry', 'bouncy', 'excited'] },
+  { q: 'Quick! The sea is coming over the wall!', answer: 'panicky', wrong: ['calm', 'sleepy', 'slow', 'bored', 'steady'] },
 ]
 
 function gPerformLine(rand: Rand): Question {

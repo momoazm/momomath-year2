@@ -72,6 +72,38 @@ const gStoryOrFact = (rand: Rand): Question => {
       isStory: false,
       hint: 'True facts about real trains.',
     },
+    {
+      title: 'The Umbrella Plane',
+      scene: ['☂️', '✈️', '🌃'],
+      lines: ['Poppy clicked her red umbrella and it lifted off.', 'They zoomed over the glittering rooftops.'],
+      statement: 'Poppy flies over the rooftops in an umbrella.',
+      isStory: true,
+      hint: 'Umbrellas cannot really fly - this is pretend.',
+    },
+    {
+      title: 'The Grinning Snail',
+      scene: ['🐌', '🌟', '💬'],
+      lines: ['The snail tipped its shell like a hat.', '"Lovely day!" it said to Otto.'],
+      statement: 'A snail tips its hat and chats to Otto.',
+      isStory: true,
+      hint: 'Real snails cannot talk!',
+    },
+    {
+      title: 'Baby Sea Turtles',
+      scene: ['🐢', '🏖️', '🌊'],
+      lines: ['Hatchlings scramble down to the sea at night.', 'They paddle off into the deep water.'],
+      statement: 'Baby turtles crawl down to the sea.',
+      isStory: false,
+      hint: 'This really happens - it is a fact.',
+    },
+    {
+      title: 'Why We Yawn',
+      scene: ['😴', '😮', '🛏️'],
+      lines: ['Yawning helps your body cool down.', 'We yawn most when we feel sleepy.'],
+      statement: 'We yawn when we feel sleepy.',
+      isStory: false,
+      hint: 'True facts about real bodies.',
+    },
   ]
   const item = pick(rand, items)
   return tfQ('Does this come from a story?', item.statement, item.isStory, {
@@ -90,6 +122,26 @@ const WRITING_KIND_SETS = [
     { left: 'The dragon swooped over the castle.', right: 'a story' },
     { left: 'Volcanoes spray out hot, melted rock.', right: 'real facts' },
     { left: 'Twinkle, twinkle, little star...', right: 'a rhyme' },
+  ],
+  [
+    { left: 'The robot whirred into the kitchen.', right: 'a story' },
+    { left: 'Robots need batteries to work.', right: 'real facts' },
+    { left: 'Baa, baa, black sheep...', right: 'a rhyme' },
+  ],
+  [
+    { left: 'A fairy granted Tom three wishes.', right: 'a story' },
+    { left: 'Butterflies start as caterpillars.', right: 'real facts' },
+    { left: 'Row, row, row your boat...', right: 'a rhyme' },
+  ],
+  [
+    { left: 'The moon monster baked green pies.', right: 'a story' },
+    { left: 'The moon has no air to breathe.', right: 'real facts' },
+    { left: 'Humpty Dumpty sat on a wall...', right: 'a rhyme' },
+  ],
+  [
+    { left: "Nina's shoes danced all by themselves.", right: 'a story' },
+    { left: 'Snakes smell with their tongues.', right: 'real facts' },
+    { left: 'Old Mother Hubbard went to the cupboard...', right: 'a rhyme' },
   ],
 ]
 
@@ -122,6 +174,18 @@ const WHO_STORIES: (StorySeed & { who: string })[] = [
     scene: ['🐶', '👟', '🏠'],
     lines: ["Zoe's family adopted a bouncy puppy.", 'Biscuit nibbled her best shoe to bits.'],
     who: 'Zoe',
+  },
+  {
+    title: 'The Spotted Scarf',
+    scene: ['🧣', '🧶', '🪡'],
+    lines: ['Mia knitted a scarf as long as a snake.', 'It trailed behind her all the way home.'],
+    who: 'Mia',
+  },
+  {
+    title: "Sam's Big Catch",
+    scene: ['🎣', '🐟', '🚣'],
+    lines: ['Sam cast his line from the little jetty.', 'A wriggling silver fish snapped at the bait.'],
+    who: 'Sam',
   },
 ]
 
@@ -170,6 +234,18 @@ const WHERE_STORIES: (StorySeed & { where: string })[] = [
     lines: ['Year Two rumbled along in a big coach.', 'A cow mooed hello at the gate.'],
     where: 'at the farm',
   },
+  {
+    title: 'Splash Time',
+    scene: ['🏊', '💦', '🛟'],
+    lines: ['Zoe practised her starfish float.', 'Coach Dan counted her lengths out loud.'],
+    where: 'at the swimming pool',
+  },
+  {
+    title: 'Loose Change',
+    scene: ['🛒', '🍬', '💰'],
+    lines: ['Ben chose a chewy sweet from the shelf.', 'He paid the shopkeeper his shiny coin.'],
+    where: 'at the shop',
+  },
 ]
 
 const gWhereAreThey = (rand: Rand): Question => {
@@ -215,6 +291,46 @@ const RETELL_STORIES: (StorySeed & { events: string[] })[] = [
     ],
     events: ['Sam noticed a loose tooth', 'Dad suggested gentle wiggles', 'Out popped the tooth'],
   },
+  {
+    title: 'The Frog Pond',
+    scene: ['🐸', '🪰', '💧'],
+    lines: [
+      'A green frog sat on the lily pad.',
+      'A fat fly buzzed past his nose.',
+      'Flick! His sticky tongue snapped it up.',
+    ],
+    events: ['The frog waits on the lily pad', 'A fly buzzes past', 'His tongue snaps up the fly'],
+  },
+  {
+    title: 'Nan Lost Her Keys',
+    scene: ['🔑', '🪴', '🚪'],
+    lines: [
+      'Nan hunted for her keys by the door.',
+      'She checked behind the spotty plant pot.',
+      'There they were, hanging on her coat!',
+    ],
+    events: ['Nan searches by the door', 'She looks behind the plant pot', 'The keys hang on her coat'],
+  },
+  {
+    title: 'The Paper Boat',
+    scene: ['⛵', '🌧️', '🏞️'],
+    lines: [
+      'Ben folded a boat from bright white paper.',
+      'He floated it in the gutter after rain.',
+      'It sailed all the way to the drain.',
+    ],
+    events: ['Ben folds a paper boat', 'He floats it in the gutter', 'It sails to the drain'],
+  },
+  {
+    title: 'The Brave Butterfly',
+    scene: ['🦋', '🌱', '🌺'],
+    lines: [
+      'The tiny caterpillar spun a cosy chrysalis.',
+      'Days later, a damp wing pushed out.',
+      'At last the butterfly dried its wings in the sun.',
+    ],
+    events: ['The caterpillar spins a chrysalis', 'A damp wing pushes out', 'The butterfly dries its wings'],
+  },
 ]
 
 const gRetellOrder = (rand: Rand): Question => {
@@ -249,6 +365,46 @@ const TRIP_STORIES: (StorySeed & { events: string[] })[] = [
       'Giant dinosaur bones towered up',
       'Zoe drew the skeleton',
     ],
+  },
+  {
+    title: 'Pond Dipping',
+    scene: ['🎣', '🐸', '📓'],
+    lines: [
+      'Class Two crouched around the silver pond.',
+      'They dipped their nets into the weeds.',
+      'Everyone copied the minnows into their books.',
+    ],
+    events: ['The class gathers at the pond', 'They dip nets in the weeds', 'They sketch the minnows'],
+  },
+  {
+    title: 'Bakery Visit',
+    scene: ['🥐', '👨‍🍳', '🍞'],
+    lines: [
+      'We tiptoed into the warm, floury bakery.',
+      'The baker showed us how to plait the dough.',
+      'Last of all, we tasted fresh warm bread.',
+    ],
+    events: ['We enter the bakery', 'The baker plaits the dough', 'We taste the warm bread'],
+  },
+  {
+    title: 'The Fire Station',
+    scene: ['🚒', '🚿', '🧥'],
+    lines: [
+      'The engine roared out to meet us.',
+      'A firefighter slid down the shiny pole.',
+      'Then she let us try on her heavy jacket.',
+    ],
+    events: ['The fire engine meets us', 'A firefighter slides down the pole', 'We try on her jacket'],
+  },
+  {
+    title: 'River Watch',
+    scene: ['🦆', '🔭', '🌲'],
+    lines: [
+      'We walked down the path to the river.',
+      'A heron stood as still as a statue.',
+      'We wrote down every bird we spotted.',
+    ],
+    events: ['We walk to the river', 'A heron stands still', 'We list the birds we saw'],
   },
 ]
 
@@ -304,6 +460,66 @@ const NEXT_STORIES: (StorySeed & { next: string; distract: string[] })[] = [
       'The box is completely empty',
       'Ten frozen fish spill across the floor',
       'A fridge is crammed inside the box',
+    ],
+  },
+  {
+    title: 'The Hungry Caterpillar',
+    scene: ['🐛', '🍃', '🍽️'],
+    lines: [
+      'A plump caterpillar munched a bright green leaf.',
+      'It wriggled to the next leaf and munched again.',
+      'Its tummy was still rumbling loudly...',
+    ],
+    next: 'It munches through the whole juicy leaf',
+    distract: [
+      'It grows wings and flies off at once',
+      'The leaf turns into a chocolate bar',
+      'It puts on a tiny woolly hat',
+    ],
+  },
+  {
+    title: 'Missed the Bus',
+    scene: ['🚌', '🏃', '⏰'],
+    lines: [
+      'Jack raced down the hill with his satchel bouncing.',
+      'The bus doors hissed closed at the corner.',
+      'He glanced at his ticking watch and took a deep breath...',
+    ],
+    next: 'He sprints to the next stop on the route',
+    distract: [
+      'He swims after the bus through the sky',
+      'The bus grows wings and floats away',
+      'He sits down and eats a picnic lunch',
+    ],
+  },
+  {
+    title: 'The Wobbly Tooth',
+    scene: ['🦷', '👅', '✨'],
+    lines: [
+      'Amira wiggled her tooth with her tongue.',
+      'It swung like a tiny gate now.',
+      'She took a brave breath and gave one last nudge...',
+    ],
+    next: 'The tooth pops out into her hand',
+    distract: [
+      'Her whole set of teeth zooms away',
+      'A dragon appears and brushes them',
+      'The tooth turns into a gold coin in the air',
+    ],
+  },
+  {
+    title: 'Bread for Ducks',
+    scene: ['🦆', '🍞', '🏞️'],
+    lines: [
+      'Zoe crumbled her last crust over the water.',
+      'Five greedy ducks paddled towards her.',
+      'A big white swan glided across the pond...',
+    ],
+    next: 'The swan stretches out its long neck',
+    distract: [
+      'The ducks pay her with shiny money',
+      'The pond freezes solid in a second',
+      'The bread turns into a rubber duck',
     ],
   },
 ]
@@ -362,6 +578,66 @@ const ENDING_STORIES: (StorySeed & { end: string; distract: string[] })[] = [
       'The cushion swallows them whole',
     ],
   },
+  {
+    title: 'The Muddy Boots',
+    scene: ['🥾', '🌿', '🚿'],
+    lines: [
+      'Tom stomped through the squelchy fields.',
+      'Brown mud caked his boots right to the tops.',
+      'Mum pointed at the garden hose and grinned.',
+    ],
+    end: 'Tom hoses the mud off outside',
+    distract: [
+      'The boots run away down the road',
+      'Mum plants the boots in the flower bed',
+      'The mud turns into chocolate sauce',
+    ],
+  },
+  {
+    title: 'The Broken Kite',
+    scene: ['🪁', '🪡', '🌬️'],
+    lines: [
+      "A gust tore the kite from Leo's hands.",
+      'It crash-landed in the hedge with one sail ripped.',
+      'Gran found her sewing basket and a long strip of tape.',
+    ],
+    end: 'Gran tapes the sail and it flies again',
+    distract: [
+      'The kite turns into a real bird',
+      'The hedge swallows the kite whole',
+      'Leo throws the kite into the bin',
+    ],
+  },
+  {
+    title: 'The Shy Singer',
+    scene: ['🎤', '😰', '👏'],
+    lines: [
+      'Ino froze when her name was called for the concert.',
+      'Her voice came out as a tiny squeak.',
+      'Her friends began to clap along softly.',
+    ],
+    end: 'Ino sings the whole song out loud',
+    distract: [
+      'The microphone swallows her song',
+      'Everyone runs out of the hall',
+      'The stage turns into a swimming pool',
+    ],
+  },
+  {
+    title: 'The Seedling',
+    scene: ['🌱', '🪣', '☀️'],
+    lines: [
+      'Asha watered her little seedling every day.',
+      'One morning only one green leaf stayed up.',
+      'She carried the pot to the sunny window.',
+    ],
+    end: 'The seedling grows tall and strong',
+    distract: [
+      'The pot turns into a hungry dinosaur',
+      'The leaf flies off to the moon',
+      'The plant shrinks into a tiny pebble',
+    ],
+  },
 ]
 
 const gPickEnding = (rand: Rand): Question => {
@@ -416,6 +692,39 @@ const FEEL_STORIES: (StorySeed & { feel: string; options: string[] })[] = [
     ],
     feel: 'sad',
     options: ['sad', 'excited', 'proud'],
+  },
+  {
+    title: 'The Big Reading Badge',
+    scene: ['🏅', '📚', '😊'],
+    lines: [
+      'Kai read his longest book yet today.',
+      'Miss Green pinned a shiny badge to his shirt.',
+      'He stood taller than everyone in the line.',
+    ],
+    feel: 'proud',
+    options: ['proud', 'shy', 'sleepy'],
+  },
+  {
+    title: 'The Missing Hamster',
+    scene: ['🐹', '🔍', '😨'],
+    lines: [
+      'Nils came home to an empty cage door.',
+      'He searched under the sofa and the rug.',
+      'He kept glancing at the loose wire.',
+    ],
+    feel: 'worried',
+    options: ['worried', 'delighted', 'bored'],
+  },
+  {
+    title: 'Party Invitation',
+    scene: ['🎉', '✉️', '🥳'],
+    lines: [
+      'A fat envelope landed on the doormat.',
+      'Rosa ripped it open with quick fingers.',
+      'Her name was printed on the golden ticket.',
+    ],
+    feel: 'excited',
+    options: ['excited', 'calm', 'grumpy'],
   },
 ]
 
@@ -476,6 +785,70 @@ const EVIDENCE_STORIES: (StorySeed & { ask: string; proof: string; distract: str
       'He sobbed quietly in the goal net',
     ],
   },
+  {
+    title: 'The Lost Chick',
+    scene: ['🐤', '🌾', '😥'],
+    lines: [
+      'One chick tumbled from the high nest.',
+      'It cheeped weakly in the long grass.',
+      'Mum hen clucked and ran towards it.',
+    ],
+    ask: 'Which line shows the chick is in trouble?',
+    proof: 'It cheeped weakly in the long grass.',
+    distract: [
+      'It strutted like a proud rooster',
+      'It pecked happily at sweet corn',
+      'It flapped up to the fence to roost',
+    ],
+  },
+  {
+    title: 'Surprise Sleepover',
+    scene: ['🛏️', '🥳', '😄'],
+    lines: [
+      'Ammara answered the door in her slippers.',
+      'Her cousin stood there with a big rucksack.',
+      'Ammara whooped and grabbed her overnight bag.',
+    ],
+    ask: 'Which line shows Ammara is thrilled?',
+    proof: 'Ammara whooped and grabbed her overnight bag.',
+    distract: [
+      'She yawned and shuffled to the sofa',
+      'She closed the door quietly',
+      'She started to tidy the shoes',
+    ],
+  },
+  {
+    title: 'The Splinter',
+    scene: ['🪵', '✋', '😢'],
+    lines: [
+      'Rafi pulled a long splinter from the fence.',
+      'Tears rolled down his dusty cheeks.',
+      'Dad hurried over with the tweezers.',
+    ],
+    ask: 'Which line shows Rafi is upset?',
+    proof: 'Tears rolled down his dusty cheeks.',
+    distract: [
+      'He laughed all the way down the garden',
+      'He danced on the grass with his friends',
+      'He waved at the neighbour on his bike',
+    ],
+  },
+  {
+    title: 'The Raging River',
+    scene: ['🌊', '🚤', '⛈️'],
+    lines: [
+      'Brown water churned under the little bridge.',
+      'Branches banged against the wooden posts.',
+      'Dad backed the family away from the edge.',
+    ],
+    ask: 'Which line shows the river is dangerous?',
+    proof: 'Brown water churned under the little bridge.',
+    distract: [
+      'The water trickled over smooth stones',
+      'A duck paddled slowly past',
+      'The sun sparkled on the calm surface',
+    ],
+  },
 ]
 
 const gFindEvidence = (rand: Rand): Question => {
@@ -519,6 +892,50 @@ const REPEAT_STORIES: (StorySeed & { repeat: string; distract: string[] })[] = [
     ],
     repeat: 'Tick, tock',
     distract: ['the kitchen clock', 'through the night', 'burst in with a bang'],
+  },
+  {
+    title: 'Buzz, Buzz',
+    scene: ['🐝', '🌼', '🎵'],
+    lines: [
+      'Buzz, buzz, went the busy bee.',
+      'Buzz, buzz, round the foxglove tree.',
+      'Buzz, buzz, now it flies to me!',
+    ],
+    repeat: 'Buzz, buzz',
+    distract: ['busy bee', 'foxglove tree', 'flies to me'],
+  },
+  {
+    title: 'Sweep and Sweep',
+    scene: ['🧹', '🍂', '🍁'],
+    lines: [
+      'Sweep the leaves, sweep the leaves,',
+      'Under the gate and round the trees,',
+      'Sweep them up before the freeze!',
+    ],
+    repeat: 'Sweep the leaves',
+    distract: ['under the gate', 'round the trees', 'before the freeze'],
+  },
+  {
+    title: 'Twinkle Stars',
+    scene: ['⭐', '🌙', '✨'],
+    lines: [
+      'Twinkle, twinkle, little star,',
+      'Twinkle, twinkle, there you are,',
+      'Peeping through the window bar.',
+    ],
+    repeat: 'Twinkle',
+    distract: ['little star', 'there you are', 'window bar'],
+  },
+  {
+    title: 'Slide Away',
+    scene: ['🛝', '😄', '☀️'],
+    lines: [
+      'Up I climb and down I slide,',
+      'Up I climb and down I slide,',
+      'Round the playground, far and wide!',
+    ],
+    repeat: 'Up I climb and down I slide',
+    distract: ['down I slide', 'round the playground', 'far and wide'],
   },
 ]
 
@@ -564,6 +981,50 @@ const RHYME_STORIES: (StorySeed & { pair: string; distract: string[] })[] = [
     pair: 'moon / spoon',
     distract: ['moon / owl', 'polished / drowsy', 'tune / pillows'],
   },
+  {
+    title: 'The Big Dig',
+    scene: ['🚜', '🕳️', '🪱'],
+    lines: [
+      'The digger made a deep dark hole.',
+      'It rolled straight past the rabbit warren.',
+      'The mole popped out to watch it rumble.',
+    ],
+    pair: 'hole / mole',
+    distract: ['digger / mole', 'dark / rabbit', 'warren / rumble'],
+  },
+  {
+    title: 'The Dinosaur Bone',
+    scene: ['🦴', '🦖', '🏫'],
+    lines: [
+      'We found a bone beneath the stones.',
+      'The teacher carried it home on the bus.',
+      'Nobody knew whose bone it was.',
+    ],
+    pair: 'bone / stones',
+    distract: ['bone / teacher', 'stones / bus', 'whose / carried'],
+  },
+  {
+    title: 'The Cheerful Bear',
+    scene: ['🐻', '🍯', '🪑'],
+    lines: [
+      'The bear sat down upon a chair.',
+      'He licked the golden honey there.',
+      'Sticky paws and messy hair!',
+    ],
+    pair: 'chair / there',
+    distract: ['bear / honey', 'golden / sticky', 'hair / paws'],
+  },
+  {
+    title: 'Jump the Puddle',
+    scene: ['🌧️', '🥾', '💦'],
+    lines: [
+      'I jumped the puddle, splash and spatter,',
+      'My boots got soaked, it did not matter,',
+      'I hopped all home and heard the pitter-patter.',
+    ],
+    pair: 'spatter / matter',
+    distract: ['jumped / soaked', 'puddle / pitter', 'home / boots'],
+  },
 ]
 
 const gSpotRhyme = (rand: Rand): Question => {
@@ -596,6 +1057,36 @@ const BOSS_WHO: (StorySeed & { who: string })[] = [
       'His glided furthest of all!',
     ],
     who: 'Alfie',
+  },
+  {
+    title: 'The Whispering Well',
+    scene: ['🪣', '⛲', '✨'],
+    lines: [
+      'Mia lowered her bucket into the old well.',
+      'Something down there hummed a silvery tune.',
+      'She pulled up a water beetle wearing a tiny crown.',
+    ],
+    who: 'Mia',
+  },
+  {
+    title: 'The Midnight Bakery',
+    scene: ['🥐', '🌙', '😈'],
+    lines: [
+      'Ben crept downstairs following a warm sweet smell.',
+      'The flour sacks were bouncing on their own.',
+      'He grabbed a moon-shaped loaf and bolted back to bed.',
+    ],
+    who: 'Ben',
+  },
+  {
+    title: 'The Clock Thief',
+    scene: ['🕐', '🕳️', '🏃'],
+    lines: [
+      'Zoe spotted a hooded figure stuffing clocks into a sack.',
+      'She chased it down the echoing alley.',
+      'At last she grabbed the sack and freed every chime.',
+    ],
+    who: 'Zoe',
   },
 ]
 
@@ -643,6 +1134,54 @@ const BOSS_SEQUENCE: (StorySeed & { events: string[] })[] = [
       'They crowned the fort with a snowman',
     ],
   },
+  {
+    title: 'The Volcano Project',
+    scene: ['🌋', '🧪', '🏆'],
+    lines: [
+      'Sam glued the cardboard cone onto the tray.',
+      'He spooned in the bicarbonate of soda and red paint.',
+      'Fizz! Orange foam bubbled over the rim.',
+      'The whole class clapped as it erupted.',
+    ],
+    events: [
+      'Sam builds the cardboard volcano',
+      'He adds soda and red paint',
+      'Foam fizzes over the rim',
+      'The class claps for the eruption',
+    ],
+  },
+  {
+    title: 'The Broken Swing',
+    scene: ['🛝', '🔧', '🎠'],
+    lines: [
+      "The chain on Poppy's swing snapped with a bang.",
+      'She fetched Mr Lane from the shed.',
+      'He clamped a shiny new link in place.',
+      'Poppy swung higher than the willow tree.',
+    ],
+    events: [
+      'The swing chain snaps',
+      'Poppy fetches Mr Lane',
+      'He fits a new link',
+      'Poppy swings higher than before',
+    ],
+  },
+  {
+    title: 'The Class Pet',
+    scene: ['🐹', '🏠', '💕'],
+    lines: [
+      'A cardboard cage arrived on Monday morning.',
+      'The children took turns filling the water bottle.',
+      'By Friday the hamster knew all their names.',
+      'Everyone waved goodbye when it went home.',
+    ],
+    events: [
+      'The cage arrives on Monday',
+      'The children fill the water bottle',
+      'The hamster learns their names',
+      'It goes home on Friday',
+    ],
+  },
 ]
 
 const gBossSequence = (rand: Rand): Question => {
@@ -685,6 +1224,51 @@ const BOSS_NEXT: (StorySeed & { next: string; distract: string[] })[] = [
       'The stairs float up into the clouds',
     ],
   },
+  {
+    title: 'The Hole in the Fence',
+    scene: ['🐔', '🪶', '🌿'],
+    lines: [
+      'Two hens squeezed through the hole in the fence.',
+      'They pecked along the dusty lane.',
+      'A shadow fell across the pebbles...',
+    ],
+    next: 'The farmer scoops them up gently',
+    distract: [
+      'The hens build a rocket in the lane',
+      'The fence grows taller than the trees',
+      'The pebbles turn into biscuits',
+    ],
+  },
+  {
+    title: 'The Long Jump',
+    scene: ['🏃', '🏖️', '🎽'],
+    lines: [
+      'Tara rocked back on her heels at the white line.',
+      'The crowd went suddenly quiet.',
+      'She swung her arms and bent her knees...',
+    ],
+    next: 'She sails through the air and lands in the sand',
+    distract: [
+      'She floats up into the clouds',
+      'The sandpit turns into a chocolate lake',
+      'The crowd grows wings and flies off',
+    ],
+  },
+  {
+    title: 'The Secret Door',
+    scene: ['🚪', '🗝️', '🕯️'],
+    lines: [
+      'Behind the bookcase a tiny keyhole appeared.',
+      'Dusty light spilled out around the edges.',
+      'Mia turned the smallest key in the house...',
+    ],
+    next: 'A staircase of glittering steps opens up',
+    distract: [
+      'The door turns into a slice of toast',
+      'The key melts into a puddle',
+      'The bookcase swallows the keyhole',
+    ],
+  },
 ]
 
 const gBossPredict = (rand: Rand): Question => {
@@ -719,6 +1303,39 @@ const BOSS_FEELINGS: (StorySeed & { feel: string; options: string[] })[] = [
     ],
     feel: 'happy',
     options: ['happy', 'grumpy', 'worried'],
+  },
+  {
+    title: "Sam's Shiny Trophy",
+    scene: ['🏆', '😞', '⚽'],
+    lines: [
+      'Sam lifted the golden cup above his head.',
+      'His best friend clapped slowly at the back.',
+      'The friend kicked at the grass and looked away.',
+    ],
+    feel: 'jealous',
+    options: ['jealous', 'pleased', 'sleepy'],
+  },
+  {
+    title: 'Before the Play',
+    scene: ['🎭', '😬', '🎬'],
+    lines: [
+      'Ivy peeked through the curtain at the full hall.',
+      'Her hands felt cold and clammy.',
+      'The music started and her feet moved forwards.',
+    ],
+    feel: 'nervous',
+    options: ['nervous', 'bored', 'furious'],
+  },
+  {
+    title: 'The Kind Surprise',
+    scene: ['🍪', '🎁', '🥹'],
+    lines: [
+      'Grandma left a plate of warm cookies by my bed.',
+      'She made them even though her back hurt.',
+      'I hugged her twice and said thank you.',
+    ],
+    feel: 'grateful',
+    options: ['grateful', 'cross', 'frightened'],
   },
 ]
 

@@ -18,6 +18,10 @@ const gPlanOrder: Gen = (rand) => {
     ['Choose two astronauts', 'Pick a faraway planet', 'Invent a wobbly robot problem', 'Plan a safe trip home'],
     ['Pick a kind princess', 'Choose a deep dark wood', 'Add a grumpy troll', 'Plan a clever escape'],
     ['Choose a lost kitten', 'Picture our quiet village', 'Imagine it stuck up a tree', 'Plan a ladder rescue'],
+    ['Pick a shy dinosaur', 'Choose a misty mountain', 'Add a rumbling volcano', 'Plan a speedy escape'],
+    ['Choose a friendly dragon', 'Pick a shiny cave', 'Add a hungry knight', 'Plan a safe way home'],
+    ['Pick a helpful pilot', 'Choose a cloudy sky', 'Invent a wobbly storm', 'Plan a smooth landing'],
+    ['Choose a clever detective', 'Pick a city at night', 'Add a sneaky clue', 'Plan a big reveal'],
   ]
   return orderQ('Order the story plan!', pick(rand, themes), {
     hint: 'Writers choose WHO first',
@@ -32,6 +36,10 @@ const gSettingPick: Gen = (rand) => {
     { emojis: [PICTURE_BANK.island], answer: 'an island', wrong: ['a busy city', 'an igloo', 'a train station'] },
     { emojis: [PICTURE_BANK.mountain], answer: 'a mountain', wrong: ['a swimming pool', 'a bakery', 'a flat field'] },
     { emojis: [PICTURE_BANK.garden], answer: 'a garden', wrong: ['a stadium', 'a garage', 'the North Pole'] },
+    { emojis: [PICTURE_BANK.house], answer: 'a house', wrong: ['a rocket', 'a lake', 'a desert'] },
+    { emojis: [PICTURE_BANK.moon], answer: 'the moon', wrong: ['a farm', 'a cave', 'a river'] },
+    { emojis: [PICTURE_BANK.shop], answer: 'a shop', wrong: ['a palace', 'a jungle', 'a pond'] },
+    { emojis: [PICTURE_BANK.road], answer: 'a busy road', wrong: ['a snowy peak', 'a quiet island', 'a big farm'] },
   ]
   const set = pick(rand, sets)
   return mcqE(rand, 'Where is this story set?', set.answer, set.wrong, {
@@ -125,6 +133,10 @@ const gDescribeBuild: Gen = (rand) => {
     ['The', 'grumpy', 'troll', 'stomps', 'away'],
     ['My', 'enormous', 'sandwich', 'holds', 'cheese'],
     ['The', 'sparkly', 'crown', 'glitters', 'brightly'],
+    ['The', 'brave', 'knight', 'guards', 'the', 'gate'],
+    ['A', 'tiny', 'ant', 'carries', 'a', 'crumb'],
+    ['The', 'warm', 'toast', 'melts', 'the', 'butter'],
+    ['Our', 'loud', 'clock', 'wakes', 'everyone', 'up'],
   ]
   return orderQ('Build a describing sentence!', pick(rand, sentences), {
     hint: 'Slip the adjective before the noun',
@@ -158,6 +170,26 @@ const gDescribePick: Gen = (rand) => {
       correct: 'A fierce lion roars on the dusty plain.',
       wrong: ['A quiet rabbit nibbles grass.', 'Big and loud.'],
     },
+    {
+      emoji: PICTURE_BANK.frog,
+      correct: 'A small green frog leaps off the lily pad.',
+      wrong: ['A big red bus rumbles past.', 'Green and jumpy.'],
+    },
+    {
+      emoji: PICTURE_BANK.owl,
+      correct: 'A wise old owl hoots in the dark.',
+      wrong: ['A fast car speeds down the road.', 'Night time.'],
+    },
+    {
+      emoji: PICTURE_BANK.boat,
+      correct: 'A little white boat sails across the bay.',
+      wrong: ['A huge horse gallops fast.', 'Wet and salty.'],
+    },
+    {
+      emoji: PICTURE_BANK.snail,
+      correct: 'A tiny snail creeps along the leaf.',
+      wrong: ['A giant panda crunches bamboo.', 'Slow and small.'],
+    },
   ]
   const s = pick(rand, scenes)
   return mcqE(rand, 'Tap the best describing sentence', s.correct, s.wrong, {
@@ -188,6 +220,21 @@ const gFactGroup: Gen = (rand) => {
       fits: 'Frogspawn hatches into tadpoles.',
       other: ['Frogs hop on springy legs.', 'Ponds make cosy homes.', 'Frogs snatch flies with tongues.'],
     },
+    {
+      heading: 'Where Penguins Live',
+      fits: 'Penguins live on the icy shores.',
+      other: ['Penguins cannot fly at all.', 'Penguins have black and white feathers.', 'Penguins eat little silver fish.'],
+    },
+    {
+      heading: 'How Birds Sing',
+      fits: 'Birds sing to chat with each other.',
+      other: ['Birds have feathers and wings.', 'Bird eggs have hard shells.', 'Birds build cosy nests in trees.'],
+    },
+    {
+      heading: 'All About the Moon',
+      fits: 'The moon circles round our Earth.',
+      other: ['The moon has no air to breathe.', 'The moon is smaller than Earth.', 'Footprints stay on the moon forever.'],
+    },
   ]
   const sec = pick(rand, sections)
   const cs = shuffle(rand, [sec.fits, ...sec.other])
@@ -202,6 +249,9 @@ const gReportOrder: Gen = (rand) => {
     ['My Pet Rabbit', 'Rabbits make lovely quiet pets.', 'Nibbles munches hay and crunchy carrots.', 'Every home needs a hoppy friend!'],
     ['Volatile Volcanoes', 'A volcano is a mountain that erupts.', 'Red-hot lava oozes down its sides.', 'Volcanoes absolutely rock!'],
     ['Brilliant Boats', 'Boats float and carry people.', 'Sails catch the wind to push along.', 'Boats are brilliant machines!'],
+    ['Super Spiders', 'Spiders are not insects.', 'They spin silky webs to trap flies.', 'Spiders are brilliant hunters!'],
+    ['Great Gardens', 'Plants need light and water to grow.', 'Bees help flowers to make seeds.', 'Gardens are full of busy life!'],
+    ['Amazing Aeroplanes', 'Aeroplanes have big strong wings.', 'Engines push them high into the sky.', 'Aeroplanes link the whole world!'],
   ]
   return orderQ('Stack the report in order!', pick(rand, kits), {
     hint: 'Title on top, ending last',
@@ -215,6 +265,10 @@ const gErrorHunt: Gen = (rand) => {
     { good: 'We visited the castle on Friday.', bad: ['we visited the castle on friday.', 'We visited the castle on friday.'] },
     { good: 'The happy dog wagged its tail.', bad: ['The happy dog wagged it tail.', 'the happy dog wagged its tail.'] },
     { good: 'Sam sat down and read.', bad: ['Sam sat down down and read.', 'sam sat down and read.'] },
+    { good: 'The red kite flew high.', bad: ['the red kite flew high.', 'The red kite flew high'] },
+    { good: 'My mum works at the shop.', bad: ['My mum works at the shop', 'my mum works at The shop.'] },
+    { good: 'We fed the hungry cats.', bad: ['We fed the hungry cats', 'We fed the hungry hungry cats.'] },
+    { good: 'The sun rose over the hills.', bad: ['The sun rose over the hills', 'the sun rose over the hills.'] },
   ]
   const item = pick(rand, items)
   const cs = shuffle(rand, [item.good, ...item.bad])
@@ -230,6 +284,10 @@ const gProofreadHear: Gen = (rand) => {
     'Rain pattered on the window all afternoon.',
     'Our teacher tells funny jokes on Fridays.',
     'The little boat bobbed on the choppy sea.',
+    'The big dog chased its ball across the park.',
+    'We planted sunflower seeds in the garden.',
+    'Sam packed his shoes for the long walk.',
+    'The baby smiled at the shiny balloons.',
   ]
   return speakQ('Read it aloud - does it make sense?', pick(rand, lines), {
     hint: 'Catch any silly slip-ups!',

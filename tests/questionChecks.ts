@@ -36,5 +36,20 @@ export function expectValidQuestion(q: Question) {
       }
       break
     }
+    case 'letter-tiles': {
+      expect(typeof q.targetWord).toBe('string')
+      expect(q.targetWord.length).toBeGreaterThanOrEqual(2)
+      break
+    }
+    case 'truefalse': {
+      expect(typeof q.answer).toBe('boolean')
+      expect(q.statement.length).toBeGreaterThan(0)
+      break
+    }
+    case 'speak': {
+      expect(typeof q.targetText).toBe('string')
+      expect(q.targetText.length).toBeGreaterThan(0)
+      break
+    }
   }
 }

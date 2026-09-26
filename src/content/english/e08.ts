@@ -49,6 +49,10 @@ const ING_WORDS = [
   { sum: 'sing + ing', word: 'singing', hint: 'La la la!' },
   { sum: 'walk + ing', word: 'walking', hint: 'One foot at a time!' },
   { sum: 'help + ing', word: 'helping', hint: 'Lend a hand!' },
+  { sum: 'cook + ing', word: 'cooking', hint: 'Yum yum!' },
+  { sum: 'draw + ing', word: 'drawing', hint: 'Pencils ready!' },
+  { sum: 'laugh + ing', word: 'laughing', hint: 'Ha ha ha!' },
+  { sum: 'cry + ing', word: 'crying', hint: 'A single tear!' },
 ]
 
 function gIngTiles(rand: Rand) {
@@ -62,6 +66,10 @@ const ING_FILL: { text: string; answer: string; wrong: string[] }[] = [
   { text: 'We are ___ to school.', answer: 'walking', wrong: ['walk', 'walks', 'walked', 'ran', 'sit'] },
   { text: 'He is ___ with the ball.', answer: 'playing', wrong: ['play', 'plays', 'played', 'kick', 'bounced'] },
   { text: 'Mum is ___ dinner.', answer: 'cooking', wrong: ['cook', 'cooks', 'cooked', 'eat', 'washed'] },
+  { text: 'The baby is ___.', answer: 'crying', wrong: ['cry', 'cries', 'cried', 'smile', 'laughed'] },
+  { text: 'Dad is ___ a picture.', answer: 'drawing', wrong: ['draw', 'draws', 'drew', 'paint', 'coloured'] },
+  { text: 'The children are ___ at the clown.', answer: 'laughing', wrong: ['laugh', 'laughs', 'laughed', 'watch', 'clapped'] },
+  { text: 'I am ___ my hands.', answer: 'washing', wrong: ['wash', 'washes', 'washed', 'dry', 'dried'] },
 ]
 
 function gIngFill(rand: Rand) {
@@ -77,6 +85,10 @@ const MIXED_TENSE: { text: string; answer: string; wrong: string[] }[] = [
   { text: 'Last week it ___ all week.', answer: 'rained', wrong: ['rains', 'rain', 'raining', 'is raining', 'will rain'] },
   { text: 'Yesterday we ___ in the yard.', answer: 'skipped', wrong: ['skip', 'skips', 'skipping', 'are skipping', 'will skip'] },
   { text: 'On Mondays she ___ the piano.', answer: 'plays', wrong: ['play', 'played', 'playing', 'will played', 'have played'] },
+  { text: 'Last night we ___ a film.', answer: 'watched', wrong: ['watch', 'watches', 'watching', 'are watching', 'will watch'] },
+  { text: 'Every morning Grandad ___ his breakfast.', answer: 'makes', wrong: ['made', 'making', 'make', 'is making', 'will make'] },
+  { text: 'Yesterday the baby ___ for a long time.', answer: 'slept', wrong: ['sleeps', 'sleep', 'sleeping', 'is sleeping', 'will sleep'] },
+  { text: 'In summer it ___ very hot.', answer: 'gets', wrong: ['got', 'getting', 'get', 'is getting', 'will get'] },
 ]
 
 function gMixedTense(rand: Rand) {
@@ -111,6 +123,26 @@ const HEAR_ITEMS: { heard: string; correct: string; wrong: [string, string] }[] 
     heard: 'Last night it rained hard.',
     correct: 'Last night it rained hard.',
     wrong: ['Last night it rains hard.', 'Last night it raining hard.'],
+  },
+  {
+    heard: 'Yesterday we walked to the woods.',
+    correct: 'Yesterday we walked to the woods.',
+    wrong: ['Yesterday we walk to the woods.', 'Yesterday we walking to the woods.'],
+  },
+  {
+    heard: 'This morning Dad cooked pancakes.',
+    correct: 'This morning Dad cooked pancakes.',
+    wrong: ['This morning Dad cook pancakes.', 'This morning Dad cooking pancakes.'],
+  },
+  {
+    heard: 'Every day the baby sleeps in the pram.',
+    correct: 'Every day the baby sleeps in the pram.',
+    wrong: ['Every day the baby sleep in the pram.', 'Every day the baby sleeping in the pram.'],
+  },
+  {
+    heard: 'Right now we are watching the boats.',
+    correct: 'Right now we are watching the boats.',
+    wrong: ['Right now we watch the boats.', 'Right now we watching the boats.'],
   },
 ]
 

@@ -2,7 +2,7 @@ import type { Question } from "../types"
 import {
   MATERIALS, MATERIAL_BANK, MATERIAL_PROPERTY, MATERIAL_CHANGES, PROPERTY_BANK,
   mcqE, matchQ, orderQ, tfQ,
-  pick, pickOthers, shuffle, type Gen, type Rand,
+  pick, pickOthers, randInt, shuffle, type Gen, type Rand,
   makeLesson, unitDef,
 } from "./helpers"
 
@@ -18,6 +18,41 @@ const PURPOSE: { material: string; use: string; property: string }[] = [
 ]
 const WATERPROOF_ITEMS = ["plastic bag", "rubber glove", "waxed coat", "raincoat"]
 const NOT_WATERPROOF = ["cardboard box", "paper bag", "tissue", "wooden door"]
+const REVERSIBLE_TF: { statement: string; answer: boolean }[] = [
+  { statement: "A reversible change can be undone like ice melting back to water.", answer: true },
+  { statement: "Freezing juice into an ice pop is reversible because it melts back to juice.", answer: true },
+  { statement: "Burning a piece of paper is an irreversible change.", answer: true },
+  { statement: "Bending a wire is reversible because you can bend it straight again.", answer: true },
+  { statement: "An irreversible change can always be undone exactly as it was.", answer: false },
+  { statement: "Breaking a cup into pieces is a reversible change.", answer: false },
+  { statement: "Melting an ice cube is an irreversible change.", answer: false },
+  { statement: "Dissolving sugar in water can be reversed by boiling the water away.", answer: true },
+]
+const HARD_SOFT_PAIRS: { left: string; right: string }[] = [
+  { left: "wood", right: "hard" }, { left: "stone", right: "hard" },
+  { left: "paper", right: "soft" }, { left: "rubber", right: "soft" },
+  { left: "metal", right: "hard" }, { left: "glass", right: "hard" },
+  { left: "fabric", right: "soft" }, { left: "plastic", right: "soft" },
+  { left: "brick", right: "hard" },
+]
+const WEIGHT_ORDERS: { prompt: string; items: string[]; emojis: string[] }[] = [
+  {
+    prompt: "Order objects from LIGHTEST to HEAVIEST (just a guess!)",
+    items: ["feather", "apple", "book", "rock", "car"], emojis: ["🪶", "🍎", "📖", "🪨", "🚗"],
+  },
+  {
+    prompt: "Order these objects from the one that weighs the least to the one that weighs the most",
+    items: ["a paper clip", "an orange", "a brick", "a chair"], emojis: ["📎", "🍊", "🧱", "🪑"],
+  },
+  {
+    prompt: "Put these objects in order, heaviest first",
+    items: ["a car", "a rock", "a book", "an apple", "a feather"], emojis: ["🚗", "🪨", "📖", "🍎", "🪶"],
+  },
+  {
+    prompt: "Order these from the lightest to the heaviest",
+    items: ["a balloon", "a pencil", "a school bag", "a bicycle"], emojis: ["🎈", "✏️", "🎒", "🚲"],
+  },
+]
 
 function gNaturalOrMade(rand: Rand): Question {
   const a = pick(rand, MATERIALS)
@@ -44,19 +79,19 @@ function gChange(rand: Rand): Question {
   return mcqE(rand, `Is ${a.item} a reversible or irreversible change?`, a.kind, ["a colour change", "a different kind of change"], { visual: { type: "emoji-group", emojis: ["🔁"] } })
 }
 function gHardVsSoft(rand: Rand): Question {
-  return matchQ(rand, "Is each material HARD or SOFT?",
-    [
-      { left: "wood", right: "hard" }, { left: "stone", right: "hard" },
-      { left: "paper", right: "soft" }, { left: "rubber", right: "soft" },
-    ], { visual: { type: "emoji-group", emojis: ["🪵", "🪨", "📄", "🏀"] } },
+  const howMany = randInt(rand, 3, 4)
+  const pairs = shuffle(rand, HARD_SOFT_PAIRS).slice(0, howMany)
+  return matchQ(rand, "Is each material HARD or SOFT?", pairs,
+    { visual: { type: "emoji-group", emojis: ["🪵", "🪨", "📄", "🏀"] } },
   )
 }
 function gReversibleIdea(rand: Rand): Question {
-  return tfQ("Material change", "A reversible change can be undone like ice melting back to water.", true, { visual: { type: "emoji-group", emojis: ["🧊", "💧"] } })
+  const t = pick(rand, REVERSIBLE_TF)
+  return tfQ("Material change", t.statement, t.answer, { visual: { type: "emoji-group", emojis: ["🧊", "💧"] } })
 }
 function gOrderSolids(rand: Rand): Question {
-  return orderQ("Order objects from LIGHTEST to HEAVIEST (just a guess!)",
-    ["feather", "apple", "book", "rock", "car"], { visual: { type: "emoji-group", emojis: ["🪶", "🍎", "📖", "🪨", "🚗"] } })
+  const w = pick(rand, WEIGHT_ORDERS)
+  return orderQ(w.prompt, w.items, { visual: { type: "emoji-group", emojis: w.emojis } })
 }
 function gMultiProp(rand: Rand): Question {
   return tfQ("Material science", "A single material can have more than one useful property: for example wood is hard AND strong.", true, { visual: { type: "emoji-group", emojis: ["🪵"] } })

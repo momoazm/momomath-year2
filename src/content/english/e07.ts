@@ -112,6 +112,10 @@ const QUANT_ITEMS: { text: string; answer: string; audio: string }[] = [
   { text: 'There are 4 cakes. Every cake has a cherry. ___ of the cakes have a cherry.', answer: 'All', audio: 'All of the cakes have a cherry.' },
   { text: 'There are 7 mice. Just 3 mice are grey. ___ of the mice are grey.', answer: 'Some', audio: 'Some of the mice are grey.' },
   { text: 'There are 8 ducks. 6 ducks swim. ___ of the ducks swim.', answer: 'Most', audio: 'Most of the ducks swim.' },
+  { text: 'There are 9 rabbits. Every rabbit is white. ___ of the rabbits are white.', answer: 'All', audio: 'All of the rabbits are white.' },
+  { text: 'There are 5 fish. Only 1 fish is red. ___ of the fish are red.', answer: 'Some', audio: 'Some of the fish are red.' },
+  { text: 'There are 12 stars. 10 stars shine at night. ___ of the stars shine at night.', answer: 'Most', audio: 'Most of the stars shine at night.' },
+  { text: 'There are 6 frogs. Every frog is green. ___ of the frogs are green.', answer: 'All', audio: 'All of the frogs are green.' },
 ]
 
 function gQuantifierFill(rand: Rand) {
@@ -128,6 +132,10 @@ const QUANT_TRUE: { prompt: string; statement: string; answer: boolean }[] = [
   { prompt: 'Does “some” mean all of them?', statement: 'Some means all of them.', answer: false },
   { prompt: 'Does “most” mean every one?', statement: 'Most means every single one.', answer: false },
   { prompt: 'What does “some” mean?', statement: 'Some means more than one, but not all.', answer: true },
+  { prompt: 'What does “most” mean?', statement: 'Most means nearly all, but not every one.', answer: true },
+  { prompt: 'Does “all” mean only a few?', statement: 'All means only a few of them.', answer: false },
+  { prompt: 'Does “some” mean not all of them?', statement: 'Some means a few, but not all of them.', answer: true },
+  { prompt: 'Does “most” mean just one?', statement: 'Most means just one of them.', answer: false },
 ]
 
 function gQuantifierTrue(rand: Rand) {
@@ -174,6 +182,10 @@ const COMPARE_ITEMS: { emoji: string[] | null; text: string; answer: string; wro
   { emoji: [PICTURE_BANK.tree, PICTURE_BANK.flower], text: 'The tree is ___ than the flower.', answer: 'taller', wrong: ['shorter', 'smaller', 'lower', 'littler', 'tinier'] },
   { emoji: null, text: 'Mia came first, Zoe second and Sam last in the race. Mia was the ___ runner.', answer: 'fastest', wrong: ['slowest', 'slower', 'slow', 'sluggish', 'last'] },
   { emoji: null, text: 'A whale, a shark and a minnow swam past. The minnow was the ___ fish.', answer: 'smallest', wrong: ['biggest', 'largest', 'longest', 'widest', 'heaviest'] },
+  { emoji: [PICTURE_BANK.lion, PICTURE_BANK.cat], text: 'The lion is ___ than the cat.', answer: 'bigger', wrong: ['smaller', 'shorter', 'quieter', 'tinier', 'weaker'] },
+  { emoji: [PICTURE_BANK.rabbit, PICTURE_BANK.snail], text: 'The rabbit is ___ than the snail.', answer: 'faster', wrong: ['slower', 'smaller', 'quieter', 'shorter', 'gentler'] },
+  { emoji: [PICTURE_BANK.tree, PICTURE_BANK.ant], text: 'The tree is ___ than the ant.', answer: 'taller', wrong: ['shorter', 'smaller', 'lower', 'tinier', 'weaker'] },
+  { emoji: null, text: 'A lorry, a van and a bike went past. The lorry was the ___ of them all.', answer: 'biggest', wrong: ['smaller', 'little', 'tinier', 'shorter', 'weaker'] },
 ]
 
 function gComparePicture(rand: Rand) {
@@ -195,6 +207,10 @@ const ER_EST_WORDS = [
   { sum: 'small + est', word: 'smallest', hint: 'The tiniest one of all!' },
   { sum: 'fast + er', word: 'faster', hint: 'Zoom!' },
   { sum: 'long + er', word: 'longer', hint: 'Stretch it out!' },
+  { sum: 'short + er', word: 'shorter', hint: 'Snip it down!' },
+  { sum: 'old + est', word: 'oldest', hint: 'Wrinkles win!' },
+  { sum: 'great + est', word: 'greatest', hint: 'Hero status!' },
+  { sum: 'slow + er', word: 'slower', hint: 'Take your time!' },
 ]
 
 function gErEstTiles(rand: Rand) {

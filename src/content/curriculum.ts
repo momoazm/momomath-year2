@@ -1,5 +1,6 @@
 ﻿import type { LessonDef, Question, UnitDef } from './types'
-import { hashString, mulberry32, type Rand } from './rng'
+import { type Rand } from './rng'
+import { buildLessonQueue } from './lessonQueue'
 import * as G from './generators'
 
 type Gen = (rand: Rand) => Question
@@ -19,13 +20,8 @@ function makeLesson(
     title,
     objectiveCodes,
     intro: { mascotId, title: introTitle, body: introBody },
-    generate(n, seed) {
-      const rand = mulberry32(hashString(id) ^ (seed * 2654435761))
-      const out: Question[] = []
-      for (let i = 0; i < n - 1; i++) out.push(gens[i % gens.length](rand))
-      const finalGen = challenge ?? gens[(n - 1) % gens.length]
-      out.push(finalGen(rand))
-      return out
+    generate(n, seed, exclude) {
+      return buildLessonQueue(id, seed, n, gens, challenge, exclude)
     },
   }
 }

@@ -20,7 +20,7 @@ import { LessonSlideshow } from '../components/lesson/LessonSlideshow'
 import { ChestReveal } from '../components/ui/ChestReveal'
 import { Mascot } from '../components/mascots/Mascots'
 import { enemyArt, playerArt } from '../engine/enemyArt'
-import { speakFor, stopSpeaking } from '../engine/tts'
+import { speakFor, stopSpeaking, ttsLangFor } from '../engine/tts'
 import { sfx } from '../engine/sfx'
 
 export function BattleScreen({
@@ -347,6 +347,7 @@ export function BattleScreen({
           lines={guideLines}
           objectives={entry.lesson.objectiveCodes}
           onDone={() => setGuideDone(true)}
+          lang={ttsLangFor(subject)}
         />
       )}
 

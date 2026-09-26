@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import confetti from 'canvas-confetti'
 import {
@@ -51,6 +51,20 @@ export function ChestReveal({
   const [floater, setFloater] = useState<{ id: number; tier: ChestTier } | null>(null)
   const [shaking, setShaking] = useState(false)
   const cardStars = usePlayer((s) => s.cardStars)
+
+  // PLAN 123: the grant lands BEFORE this reveal renders (Lesson + Battle both
+  // grant first), so the card shows final stars — compute what this chest
+  // actually upgraded so the NEW stars can pop in after the card lands.
+  const firstCard = chestResult?.cards[0] ?? null
+  const upgCount = firstCard ? (cardStars[firstCard.cardId] ?? firstCard.copies) : 0
+  const gainedStars = firstCard
+    ? toStar(upgCount) - toStar(Math.max(0, upgCount - firstCard.copies))
+    : 0
+  useEffect(() => {
+    if (!revealed || gainedStars <= 0) return
+    const t = setTimeout(() => sfx.leagueUp(), 550 + (gainedStars - 1) * 220)
+    return () => clearTimeout(t)
+  }, [revealed, gainedStars])
 
   const showChest = !!chestResult && !isRedo
 
@@ -283,47 +297,86 @@ export function ChestReveal({
               ? `✨ NEW CARD! +${chestResult.copies} ${chestResult.copies === 1 ? 'copy' : 'copies'}!`
               : `+${chestResult.copies} ${chestResult.copies === 1 ? 'copy' : 'copies'} unlocked`}
           </p>
-          <div className="mt-4 flex justify-center">
+          <div className="mt-4 flex flex-col items-center justify-center gap-1.5">
             {(() => {
               const card = chestResult.cards[0]
               const def = CARD_BY_ID[card.cardId]
               if (!def) return null
               const count = cardStars[card.cardId] ?? card.copies
               const stars = toStar(count)
+              const prevStars = toStar(Math.max(0, count - card.copies))
+              const gained = stars - prevStars
+              const lastDelay = 0.55 + Math.max(0, gained - 1) * 0.22
               return (
-                <motion.div
-                  key={card.cardId}
-                  initial={{ rotateY: 180, opacity: 0 }}
-                  animate={{ rotateY: 0, opacity: 1 }}
-                  transition={{ type: 'spring', stiffness: 200, damping: 18 }}
-                  className="card-white w-44 overflow-hidden"
-                  style={{ borderColor: TIER_META[def.tier].color }}
-                >
-                  <div className="h-28 bg-gradient-to-b from-white/40 to-transparent flex items-center justify-center px-1 pt-1">
-                    <img
-                      src={cardImageUrl(def)}
-                      alt={def.name}
-                      onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
-                      className="h-full w-full object-contain drop-shadow"
-                    />
-                  </div>
-                  <div className="px-1.5 pb-1.5">
-                    <p className="font-display text-[10px] font-extrabold text-blue-600 leading-tight">
-                      {card.isNew ? '✨ NEW!' : `×${card.copies}`}
-                    </p>
-                    <p className="font-display text-sm font-extrabold text-slate-800 leading-tight">{def.name}</p>
-                    <div className="flex gap-0.5 mt-0.5 justify-center" aria-label={`${stars} out of 5 stars`}>
-                      {[1, 2, 3, 4, 5].map((s) => (
-                        <span key={s} className="text-[10px]" style={{ color: s <= stars ? '#f59e0b' : '#e2e8f0' }}>★</span>
-                      ))}
+                <>
+                  <motion.div
+                    key={card.cardId}
+                    initial={{ rotateY: 180, opacity: 0 }}
+                    animate={{ rotateY: 0, opacity: 1 }}
+                    transition={{ type: 'spring', stiffness: 200, damping: 18 }}
+                    className="card-white w-44 overflow-hidden"
+                    style={{ borderColor: TIER_META[def.tier].color }}
+                  >
+                    <div className="h-28 bg-gradient-to-b from-white/40 to-transparent flex items-center justify-center px-1 pt-1">
+                      <img
+                        src={cardImageUrl(def)}
+                        alt={def.name}
+                        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
+                        className="h-full w-full object-contain drop-shadow"
+                      />
                     </div>
-                    <p className="font-display text-[9px] font-extrabold text-slate-400 leading-tight">
-                      ★{stars}/5 · ×{count} {copiesToNextStar(count) > 0
-                        ? `· +${copiesToNextStar(count)} → ${stars + 1}★`
-                        : '· MAX ★'}
-                    </p>
-                  </div>
-                </motion.div>
+                    <div className="px-1.5 pb-1.5">
+                      <p className="font-display text-[10px] font-extrabold text-blue-600 leading-tight">
+                        {card.isNew ? '✨ NEW!' : `×${card.copies}`}
+                      </p>
+                      <p className="font-display text-sm font-extrabold text-slate-800 leading-tight">{def.name}</p>
+                      <div className="flex gap-0.5 mt-0.5 justify-center" aria-label={`${stars} out of 5 stars`}>
+                        {[1, 2, 3, 4, 5].map((s) => {
+                          const isNewStar = s > prevStars && s <= stars
+                          if (!isNewStar) {
+                            return (
+                              <span key={s} className="text-[10px]" style={{ color: s <= stars ? '#f59e0b' : '#e2e8f0' }}>
+                                ★
+                              </span>
+                            )
+                          }
+                          // star earned by THIS chest — grey until its turn, then pop gold
+                          return (
+                            <motion.span
+                              key={s}
+                              className="text-[10px]"
+                              initial={{ scale: 1, color: '#e2e8f0' }}
+                              animate={{ scale: [1, 1.6, 1], color: '#f59e0b' }}
+                              transition={{
+                                delay: 0.55 + (s - prevStars - 1) * 0.22,
+                                duration: 0.4,
+                                times: [0, 0.5, 1],
+                                ease: 'easeOut',
+                              }}
+                            >
+                              ★
+                            </motion.span>
+                          )
+                        })}
+                      </div>
+                      <p className="font-display text-[9px] font-extrabold text-slate-400 leading-tight">
+                        ★{stars}/5 · ×{count} {copiesToNextStar(count) > 0
+                          ? `· +${copiesToNextStar(count)} → ${stars + 1}★`
+                          : '· MAX ★'}
+                      </p>
+                    </div>
+                  </motion.div>
+                  {gained > 0 && (
+                    <motion.p
+                      initial={{ scale: 0.5, opacity: 0, y: 6 }}
+                      animate={{ scale: 1, opacity: 1, y: 0 }}
+                      transition={{ delay: lastDelay + 0.1, type: 'spring', stiffness: 300, damping: 14 }}
+                      className="rounded-full border-2 border-amber-300 bg-amber-50 px-3 py-0.5 font-display text-xs font-extrabold text-amber-600 shadow-pop"
+                    >
+                      ⬆️ STAR UP! {stars}★
+                    </motion.p>
+                  )}
+                </>
               )
             })()}
           </div>

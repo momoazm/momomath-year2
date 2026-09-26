@@ -45,6 +45,21 @@ const FEATURES: McqItem[] = [
     answer: 'subheading',
     wrong: ['glossary', 'label', 'contents page', 'caption', 'index'],
   },
+  {
+    q: 'It is a list at the back telling you which topic sits on which page.',
+    answer: 'index',
+    wrong: ['glossary', 'contents page', 'label', 'caption', 'subheading'],
+  },
+  {
+    q: 'It is the words printed under a photograph to explain it.',
+    answer: 'caption',
+    wrong: ['glossary', 'label', 'contents page', 'subheading', 'index'],
+  },
+  {
+    q: 'It is the big words on the front that name the whole book.',
+    answer: 'title',
+    wrong: ['glossary', 'label', 'caption', 'contents page', 'index'],
+  },
 ]
 
 const FEATURE_JOBS = [
@@ -53,6 +68,7 @@ const FEATURE_JOBS = [
   { left: 'label', right: 'names a part of a picture' },
   { left: 'subheading', right: 'tells what a section is about' },
   { left: 'caption', right: 'tells you more about a picture' },
+  { left: 'the title', right: 'names the whole book' },
 ]
 
 function gFeatureSpot(rand: Rand): Question {
@@ -95,6 +111,26 @@ const DIAGRAM_FACTS: PanelMcq[] = [
     answer: 'five',
     wrong: ['three', 'seven', 'ten', 'two', 'nine'],
   },
+  {
+    panel: story('A Plant Diagram', ['🌱', '🪴'], [
+      'This diagram labels a young plant.',
+      'Its leaves spread out to catch the light.',
+      'The stem holds the plant up tall.',
+    ]),
+    q: 'What do the leaves catch?',
+    answer: 'light',
+    wrong: ['stones', 'wind', 'toys', 'music', 'sand'],
+  },
+  {
+    panel: story('A Spider Diagram', ['🕷️', '🕸️'], [
+      'This diagram labels a spider.',
+      'It has eight legs, not six.',
+      'Silk comes out from its spinneret.',
+    ]),
+    q: 'How many legs does the spider have?',
+    answer: 'eight',
+    wrong: ['six', 'two', 'ten', 'four', 'twelve'],
+  },
 ]
 
 const DIAGRAM_CHECKS: { panel: StoryPanel; trueS: string; falseS: string }[] = [
@@ -121,6 +157,22 @@ const DIAGRAM_CHECKS: { panel: StoryPanel; trueS: string; falseS: string }[] = [
     ]),
     trueS: 'Owls see well at night.',
     falseS: 'Owls cannot see anything at all.',
+  },
+  {
+    panel: story('A Plant Diagram', ['🌱', '☀️'], [
+      'This plant diagram has labels.',
+      'Roots drink up water from the soil.',
+    ]),
+    trueS: 'Roots drink up water.',
+    falseS: 'Roots drink up milk.',
+  },
+  {
+    panel: story('A Spider Diagram', ['🕷️', '🕸️'], [
+      'This spider diagram points to eight legs.',
+      'Spiders spin silky webs to catch flies.',
+    ]),
+    trueS: 'Spiders spin silky webs.',
+    falseS: 'Spiders spin woolly jumpers.',
   },
 ]
 
@@ -175,6 +227,36 @@ const FIND_FACTS: PanelMcq[] = [
     answer: 'at night',
     wrong: ['in the morning', 'at midday', 'at breakfast time', 'after school', 'at sunrise'],
   },
+  {
+    panel: story('All About Dolphins', ['🐬', '🌊'], [
+      'Dolphins are mammals, not fish.',
+      'They breathe air through a blowhole.',
+      'Dolphins chat in clicks and whistles.',
+    ]),
+    q: 'How do dolphins breathe?',
+    answer: 'through a blowhole',
+    wrong: ['through gills', 'through their ears', 'through their tails', 'through their feet', 'through leaves'],
+  },
+  {
+    panel: story('All About Owls', ['🦉', '🌙'], [
+      'Owls fly without making a sound.',
+      'Their soft feathers muffle the wind.',
+      'They hunt mice in the dark.',
+    ]),
+    q: 'What do owls hunt at night?',
+    answer: 'mice',
+    wrong: ['fish', 'carrots', 'bees', 'seeds', 'grass'],
+  },
+  {
+    panel: story('All About Camels', ['🐫', '🏜️'], [
+      'Camels live in the hot desert.',
+      'They store fat in their humps.',
+      'Camels walk for days without water.',
+    ]),
+    q: 'What do camels store in their humps?',
+    answer: 'fat',
+    wrong: ['water', 'sand', 'grass', 'milk', 'stones'],
+  },
 ]
 
 const LOCATE_WORDS: PanelMcq[] = [
@@ -202,6 +284,24 @@ const LOCATE_WORDS: PanelMcq[] = [
     answer: 'night',
     wrong: ['leaves', 'snuffle', 'day', 'spikes', 'sleep'],
   },
+  {
+    panel: FIND_FACTS[4].panel,
+    q: 'Find the word that names how dolphins breathe.',
+    answer: 'blowhole',
+    wrong: ['dolphins', 'breathe', 'air', 'clicks', 'whistles'],
+  },
+  {
+    panel: FIND_FACTS[5].panel,
+    q: 'Find the word that names what owls hunt.',
+    answer: 'mice',
+    wrong: ['owls', 'hunt', 'sound', 'feathers', 'wind'],
+  },
+  {
+    panel: FIND_FACTS[6].panel,
+    q: 'Find the word that names where camels live.',
+    answer: 'desert',
+    wrong: ['camels', 'humps', 'fat', 'days', 'water'],
+  },
 ]
 
 function gFindTheFact(rand: Rand): Question {
@@ -220,6 +320,7 @@ const PURPOSE_JOBS = [
   { left: 'a report about bees', right: 'to give you facts' },
   { left: 'a lost-dog poster', right: 'to share important news' },
   { left: 'a joke book', right: 'to make you laugh' },
+  { left: 'a road safety poster', right: 'to warn you to stay safe' },
 ]
 
 const WHY_WRITTEN: McqItem[] = [
@@ -242,6 +343,26 @@ const WHY_WRITTEN: McqItem[] = [
     q: 'a card saying get well soon',
     answer: 'to cheer someone up',
     wrong: ['to give map directions', 'to teach numbers', 'to explain volcanoes', 'to list rules', 'to show how to knit'],
+  },
+  {
+    q: 'a poster warning about road safety',
+    answer: 'to warn you to stay safe',
+    wrong: ['to make you giggle', 'to tell a bedtime story', 'to show how to bake', 'to list your toys', 'to sing a song'],
+  },
+  {
+    q: 'instructions for a new board game',
+    answer: 'to show you how to play',
+    wrong: ['to scare you', 'to give facts about frogs', 'to cheer someone up', 'to sell a bike', 'to describe a cloud'],
+  },
+  {
+    q: 'a leaflet about amazing dinosaurs',
+    answer: 'to teach you about dinosaurs',
+    wrong: ['to tell a joke', 'to show a recipe', 'to give map directions', 'to sing a lullaby', 'to list rules'],
+  },
+  {
+    q: 'a birthday card for your best friend',
+    answer: 'to make your friend smile',
+    wrong: ['to teach you numbers', 'to warn about storms', 'to give facts about sharks', 'to show how to cook', 'to tell the time'],
   },
 ]
 
@@ -282,12 +403,49 @@ const MAIN_POINTS: { prompt: string; panel: StoryPanel; items: string[] }[] = [
     ]),
     items: ['Wash your hands.', 'Spread jam on the bread.', 'Put the slices together.'],
   },
+  {
+    prompt: 'Put the main points in order.',
+    panel: story('All About Dolphins', ['🐬', '🌊'], [
+      'Dolphins live in the sea.',
+      'They breathe air at the surface.',
+      'Dolphins chat in clicks.',
+    ]),
+    items: ['Dolphins live in the sea.', 'They breathe air at the surface.', 'Dolphins chat in clicks.'],
+  },
+  {
+    prompt: 'Put the main points in order.',
+    panel: story('How a Pumpkin Grows', ['🎃', '🌱'], [
+      'First a seed sprouts in the soil.',
+      'A vine creeps along the ground.',
+      'At last a big orange pumpkin sits there.',
+    ]),
+    items: ['A seed sprouts in the soil.', 'A vine creeps along the ground.', 'A big orange pumpkin sits there.'],
+  },
+  {
+    prompt: 'Put the steps in order.',
+    panel: story('How to Brush Your Teeth', ['🪥', '🦷'], [
+      'First, put paste on the brush.',
+      'Then brush every tooth.',
+      'Finally, rinse with water.',
+    ]),
+    items: ['Put paste on the brush.', 'Brush every tooth.', 'Rinse with water.'],
+  },
 ]
 
 const SAY_FACTS: { panel: StoryPanel; target: string }[] = [
   { panel: FIND_FACTS[0].panel, target: 'Bees make sweet honey in a hive.' },
   { panel: FIND_FACTS[1].panel, target: 'Penguins love to slide on the ice.' },
   { panel: FIND_FACTS[3].panel, target: 'Hedgehogs hunt for food at night.' },
+  { panel: FIND_FACTS[2].panel, target: 'Sunflowers turn their faces to the sun.' },
+  { panel: FIND_FACTS[4].panel, target: 'Dolphins breathe air through a blowhole.' },
+  { panel: FIND_FACTS[6].panel, target: 'Camels store fat in their humps.' },
+  {
+    panel: story('All About Volcanoes', ['🌋', '🔥'], [
+      'A volcano is a mountain that erupts.',
+      'Hot melted rock pours out as lava.',
+    ]),
+    target: 'A volcano is a mountain that erupts.',
+  },
 ]
 
 function gOrderPoints(rand: Rand): Question {

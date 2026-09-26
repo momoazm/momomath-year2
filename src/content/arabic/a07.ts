@@ -87,34 +87,85 @@ const a7l2 = makeLesson(
 
 /* ---------- a7l3: نشيد رياضتي + أنشطتي المميزة ---------- */
 
+const ANTHEM_LINES = [
+  'رياضتي تقويني',
+  'أجري وألعب كل صباح',
+  'الفوز حلو باللعب النظيف',
+  'أحب الرياضة وألعب كل يوم',
+  'الرياضة تقوي جسمي وصحتي',
+  'ألعب مع أصدقائي في الحديقة',
+  'أحافظ على اللعب النظيف دائما',
+]
+
 function a7AnthemHear(rand: Rand): Question {
-  const line = pick(rand, ['رياضتي تقويني', 'أجري وألعب كل صباح', 'الفوز حلو باللعب النظيف'])
-  const others = ['رياضتي تقويني', 'أجري وألعب كل صباح', 'الفوز حلو باللعب النظيف'].filter((l) => l !== line)
+  const line = pick(rand, ANTHEM_LINES)
+  const others = ANTHEM_LINES.filter((l) => l !== line)
   return mcqE(rand, 'استمع واضغط على سطر النشيد الذي سمعته', line, others, say(line))
 }
 
 function a7AnthemSpeak(rand: Rand): Question {
-  const line = pick(rand, ['رياضتي تقويني وأجري كل صباح', 'ألعب مع أصدقائي باللعب النظيف'])
+  const line = pick(rand, [
+    'رياضتي تقويني وأجري كل صباح',
+    'ألعب مع أصدقائي باللعب النظيف',
+    'أحب رياضتي وأنا نشيط',
+    'الرياضة تقوي الجسم والقلب',
+    'ألعب كرة القدم كل مساء',
+    'أحب السباحة والجري',
+    'اللعب النظيف فوز جميل',
+  ])
   return speakQ('غِنِّ نشيد رياضتي', line, { hint: 'رياضي بصوت قوي!' })
 }
 
-const SPORT_TILES = ['كرة', 'نادي', 'فوز', 'ملعب', 'سباق']
+const SPORT_TILES = ['كرة', 'نادي', 'فوز', 'ملعب', 'سباق', 'مدرب', 'كأس', 'جمهور']
 
 function a7SportTiles(rand: Rand): Question {
   const w = pick(rand, SPORT_TILES)
   return tilesQ('اكتب كلمة من عالم الرياضة', w, 'تذكر حروف الكلمة جيدا')
 }
 
-function a7MyActivity(rand: Rand): Question {
-  void rand
-  return {
-    kind: 'tap-count',
+/** Tap-the-sport drills (a7l3). First entry is the original ball drill; each
+ *  task has its own prompt so it counts as its own question. */
+const MY_ACTIVITY_TAPS: Array<{
+  prompt: string
+  target: number
+  targetEmoji: string
+  cells: string[]
+  hint: string
+}> = [
+  {
     prompt: 'اضغط على كل الكرات التي تراها',
     target: 3,
     targetEmoji: '⚽',
     cells: ['⚽', '🏀', '⚽', '🎾', '⚽', '🏊', '🚲', '🏀'],
     hint: 'الكرة المستديرة فقط!',
-  } as Question
+  },
+  {
+    prompt: 'اضغط على كل الدراجات التي تراها',
+    target: 2,
+    targetEmoji: '🚲',
+    cells: ['🚲', '⚽', '🚲', '🏀', '🎾', '🏊', '⚽', '🏀'],
+    hint: 'الدراجة فقط!',
+  },
+  {
+    prompt: 'اضغط على كل السباحين الذين تراهم',
+    target: 3,
+    targetEmoji: '🏊',
+    cells: ['🏊', '⚽', '🏊', '🚲', '🏀', '🎾', '⚽', '🏊'],
+    hint: 'السبّاح فقط!',
+  },
+]
+
+function a7MyActivity(rand: Rand): Question {
+  const task = pick(rand, MY_ACTIVITY_TAPS)
+  const q: Question = {
+    kind: 'tap-count',
+    prompt: task.prompt,
+    target: task.target,
+    targetEmoji: task.targetEmoji,
+    cells: task.cells,
+    hint: task.hint,
+  }
+  return q
 }
 
 const a7l3 = makeLesson(

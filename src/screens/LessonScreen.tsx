@@ -7,7 +7,7 @@ import { isLessonRedo, crownsEarned } from '../engine/path'
 import { usePlayer } from '../engine/store'
 import { rollChest, type ChestContext, type ChestResult } from '../engine/cards'
 import { chestGemMultiplier } from '../engine/shop'
-import { speakFor, stopSpeaking } from '../engine/tts'
+import { speakFor, stopSpeaking, ttsLangFor } from '../engine/tts'
 import { AudioBar } from '../components/AudioBar'
 import { Mascot } from '../components/mascots/Mascots'
 import { LessonSlideshow } from '../components/lesson/LessonSlideshow'
@@ -393,6 +393,7 @@ export function LessonScreen({ lessonId, onExit }: { lessonId: string; onExit: (
         lines={entry.lesson.teach ?? [entry.lesson.intro.body]}
         objectives={entry.lesson.objectiveCodes}
         onDone={startLesson}
+        lang={ttsLangFor(subject)}
       />
     )
   }

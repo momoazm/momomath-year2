@@ -99,6 +99,30 @@ const gJoinedPick: Gen = (rand) => {
       correct: 'Ben has a dog, and Mia has a cat.',
       wrong: ['Ben has a dog, or Mia has a cat.', 'Ben has a dog Mia has a cat.'],
     },
+    {
+      a: 'Gran baked the bread.',
+      b: 'The kitchen smelled warm.',
+      correct: 'Gran baked the bread, and the kitchen smelled warm.',
+      wrong: ['Gran baked the bread, but the kitchen smelled warm.', 'The kitchen smelled warm, so Gran baked the bread.'],
+    },
+    {
+      a: 'Do you want a story?',
+      b: 'Do you want a song?',
+      correct: 'Do you want a story or a song?',
+      wrong: ['Do you want a story, so a song?', 'Do you want a story we want a song?'],
+    },
+    {
+      a: 'It was raining hard.',
+      b: 'We forgot our coats.',
+      correct: 'It was raining hard, but we forgot our coats.',
+      wrong: ['It was raining hard, and we forgot our coats.', 'We forgot our coats, so it was raining hard.'],
+    },
+    {
+      a: 'Poppy tidied her room.',
+      b: 'Dad gave her a sticker.',
+      correct: 'Poppy tidied her room, so Dad gave her a sticker.',
+      wrong: ['Poppy tidied her room, but Dad gave her a sticker.', 'Dad gave her a sticker, and Poppy tidied her room.'],
+    },
   ]
   const item = pick(rand, items)
   return mcqE(rand, `${item.a} ${item.b}`, item.correct, item.wrong, {
@@ -112,6 +136,10 @@ const gClauseOrder: Gen = (rand) => {
     ['We built a sandcastle', 'and dug a deep moat'],
     ['When it snows,', 'we sledge down the hill'],
     ['After the film,', 'we shared popcorn at home'],
+    ['The puppy yapped', 'because the postman came'],
+    ['If you hurry,', 'we will catch the bus'],
+    ['After lunch,', 'we skipped in the park'],
+    ['The bus rattled', 'all the way to the seaside'],
   ]
   return orderQ('Order the clauses!', pick(rand, sets), {
     hint: 'Which clause comes first?',
@@ -139,6 +167,26 @@ const gOpenerVariety: Gen = (rand) => {
       q: 'Which opener puts a step in order?',
       answer: 'First,',
       wrong: ['Long ago,', 'Suddenly,', 'All of a sudden,'],
+    },
+    {
+      q: 'Which opener tells us WHERE the story happens?',
+      answer: 'Deep in the dark wood,',
+      wrong: ['Suddenly,', 'At last,', 'All of a sudden,'],
+    },
+    {
+      q: 'Which opener makes a big surprise land on the reader?',
+      answer: 'Suddenly,',
+      wrong: ['Long ago,', 'On a frosty night,', 'At last,'],
+    },
+    {
+      q: 'Which opener takes us far back in time?',
+      answer: 'One day long ago,',
+      wrong: ['Suddenly,', 'At last,', 'All of a sudden,'],
+    },
+    {
+      q: 'Which opener builds up to the very end?',
+      answer: 'In the end,',
+      wrong: ['First,', 'One sunny morning,', 'Suddenly,'],
     },
   ]
   const item = pick(rand, items)
@@ -170,6 +218,30 @@ const gStoryFlow: Gen = (rand) => {
       'Soon, a green shoot peeked through.',
       'By Friday, it towered like a beanstalk!',
       'At last, he showed the whole class.',
+    ],
+    [
+      'One windy afternoon, our kite zoomed up high.',
+      'Suddenly the string snapped.',
+      'After that, it tumbled into the tall oak.',
+      'At last, Dad fetched it with the ladder.',
+    ],
+    [
+      'First, we peeled the sticky oranges.',
+      'Next, we dropped the segments into the bowl.',
+      'Then we shared it with the ducks.',
+      'At last, we walked home smiling.',
+    ],
+    [
+      'On Tuesday, a package landed on the step.',
+      'Soon, Mia tore off the brown paper.',
+      'Inside sat a tiny wooden robot.',
+      'Finally, she named him Bolt.',
+    ],
+    [
+      'One frosty morning, Ben scraped the car windows.',
+      'Then we bundled into the warm car.',
+      'After that, we crunched along the icy lane.',
+      "At last, we arrived at Grandpa's farm.",
     ],
   ]
   return orderQ('Put the story straight!', pick(rand, flows), {

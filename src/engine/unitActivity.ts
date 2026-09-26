@@ -1,5 +1,6 @@
-import type { Question, Subject, UnitDef, VisualSpec } from '../content/types'
+import type { Question, Subject, UnitDef } from '../content/types'
 import { hashString, mulberry32, shuffle } from '../content/rng'
+import { questionKey } from '../content/lessonQueue'
 
 /** Duolingo-style per-unit fun activities (PLAN 102-104). Everything here is
  *  pure + deterministic so the mini-game and its tests share one source. */
@@ -71,51 +72,4 @@ export function buildUnitChallenge(unit: UnitDef, seed: number): Question[] {
  *  does not double-count — this computes XP only for the integer display. */
 export function activityXp(correct: number): number {
   return Math.max(0, correct) * 4
-}
-
-/** Full-identity key: lesson + kind + the payload that makes two serves of the
- *  same template actually the same question. Same-template variants reuse
- *  text across lessons ("About how many?" in u1l1 and u1l6) but count as
- *  DIFFERENT questions (lesson id is the prefix) — a run can rehearse both,
- *  but the exact same serve can never repeat (no kid plays the identical
- *  card twice in one run). */
-function questionKey(q: Question): string {
-  switch (q.kind) {
-    case 'mcq':
-      return `mcq:${q.prompt}|${q.choices.join('~')}@${q.answerIndex}`
-    case 'type-number':
-      return `num:${q.prompt}|${String(q.answer)}|${visualKey(q.visual)}`
-    case 'match':
-      return `match:${q.prompt}|${q.pairs.map((p) => `${p.left}=${p.right}`).join(',')}`
-    case 'order':
-      return `order:${q.prompt}|${q.items.join('>')}`
-    case 'tap-count':
-      return `tap:${q.prompt}|${visualKey(q.visual)}`
-    case 'letter-tiles':
-      return `tiles:${q.prompt}|${q.targetWord}`
-    case 'truefalse':
-      return `tf:${q.statement}|${q.answer}`
-    case 'speak':
-      return `speak:${q.prompt}|${q.targetText}`
-  }
-}
-
-/** Visual-payload fingerprint (tap-count / type-number reuse the same prompt
- *  with different numbers — the visual IS the question). */
-function visualKey(v: VisualSpec | undefined): string {
-  if (!v) return 'none'
-  switch (v.type) {
-    case 'emoji-group':
-      return `eg:${v.emojis.join(',')}`
-    case 'ten-frames':
-      return `tf10:${v.count}`
-    case 'number-line':
-      return `nl:${v.from}-${v.to}@${v.mark}`
-    case 'shapes':
-      return `sh:${v.shape}x${v.count}`
-    case 'fraction':
-      return `fr:${v.filled}/${v.slices}`
-    case 'clock':
-      return `cl:${v.hour}:${v.minute}`
-  }
 }

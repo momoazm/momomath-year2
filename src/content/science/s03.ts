@@ -1,4 +1,4 @@
-import type { Question } from "../types"
+import type { Question, VisualSpec } from "../types"
 import {
   LIVING_BANK, HABITAT_BANK, ANIMAL_LIFE_CYCLES,
   mcqE, matchQ, orderQ, tfQ,
@@ -7,12 +7,63 @@ import {
 } from "./helpers"
 
 const NEEDS = ["water", "food", "air", "shelter"]
+const NOT_NEEDS = ["toy", "a television", "a bicycle", "a computer game"]
 const ADAPTATION_PAIRS: { animal: string; trait: string; explains: string }[] = [
   { animal: "polar bear", trait: "thick fur", explains: "stays warm in cold snow" },
   { animal: "frog", trait: "webbed feet", explains: "swims well in water" },
   { animal: "eagle", trait: "sharp talons", explains: "catches prey" },
   { animal: "camel", trait: "long eyelashes", explains: "blocks desert sand" },
   { animal: "duck", trait: "oily feathers", explains: "stays dry in water" },
+  { animal: "seal", trait: "thick blubber", explains: "stays warm in freezing water" },
+  { animal: "rabbit", trait: "long ears", explains: "hears predators coming from far away" },
+  { animal: "fish", trait: "gills", explains: "takes in oxygen from the water" },
+  { animal: "chameleon", trait: "changing skin colour", explains: "hides from hungry predators" },
+]
+const NEEDS_TF_EXTRA: { statement: string; answer: boolean }[] = [
+  { statement: "Plants need light from the Sun to grow.", answer: true },
+  { statement: "Every living thing needs air to stay alive.", answer: true },
+  { statement: "A seed will not sprout if it never gets any water.", answer: true },
+  { statement: "Living things need food so they have energy to move.", answer: true },
+  { statement: "Plants make their own food using light from the Sun.", answer: true },
+  { statement: "Seeds need warmth and water before they sprout.", answer: true },
+  { statement: "A rock is alive because it needs water to survive.", answer: false },
+  { statement: "Animals can live with no air at all for a whole year.", answer: false },
+  { statement: "A plant kept in a completely dark cupboard will not stay healthy.", answer: true },
+  { statement: "Fish do not need water to live.", answer: false },
+]
+const PLANT_NEED_MCQS: { prompt: string; answer: string; wrong: string[]; emojis: string[] }[] = [
+  {
+    prompt: "What do plants need to grow (besides air and water)?",
+    answer: "sunlight", wrong: ["snowfall", "cement", "melted chocolate"], emojis: ["🌱", "☀️"],
+  },
+  {
+    prompt: "Where do most garden plants grow best?",
+    answer: "in soil", wrong: ["under a bed", "inside a closed tin", "on top of a fridge"], emojis: ["🌱", "🪴"],
+  },
+  {
+    prompt: "What do the roots of a plant do?",
+    answer: "take in water from the soil", wrong: ["change the leaf colour", "lift the plant into the sky"], emojis: ["🌱", "💧"],
+  },
+  {
+    prompt: "Why do plants need water?",
+    answer: "to stay healthy and grow", wrong: ["to become heavier than a car", "to turn the leaves blue"], emojis: ["🌱", "💧"],
+  },
+  {
+    prompt: "What job do the leaves do for a plant?",
+    answer: "catch the light the plant uses to make food", wrong: ["drink from a cup", "keep the soil warm"], emojis: ["🌿", "☀️"],
+  },
+  {
+    prompt: "Which things help a seedling grow into a strong plant?",
+    answer: "light, water and warm soil", wrong: ["ice cubes and darkness", "plastic and metal"], emojis: ["🌱", "💧", "☀️"],
+  },
+  {
+    prompt: "A plant on the windowsill leans towards the window. What is it reaching for?",
+    answer: "light from the Sun", wrong: ["cold air", "the sound of music"], emojis: ["🌱", "🪟"],
+  },
+  {
+    prompt: "What do plant roots hold the plant in?",
+    answer: "the soil", wrong: ["the sky", "a plastic bag"], emojis: ["🌱", "🪴"],
+  },
 ]
 const CYCLE_KEYS = Object.keys(ANIMAL_LIFE_CYCLES)
 
@@ -24,23 +75,30 @@ function gHabitat(rand: Rand): Question {
   )
 }
 function gLocalCompare(rand: Rand): Question {
-  const hot = shuffle(rand, ["desert", "savannah", "beach", "flowery field"])[0]
+  const hot = shuffle(rand, ["desert", "savannah", "beach", "flowery field", "a dry riverbed in summer", "a dusty desert track"])[0]
   const cold = shuffle(rand, ["arctic", "snowy forest", "high mountain"])[0]
   return mcqE(rand, `Which place is hotter and drier?`, hot, [cold, "a quiet library", "a busy road"], { visual: { type: "emoji-group", emojis: ["☀️", "❄️"] } })
 }
 function gNeeds(rand: Rand): Question {
   const a = pick(rand, NEEDS)
+  const b = pick(rand, NOT_NEEDS)
   return matchQ(rand, "What do living things need to stay alive?",
-    [{ left: a, right: "a need of all living things" }, { left: "toy", right: "nice but not needed" }],
+    [{ left: a, right: "a need of all living things" }, { left: b, right: "nice but not needed" }],
     { visual: { type: "emoji-group", emojis: ["💧", "🍎", "🌞", "🏠"] } },
   )
 }
 function gNeedsTF(rand: Rand): Question {
+  const visual: VisualSpec = { type: "emoji-group", emojis: ["💧", "🍎", "🌞", "🏠"] }
+  if (rand() < 0.5) {
+    const e = pick(rand, NEEDS_TF_EXTRA)
+    return tfQ("Science check", e.statement, e.answer, { visual })
+  }
   const a = pick(rand, NEEDS)
-  return tfQ("Science check", `All animals, including humans, need ${a} to survive.`, true, { visual: { type: "emoji-group", emojis: ["💧", "🍎", "🌞", "🏠"] } })
+  return tfQ("Science check", `All animals, including humans, need ${a} to survive.`, true, { visual })
 }
 function gPlantsNeed(rand: Rand): Question {
-  return mcqE(rand, "What do plants need to grow (besides air and water)?", "sunlight", ["snowfall", "cement", "melted chocolate"], { visual: { type: "emoji-group", emojis: ["🌱", "☀️"] } })
+  const q = pick(rand, PLANT_NEED_MCQS)
+  return mcqE(rand, q.prompt, q.answer, q.wrong, { visual: { type: "emoji-group", emojis: q.emojis } })
 }
 function gAdaptation(rand: Rand): Question {
   const a = pick(rand, ADAPTATION_PAIRS)

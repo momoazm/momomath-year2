@@ -24,6 +24,8 @@ const EGYPT_MATCH = [
   { left: 'القاهرة', right: '🏙️ عاصمة مصر' },
   { left: 'النيل', right: PICTURE_BANK.نيل },
   { left: 'الجنيه', right: '💰 عملة مصر' },
+  { left: 'الأهرامات', right: '🔺 عجائب الدنيا السبع' },
+  { left: 'أبو الهول', right: '🗿 يحرس الأهرامات' },
 ]
 
 function d1EgyptMatch(rand: Rand): Question {
@@ -37,6 +39,9 @@ const EGYPT_TF: Array<[string, boolean]> = [
   ['علم مصر فيه نسر', true],
   ['عملة مصر هي الجنيه', true],
   ['عاصمة مصر هي باريس', false],
+  ['أهرامات الجيزة في مصر', true],
+  ['عملة مصر هي اليورو', false],
+  ['في علم مصر ثلاثة ألوان', true],
 ]
 
 function d1EgyptTF(rand: Rand): Question {
@@ -62,6 +67,9 @@ const GOV_MATCH = [
   { left: 'القرية', right: '🌾 حقول وهدوء' },
   { left: 'الحي', right: '🏠 بيوت جيراننا' },
   { left: 'المدرسة', right: PICTURE_BANK.مدرسة },
+  { left: 'المصنع', right: '🏭 نصنع فيه الأشياء' },
+  { left: 'المكتبة', right: '📚 نقرأ فيه الكتب' },
+  { left: 'الحديقة', right: '🌳 أشجار وأزهار' },
 ]
 
 function d1GovMatch(rand: Rand): Question {
@@ -69,7 +77,19 @@ function d1GovMatch(rand: Rand): Question {
   return matchQ(rand, 'صل كل مكان بوصفه', pairs)
 }
 
+const GOV_ASKS: Array<{ q: string; a: string; others: string[] }> = [
+  { q: 'أعيش في مكان فيه حقول كثيرة وبيوت قليلة. ماذا يسمى؟', a: 'قرية', others: ['مدينة', 'حي', 'مصنع'] },
+  { q: 'مكان فيه بيوت وشوارع كثيرة وأسواق يسمى...؟', a: 'مدينة', others: ['قرية', 'مزرعة', 'نهر'] },
+  { q: 'مجموعة بيوت جيراننا داخل المدينة تسمى...؟', a: 'الحي', others: ['المحافظة', 'القرية', 'المزرعة'] },
+  { q: 'جزء كبير من مصر يضم مدن وقرى يسمى...؟', a: 'المحافظة', others: ['الحي', 'المدينة', 'الحقل'] },
+  { q: 'أي مكان أجد فيه المدرسة والمستشفى والسوق الكبير؟', a: 'مدينة', others: ['قرية', 'حقل', 'نهر'] },
+]
+
 function d1GovPick(rand: Rand): Question {
+  if (rand() < 0.75) {
+    const item = pick(rand, GOV_ASKS)
+    return mcqE(rand, item.q, item.a, item.others, say(item.a))
+  }
   const choices = shuffle(rand, ['مدينة', 'قرية'])
   return mcqFixed('أعيش في مكان فيه بيوت وشوارع كثيرة. هل هو مدينة أم قرية؟', choices, choices.indexOf('مدينة'), {
     hint: 'المدينة كبيرة والقرية فيها حقول',
@@ -89,11 +109,18 @@ const d1l2 = makeLesson(
 /* ---------- d1l3: أحب بلدي ---------- */
 
 function d1LoveSpeak(rand: Rand): Question {
-  const line = pick(rand, ['مصر بلدي الجميلة أحبها', 'أحافظ على نظافة بلدي'])
+  const line = pick(rand, [
+    'مصر بلدي الجميلة أحبها',
+    'أحافظ على نظافة بلدي',
+    'أفتخر بأنني مصري',
+    'أحترم راية بلدي',
+    'أحب أرض مصر الحبيبة',
+    'أزرع شجرة في حيي',
+  ])
   return speakQ('تحدث عن حبك لمصر', line, { hint: 'قل بفخر!' })
 }
 
-const PLACE_TILES = ['مصر', 'قاهرة', 'نيل', 'علم', 'جنيه']
+const PLACE_TILES = ['مصر', 'قاهرة', 'نيل', 'علم', 'جنيه', 'بلدي', 'وطن', 'نظافة']
 
 function d1PlaceTiles(rand: Rand): Question {
   const w = pick(rand, PLACE_TILES)

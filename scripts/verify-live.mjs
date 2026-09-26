@@ -347,7 +347,10 @@ async function main() {
       hp: /\d+\/\d+ HP/.test(body),
       flee: /flee/i.test(body),
       letsGo: /Let's go/i.test(body),
-      mission: /Today's mission/i.test(body),
+      // named bodyMission (NOT mission): the detail JSON spreads {...flow, ...chrome},
+      // so a shared `mission` key here would silently overwrite flow.mission and
+      // make a failed walk LOOK like flow.mission was true.
+      bodyMission: /Today's mission/i.test(body),
       intro: /Boss time|Fight!/i.test(body),
     }
   })

@@ -56,8 +56,10 @@ function gWhereMatch(rand: Rand): Question {
 }
 
 const CANDLE_COUNTS = [
+  { n: 1, de: 'eins' },
   { n: 2, de: 'zwei' }, { n: 3, de: 'drei' },
   { n: 4, de: 'vier' }, { n: 5, de: 'fünf' },
+  { n: 6, de: 'sechs' },
 ]
 
 function gCandleCount(rand: Rand): Question {
@@ -75,6 +77,10 @@ const FEST_TF = [
   { s: '“Tschüss!” means hello.', a: false },
   { s: 'Franzi is a duck. 🦆', a: true },
   { s: 'You sing “Gute Nacht!” at a birthday party.', a: false },
+  { s: 'You get presents on your birthday. 🎁', a: true },
+  { s: 'The cake has candles on it. 🎂', a: true },
+  { s: 'You make a wish and blow out the candles. 🕯️', a: true },
+  { s: '“Viel Glück!” means “Happy birthday!”', a: false },
 ]
 
 function gFestTrueFalse(rand: Rand): Question {
@@ -151,14 +157,27 @@ function gBuildWhereEn(rand: Rand): Question {
   return buildEn(`Das ist ${item.de}.`, ['This', 'is', 'the', `${item.en}.`])
 }
 
+/** Birthday-wish builders — every entry is short Year-2 party vocabulary. */
+const WISH_BUILDS: Array<{ en: string; de: string[] }> = [
+  { en: 'Happy birthday!', de: ['Alles', 'Gute', 'zum', 'Geburtstag!'] },
+  { en: 'Have fun at the party!', de: ['Viel', 'Spaß', 'auf', 'der', 'Party!'] },
+  { en: 'Happy birthday, Franzi!', de: ['Alles', 'Gute,', 'Franzi!'] },
+]
+
 function gBuildWishDe(rand: Rand): Question {
-  void rand
-  return buildDe('Happy birthday!', ['Alles', 'Gute', 'zum', 'Geburtstag!'])
+  const w = pick(rand, WISH_BUILDS)
+  return buildDe(w.en, w.de)
 }
 
+const WISH_EN_BUILDS: Array<{ de: string; en: string[] }> = [
+  { de: 'Alles Gute zum Geburtstag!', en: ['Happy', 'birthday!'] },
+  { de: 'Viel Spaß auf der Party!', en: ['Have', 'fun', 'at', 'the', 'party!'] },
+  { de: 'Alles Gute, Franzi!', en: ['Happy', 'birthday,', 'Franzi!'] },
+]
+
 function gBuildWishEn(rand: Rand): Question {
-  void rand
-  return buildEn('Alles Gute zum Geburtstag!', ['Happy', 'birthday!'])
+  const w = pick(rand, WISH_EN_BUILDS)
+  return buildEn(w.de, w.en)
 }
 
 const g10l1 = makeLesson(

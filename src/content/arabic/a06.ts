@@ -24,6 +24,8 @@ const SPORT_MATCH = [
   { left: 'ركوب الدراجة', right: '🚲 عجلات' },
   { left: 'كرة السلة', right: '🏀 سلة' },
   { left: 'القفز', right: '🤸 حركة' },
+  { left: 'كرة الطائرة', right: '🏐 شبكة' },
+  { left: 'التنس', right: '🎾 مضرب' },
 ]
 
 function a6SportMatch(rand: Rand): Question {
@@ -31,9 +33,19 @@ function a6SportMatch(rand: Rand): Question {
   return matchQ(rand, 'قصة استماع: الرياضة لنا جميعا. صل كل رياضة بما يناسبها', pairs)
 }
 
+const SPORT_LINES = [
+  'كرة القدم',
+  'السباحة',
+  'الجري',
+  'ركوب الدراجة',
+  'كرة السلة',
+  'القفز',
+  'كرة الطائرة',
+]
+
 function a6SportHear(rand: Rand): Question {
-  const item = pick(rand, ['كرة القدم', 'السباحة', 'الجري', 'ركوب الدراجة'])
-  const others = ['كرة القدم', 'السباحة', 'الجري', 'ركوب الدراجة'].filter((s) => s !== item)
+  const item = pick(rand, SPORT_LINES)
+  const others = SPORT_LINES.filter((s) => s !== item)
   return mcqE(rand, 'استمع واضغط على الرياضة التي سمعتها', item, others, say(item))
 }
 

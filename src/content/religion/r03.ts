@@ -22,6 +22,8 @@ const ADHAN_MATCH = [
   { left: 'أشهد أن محمدا رسول الله', right: '📿 الرسالة' },
   { left: 'حي على الصلاة', right: '🕌 تعال إلى المسجد' },
   { left: 'حي على الفلاح', right: '🌟 تعال إلى الخير' },
+  { left: 'الصلاة خير من النوم', right: '🌅 نداء الفجر' },
+  { left: 'حي على أفضل العمل', right: '🤲 طريق الخير' },
 ]
 
 function r3AdhanMatch(rand: Rand): Question {
@@ -29,9 +31,19 @@ function r3AdhanMatch(rand: Rand): Question {
   return matchQ(rand, 'صل كل جملة من الأذان بمعناها', pairs)
 }
 
+const ADHAN_LINES = [
+  'الله أكبر',
+  'حي على الصلاة',
+  'حي على الفلاح',
+  'أشهد أن لا إله إلا الله',
+  'أشهد أن محمدا رسول الله',
+  'حي على أفضل العمل',
+  'الصلاة خير من النوم',
+]
+
 function r3AdhanHear(rand: Rand): Question {
-  const item = pick(rand, ['الله أكبر', 'حي على الصلاة', 'حي على الفلاح'])
-  const others = ['الله أكبر', 'حي على الصلاة', 'حي على الفلاح'].filter((a) => a !== item)
+  const item = pick(rand, ADHAN_LINES)
+  const others = ADHAN_LINES.filter((a) => a !== item)
   return mcqE(rand, 'استمع واضغط على جملة الأذان التي سمعتها', item, others, say(item))
 }
 
@@ -92,6 +104,12 @@ const MOSQUE_TF: Array<[string, boolean]> = [
   ['أحافظ على نظافة المسجد وسجادته', true],
   ['صلاة الجماعة أفضل من صلاة الفرد', true],
   ['أرمي الأوراق في فناء المسجد', false],
+  ['أرتب صفوفي وأقف معتدلا في الصلاة', true],
+  ['أتكلم وأضحك أثناء الصلاة', false],
+  ['أستمع إلى قراءة الإمام في الصلاة', true],
+  ['أدعو لأهلي وأصدقائي في المسجد', true],
+  ['ألعب كرة القدم داخل المسجد', false],
+  ['أحب صلاة الجماعة مع أبي في المسجد', true],
 ]
 
 function r3MosqueTF(rand: Rand): Question {
@@ -99,16 +117,77 @@ function r3MosqueTF(rand: Rand): Question {
   return tfQ('آداب المسجد. هل الجملة صحيحة؟', statement, answer)
 }
 
-function r3MosqueTap(rand: Rand): Question {
-  void rand
-  return {
-    kind: 'tap-count',
+/** Tap-the-matching-cells drills (mosque scene variations). First entry is the
+ *  original drill; each task has its own prompt so it is its own question. */
+const MOSQUE_TAP_TASKS: Array<{
+  prompt: string
+  target: number
+  targetEmoji: string
+  cells: string[]
+  hint: string
+}> = [
+  {
     prompt: 'اضغط على كل المساجد التي تراها',
     target: 3,
     targetEmoji: '🕌',
     cells: ['🕌', '🏠', '🕌', '🏫', '🕌', '🌙', '⭐', '🕋'],
     hint: 'المسجد فقط!',
-  } as Question
+  },
+  {
+    prompt: 'اضغط على كل البيوت التي تراها',
+    target: 3,
+    targetEmoji: '🏠',
+    cells: ['🏠', '🕌', '🏠', '🏫', '🏠', '⭐', '🌙', '🕌'],
+    hint: 'البيت فقط!',
+  },
+  {
+    prompt: 'اضغط على كل المصاحف التي تراها',
+    target: 3,
+    targetEmoji: '📗',
+    cells: ['📗', '📖', '📗', '🕌', '📗', '🏠', '🌙', '⭐'],
+    hint: 'المصحف فقط!',
+  },
+  {
+    prompt: 'اضغط على كل المآذن التي تراها',
+    target: 2,
+    targetEmoji: '🗼',
+    cells: ['🗼', '🏠', '🗼', '🕌', '🏫', '🌙', '⭐', '🕋'],
+    hint: 'المئذنة فقط!',
+  },
+  {
+    prompt: 'اضغط على كل المصلين الذين تراهم',
+    target: 3,
+    targetEmoji: '🧎',
+    cells: ['🧎', '🏠', '🧎', '🕌', '🧎', '🏫', '🌙', '⭐'],
+    hint: 'المصلون فقط!',
+  },
+  {
+    prompt: 'اضغط على كل النخلات التي تراها',
+    target: 3,
+    targetEmoji: '🌴',
+    cells: ['🌴', '🏠', '🌴', '🕌', '🌴', '🏫', '🌙', '⭐'],
+    hint: 'النخلة فقط!',
+  },
+  {
+    prompt: 'اضغط على كل الأبواب التي تراها',
+    target: 3,
+    targetEmoji: '🚪',
+    cells: ['🚪', '🏠', '🚪', '🕌', '🚪', '🏫', '🌙', '⭐'],
+    hint: 'الباب فقط!',
+  },
+]
+
+function r3MosqueTap(rand: Rand): Question {
+  const task = pick(rand, MOSQUE_TAP_TASKS)
+  const q: Question = {
+    kind: 'tap-count',
+    prompt: task.prompt,
+    target: task.target,
+    targetEmoji: task.targetEmoji,
+    cells: task.cells,
+    hint: task.hint,
+  }
+  return q
 }
 
 const r3l3 = makeLesson(

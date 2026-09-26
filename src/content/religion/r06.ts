@@ -24,6 +24,8 @@ const HONEST_MATCH = [
   { left: 'الأمانة', right: PICTURE_BANK.صدقة },
   { left: 'الخيانة', right: '⛔ صفة ذميمة' },
   { left: 'الوعد', right: '🤝 أوفي بوعدي' },
+  { left: 'السر', right: '🤐 أحفظه لصاحبه' },
+  { left: 'الغش', right: '🚫 لا يحبه الله' },
 ]
 
 function r6HonestMatch(rand: Rand): Question {
@@ -37,6 +39,11 @@ const HONEST_TF: Array<[string, boolean]> = [
   ['الكذب ينجي صاحبه دائما', false],
   ['الأمانة أن أحفظ أسرار أصدقائي', true],
   ['أخلف وعدي إذا كان صعبا', false],
+  ['أخبر دائما بالحق ولو كان صعبا', true],
+  ['أنا أمين على أموال صديقي', true],
+  ['أكذب لأخرج من الموقف', false],
+  ['أفي بوعدي مهما تكلف', true],
+  ['أنشر أسرار أصدقائي بين الناس', false],
 ]
 
 function r6HonestTF(rand: Rand): Question {
@@ -99,6 +106,8 @@ const SAHABA_MATCH = [
   { left: 'عثمان', right: '📖 جمع القرآن' },
   { left: 'علي', right: '🦁 الشجاع العالم' },
   { left: 'حمزة', right: '🏹 أسد الله' },
+  { left: 'بلال', right: '📿 مؤذن النبي' },
+  { left: 'عائشة', right: '📚 الصديقة بنت الصديق' },
 ]
 
 function r6SahabaMatch(rand: Rand): Question {
@@ -111,6 +120,9 @@ function r6SahabaPick(rand: Rand): Question {
     { q: 'من أول الخلفاء الراشدين ولقب بالصديق؟', a: 'أبو بكر', others: ['عمر', 'عثمان', 'علي'] },
     { q: 'من لقب بالفاروق لعدله؟', a: 'عمر', others: ['حمزة', 'علي', 'أبو بكر'] },
     { q: 'من جمع القرآن في مصحف واحد؟', a: 'عثمان', others: ['عمر', 'علي', 'حمزة'] },
+    { q: 'من كان لقبه أسد الله وأسد رسوله؟', a: 'حمزة', others: ['عمر', 'عثمان', 'علي'] },
+    { q: 'من كان مؤذن النبي؟', a: 'بلال', others: ['أبو بكر', 'عمر', 'علي'] },
+    { q: 'من هي الصديقة بنت الصديق؟', a: 'عائشة', others: ['فاطمة', 'خديجة', 'حفصة'] },
   ])
   return mcqE(rand, item.q, item.a, item.others, say(item.a))
 }

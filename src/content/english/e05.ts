@@ -69,6 +69,10 @@ const ALPHA_SETS: string[][] = [
   ['dog', 'fox', 'hen', 'pig'],
   ['bus', 'car', 'van'],
   ['sun', 'tree', 'wind'],
+  ['frog', 'goat', 'hippo'],
+  ['jam', 'kite', 'lion'],
+  ['moon', 'nose', 'orange'],
+  ['queen', 'rabbit', 'snake'],
 ]
 
 const GLOSSARY_SETS = [
@@ -77,6 +81,10 @@ const GLOSSARY_SETS = [
   { words: ['grape', 'apple', 'plum', 'melon'], first: 'apple' },
   { words: ['duck', 'bird', 'sheep', 'goat'], first: 'bird' },
   { words: ['kite', 'lion', 'ant', 'bee'], first: 'ant' },
+  { words: ['dog', 'egg', 'fox', 'hen'], first: 'dog' },
+  { words: ['giraffe', 'goat', 'hippo', 'hyena'], first: 'giraffe' },
+  { words: ['igloo', 'insect', 'jacket', 'kite'], first: 'igloo' },
+  { words: ['lemon', 'mango', 'nut', 'olive'], first: 'lemon' },
 ]
 
 const ADJECTIVE_SCENES = [
@@ -123,6 +131,30 @@ const TIME_OPENERS = [
     answer: 'Then',
     wrong: ['Finally', 'At last', 'In the end'],
   },
+  {
+    prompt:
+      'First, Dad lit the candles. ___, we sang Happy Birthday. Then we ate big slices of cake. Finally, we opened the presents.',
+    answer: 'Next',
+    wrong: ['Finally', 'At last', 'Long ago'],
+  },
+  {
+    prompt:
+      'First, I washed the vegetables. Next, I chopped them up. ___, Mum fried them in the pan. Finally, we ate our dinner.',
+    answer: 'Then',
+    wrong: ['First', 'To start with', 'Once upon a time'],
+  },
+  {
+    prompt:
+      'We built a sandcastle by the sea. ___, a grey wave washed it away. At last, we began a new one higher up.',
+    answer: 'Then',
+    wrong: ['First', 'To begin with', 'In the end'],
+  },
+  {
+    prompt:
+      'Suddenly, the classroom lights went out. ___, Miss Green found her torch. Then we told spooky stories until they flickered back on.',
+    answer: 'Next',
+    wrong: ['Finally', 'At the very start', 'Long, long ago'],
+  },
 ]
 
 const OPENER_STORIES: string[][] = [
@@ -143,6 +175,24 @@ const OPENER_STORIES: string[][] = [
     'Next, she watered them every day.',
     'Then, tiny green shoots appeared.',
     'In the end, tall sunflowers smiled.',
+  ],
+  [
+    'One dark night, a fox slipped into the garden.',
+    'Soon, the hens clucked in a panic.',
+    'After that, Grandpa chased it out with a broom.',
+    'At last, the hens settled down to sleep.',
+  ],
+  [
+    'First, we filled the paddling pool.',
+    'Next, we tipped in the bubbly soap.',
+    'Then, tiny ducks bobbed about inside.',
+    'Finally, we raced them down the slide.',
+  ],
+  [
+    'On Friday, Mum bought a plain brown cake.',
+    'Soon, she iced it bright pink.',
+    'After that, we sprinkled it with hundreds and thousands.',
+    'At last, we carried it in with candles glowing.',
   ],
 ]
 
@@ -167,6 +217,26 @@ const WOW_WORDS = [
     answer: 'delicious',
     dull: ['nice', 'good', 'fine', 'plain', 'normal'],
   },
+  {
+    prompt: 'The tiny mouse ___ behind the fridge.',
+    answer: 'darted',
+    dull: ['went', 'got', 'ran', 'moved', 'came'],
+  },
+  {
+    prompt: 'The old house ___ in the wind.',
+    answer: 'creaked',
+    dull: ['went', 'sang', 'spoke', 'looked', 'felt'],
+  },
+  {
+    prompt: 'Sunlight ___ across the kitchen floor.',
+    answer: 'spilled',
+    dull: ['fell', 'went', 'sat', 'came', 'got'],
+  },
+  {
+    prompt: 'The cheeky crow ___ my sandwich.',
+    answer: 'snatched',
+    dull: ['went', 'got', 'ate', 'held', 'liked'],
+  },
 ]
 
 const EXCITING_SENTENCES = [
@@ -181,6 +251,18 @@ const EXCITING_SENTENCES = [
   {
     exciting: 'Zap! The cheeky wizard zapped the grumpy troll!',
     flat: ['He ran fast.', 'The bell rang.', 'She read a book.'],
+  },
+  {
+    exciting: 'Bang! The fierce dragon swooped down over the tiny village!',
+    flat: ['The bus was late.', 'I like cheese.', 'It is Tuesday.'],
+  },
+  {
+    exciting: 'Zoom! The brave knight vaulted over the fiery dragon!',
+    flat: ['She sat down.', 'The sun is warm.', 'We have a cat.'],
+  },
+  {
+    exciting: 'Splash! The huge whale burst out of the glittering sea!',
+    flat: ['He walked home.', 'The page is white.', 'It rained a bit.'],
   },
 ]
 

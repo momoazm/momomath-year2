@@ -107,7 +107,7 @@ const a10l2 = makeLesson(
 
 /* ---------- a10l3: الكاتب الصغير (مراجعة شاملة) ---------- */
 
-const REVIEW_TILES = ['مدرسة', 'صديق', 'نيل', 'كتاب', 'قمر', 'وردة']
+const REVIEW_TILES = ['مدرسة', 'صديق', 'نيل', 'كتاب', 'قمر', 'وردة', 'قلم', 'حديقة', 'سيارة']
 
 function a10ReviewTiles(rand: Rand): Question {
   const w = pick(rand, REVIEW_TILES)
@@ -119,6 +119,10 @@ const FINAL_GRAMMAR = [
   { q: '«هؤلاء أطباء» — هؤلاء للجمع أم للمفرد؟', a: 'للجمع', others: ['للمفرد', 'للمثنى'] },
   { q: '«الشمس» — اللام شمسية أم قمرية؟', a: 'شمسية', others: ['قمرية'] },
   { q: '«يجري» — اسم أم فعل؟', a: 'فعل', others: ['اسم', 'حرف'] },
+  { q: '«الأطفال» — مفرد أم جمع؟', a: 'جمع', others: ['مفرد', 'مثنى'] },
+  { q: '«يكتب الطفل» — جملة أم كلمة؟', a: 'جملة', others: ['كلمة', 'حرف'] },
+  { q: '«قطة» — التاء مربوطة أم مفتوحة؟', a: 'مربوطة', others: ['مفتوحة'] },
+  { q: '«متى» — أداة استفهام أم حرف جر؟', a: 'أداة استفهام', others: ['حرف جر', 'أداة نداء'] },
 ]
 
 function a10FinalGrammar(rand: Rand): Question {
@@ -127,9 +131,20 @@ function a10FinalGrammar(rand: Rand): Question {
   return mcqE(rand, item.q, item.a, item.others, undefined)
 }
 
+/** Review sequencing drills. First entry is the original story-parts drill. */
+const STORY_TASKS: Array<{ prompt: string; items: string[]; audio?: string }> = [
+  {
+    prompt: 'رتب أجزاء القصة القصيرة',
+    items: ['البداية', 'الأحداث', 'النهاية'],
+    audio: 'البداية ثم الأحداث ثم النهاية',
+  },
+  { prompt: 'رتب كلمات جملة عن مدرستي', items: ['أحب', 'مدرستي', 'وأزور', 'مكتبتها'] },
+  { prompt: 'رتب كلمات قصة زيارة المتحف', items: ['زرت', 'المتحف', 'وقرأت', 'عن', 'آثارنا'] },
+]
+
 function a10StoryOrder(rand: Rand): Question {
-  void rand
-  return orderQ('رتب أجزاء القصة القصيرة', ['البداية', 'الأحداث', 'النهاية'], say('البداية ثم الأحداث ثم النهاية'))
+  const task = pick(rand, STORY_TASKS)
+  return orderQ(task.prompt, task.items, say(task.audio ?? task.items.join(' ')))
 }
 
 const a10l3 = makeLesson(

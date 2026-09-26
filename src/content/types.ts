@@ -169,7 +169,7 @@ export interface LessonDef {
    *  Optional — absent falls back to intro.body. */
   teach?: string[]
   /** returns n questions, deterministic for (lessonId, attemptSeed) */
-  generate: (n: number, seed: number) => Question[]
+  generate: (n: number, seed: number, exclude?: ReadonlySet<string>) => Question[]
 }
 
 /** One page of a unit storybook (PLAN Phase 15). */

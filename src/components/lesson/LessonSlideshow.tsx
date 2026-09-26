@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import type { LessonDef } from '../../content/types'
 import { hashString } from '../../content/rng'
@@ -9,7 +9,8 @@ import { sfx } from '../../engine/sfx'
 
 /** Sonic-taught lesson slideshow that runs BEFORE practice (PLAN 90-94).
  *  - Sonic greets, points at each teach line and works up to 2 examples.
- *  - Every slide speaks in Sonic's voice (tts no-ops when unavailable).
+ *  - Every slide speaks in Sonic's voice (tts no-ops when unavailable);
+ *    `lang` picks the narrator language (PLAN 124 — e.g. de-DE for german).
  *  - Anti-skip: Next / "Let's go" stay disabled (with a countdown) until the
  *    slide's minimum read time has passed — forward swipe is gated too. */
 export function LessonSlideshow({
@@ -18,12 +19,14 @@ export function LessonSlideshow({
   lines,
   objectives,
   onDone,
+  lang = 'en-GB',
 }: {
   lesson: LessonDef
   title: string
   lines: string[]
   objectives: string[]
   onDone: () => void
+  lang?: string
 }) {
   const deck = useMemo(
     () => buildSlideDeck(lesson, hashString(lesson.id), title),
@@ -38,14 +41,22 @@ export function LessonSlideshow({
   const speakText = slide.kind === 'mission' ? title : slide.text
   const isLast = idx === deck.length - 1
 
-  // restart the anti-skip timer + speak in Sonic's voice on every slide change
-  useEffect(() => {
+  // restart the anti-skip timer + speak in Sonic's voice on every slide change.
+  // Timer reset is a LAYOUT effect: the first render after idx changes still
+  // computes `remain` from the previous slide's startRef, so with a passive
+  // effect the Next button briefly commits ENABLED before the reset lands —
+  // a 1-frame unlock that lets fast taps (and E2E waitForSelector) slip past
+  // the gate. Layout effects run before paint, so the locked state is what
+  // the browser ever shows.
+  useLayoutEffect(() => {
     startRef.current = Date.now()
     setTick(0)
-    speakAsSonic(speakText)
+  }, [idx])
+  useEffect(() => {
+    speakAsSonic(speakText, lang)
     return () => stopSpeaking()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [idx])
+  }, [idx, lang])
 
   // 250ms ticker keeps the countdown (and the enabled state) live
   useEffect(() => {
@@ -173,7 +184,7 @@ export function LessonSlideshow({
                 <button
                   className="btn3d btn-blue !px-3 !py-1 !text-sm"
                   data-testid="slide-replay"
-                  onClick={() => { sfx.tap('audio'); speakAsSonic(speakText) }}
+                  onClick={() => { sfx.tap('audio'); speakAsSonic(speakText, lang) }}
                 >
                   🔊
                 </button>
