@@ -646,6 +646,7 @@ export function LessonScreen({ lessonId, onExit, retryItems, checkup }: {
         lines={entry!.lesson.teach ?? [entry!.lesson.intro.body]}
         objectives={entry!.lesson.objectiveCodes}
         onDone={startLesson}
+        onExit={onExit}
         lang={ttsLangFor(subject)}
       />
     )

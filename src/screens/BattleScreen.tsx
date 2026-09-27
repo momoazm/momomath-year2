@@ -347,6 +347,7 @@ export function BattleScreen({
           lines={guideLines}
           objectives={entry.lesson.objectiveCodes}
           onDone={() => setGuideDone(true)}
+          onExit={onExit}
           lang={ttsLangFor(subject)}
         />
       )}

@@ -19,6 +19,7 @@ export function LessonSlideshow({
   lines,
   objectives,
   onDone,
+  onExit,
   lang = 'en-GB',
 }: {
   lesson: LessonDef
@@ -26,6 +27,7 @@ export function LessonSlideshow({
   lines: string[]
   objectives: string[]
   onDone: () => void
+  onExit?: () => void
   lang?: string
 }) {
   const deck = useMemo(
@@ -100,7 +102,22 @@ export function LessonSlideshow({
         else if (dx > 40) prev()
       }}
     >
-      <div className="w-full max-w-xl">
+      <div className="relative w-full max-w-xl">
+        {onExit && (
+          <button
+            onClick={() => {
+              sfx.tap()
+              stopSpeaking()
+              onExit()
+            }}
+            data-testid="slide-close"
+            className="absolute -top-3 right-0 z-50 flex h-8 w-8 items-center justify-center rounded-full bg-white/80 text-slate-500 shadow-md backdrop-blur-sm transition-all hover:bg-white hover:text-slate-800"
+            title="Exit to path"
+            aria-label="Exit to path"
+          >
+            ✕
+          </button>
+        )}
         {/* slide progress dots */}
         <div className="mb-3 flex items-center justify-center gap-1.5">
           {deck.map((_, i) => (
