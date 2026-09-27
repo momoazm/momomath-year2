@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { ARCADE_GAMES } from '../engine/arcade'
+import { sfx } from '../engine/sfx'
 import { usePlayer } from '../engine/store'
 import { ArcadeGame } from './ArcadeGame'
 import { PixelRun } from '../components/arcade/PixelRun'
+import { SprintScreen } from './SprintScreen'
 
 const SUBJECT_BADGE: Record<'math' | 'english' | 'science', { icon: string; label: string; cls: string }> = {
   math: { icon: '🧮', label: 'Maths', cls: 'bg-speed-bluelight text-speed-blue' },
@@ -13,7 +15,13 @@ const SUBJECT_BADGE: Record<'math' | 'english' | 'science', { icon: string; labe
 
 export function ArcadeScreen() {
   const arcadeScores = usePlayer((s) => s.arcadeScores)
+  const sprintBest = usePlayer((s) => s.sprintBest)
   const [activeId, setActiveId] = useState<string | null>(null)
+  const [sprintOpen, setSprintOpen] = useState(false)
+
+  // Phase 29 / PLAN 142 - Flashcard Sprint launched from the Arcade tab too
+  //  (standalone full-screen round, same instance as the PathScreen banner).
+  if (sprintOpen) return <SprintScreen onExit={() => setSprintOpen(false)} />
 
   const active = ARCADE_GAMES.find((g) => g.id === activeId)
   if (active) {
@@ -31,6 +39,38 @@ export function ArcadeScreen() {
       </div>
 
       <div className="space-y-4">
+        {/* PLAN 142 - Flashcard Sprint tile (bank is english MCQs -> English badge;
+            visible from any subject since the Arcade mixes subjects by design) */}
+        <motion.button
+          data-testid="arcade-sprint-tile"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+          className="card-white flex w-full items-center gap-4 border-l-4 border-l-fuchsia-400 text-left shadow-pop transition-transform active:scale-[0.99]"
+          onClick={() => {
+            sfx.tap()
+            setSprintOpen(true)
+          }}
+        >
+          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-fuchsia-100 text-3xl">
+            ⚡
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="flex items-center gap-2 font-display font-extrabold text-slate-800">
+              Flashcard Sprint
+              <span
+                className={`rounded-full px-2 py-0.5 text-[10px] font-extrabold uppercase ${SUBJECT_BADGE.english.cls}`}
+              >
+                {SUBJECT_BADGE.english.icon} {SUBJECT_BADGE.english.label}
+              </span>
+            </p>
+            <p className="truncate text-sm font-medium text-slate-500">60 seconds · word rush · earn ⚡ XP</p>
+          </div>
+          <div className="text-right">
+            <p className="text-[10px] font-bold uppercase text-slate-400">Best</p>
+            <p className="font-display font-extrabold text-speed-blue">{sprintBest || '—'}</p>
+          </div>
+        </motion.button>
         {ARCADE_GAMES.map((g, i) => {
           const best = arcadeScores[g.id] ?? 0
           return (
