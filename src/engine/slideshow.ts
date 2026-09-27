@@ -36,6 +36,28 @@ export function exampleFromQuestion(q: Question): { prompt: string; answer: stri
   }
 }
 
+/** Clamped forward step (PLAN 151). Clicks can land on the EXITING slide
+ * button during an AnimatePresence `mode="wait"` transition, advancing `idx`
+ * twice for one visual step. Unclamped, `idx` runs past the mission slide and a
+ * strict `idx === deck.length - 1` check never fires again: "Let's go!" never
+ * appears, every further click re-arms the gate (layout effect on `idx`), and
+ * the slideshow is permanently stuck — reproduced live 2026-09-27. */
+export function nextSlideIndex(idx: number, deckLen: number): number {
+  return Math.min(idx + 1, deckLen - 1)
+}
+
+/** Clamped backward step: a stale back-button handler at slide 0 must never
+ * reach `deck[-1]` (undefined slide -> render crash). */
+export function prevSlideIndex(idx: number): number {
+  return Math.max(0, idx - 1)
+}
+
+/** Mission slide? `>=` (not `===`) so an idx that somehow already overshot the
+ * end still completes the deck instead of deadlocking it. */
+export function isLastSlide(idx: number, deckLen: number): boolean {
+  return idx >= deckLen - 1
+}
+
 /** Anti-skip minimum read time (seconds) for a slide, scaled to its length:
  *  ~0.45s per word, clamped to 4–9s in production. Short slides still get the
  *  full 4s floor so a fast tap can never skip the teaching content.

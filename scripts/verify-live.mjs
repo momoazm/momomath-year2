@@ -58,33 +58,44 @@ const advanceSlideshow = async (page) => {
   let mission = false
   const probe = () =>
     page.evaluate(() => {
-      const b = document.querySelector('[data-testid="slide-next"]')
-      if (!b) return null
-      return { disabled: b.disabled, letsGo: /Let's go/i.test(b.textContent || '') }
+      const btns = Array.from(document.querySelectorAll('[data-testid="slide-next"]')).map((b) => ({
+        text: (b.textContent || '').trim(), disabled: !!b.disabled,
+      }))
+      const ss = document.querySelector('[data-testid="lesson-slideshow"]')
+      return {
+        btns, has: !!ss,
+        slide: ss ? ss.innerText.slice(0, 90).replace(/\n+/g, ' | ') : '',
+      }
     })
+  const t0 = Date.now()
+  const log = (m) => console.log(`    [slide t+${((Date.now() - t0) / 1000).toFixed(1)}s c=${clicks}] ${m}`)
   for (let s = 0; s < 16; s++) {
     let st = await probe()
-    if (!st) break
+    log(`it=${s} ${JSON.stringify(st)}`)
+    if (!st.has) break
     // While gated the mission button reads "🔒 Wait Ns" — its text only flips
     // to "Let's go" once unlocked, so re-probe after every enable wait.
-    if (st.letsGo && !st.disabled) {
+    if (st.btns[0] && /Let's go/i.test(st.btns[0].text) && !st.btns[0].disabled) {
       mission = true
       await page.evaluate(() => document.querySelector('[data-testid="slide-next"]')?.click())
       clicks++
+      log('letsGo (pre-wait) -> done')
       break
     }
     const enabled = await page
       .waitForSelector('[data-testid="slide-next"]:not([disabled])', { timeout: 15000 })
       .then(() => true)
       .catch(() => false)
-    if (!enabled) break
+    if (!enabled) { log('ENABLED-WAIT TIMEOUT'); break }
     st = await probe()
-    if (st?.letsGo) {
+    log(`post-wait ${JSON.stringify(st)}`)
+    if (st.btns[0] && /Let's go/i.test(st.btns[0].text)) {
       // mission slide unlocked: tap Let's go → dismisses the slideshow
       // (Q1 for a lesson, the boss card for a boss node).
       mission = true
       await page.evaluate(() => document.querySelector('[data-testid="slide-next"]')?.click())
       clicks++
+      log('letsGo (post-wait) -> done')
       break
     }
     await page.evaluate(() => document.querySelector('[data-testid="slide-next"]')?.click())
@@ -92,6 +103,7 @@ const advanceSlideshow = async (page) => {
     await page.waitForTimeout(300)
   }
   if (mission) await page.waitForTimeout(400)
+  else await shot(page, 'slideshow-walk-failed').catch(() => {})
   return { sawSlideshow, gated, clicks, mission }
 }
 
@@ -528,10 +540,17 @@ async function main() {
     await page.evaluate(() => { location.href = location.pathname + '?library&cb=' + Date.now() })
     for (let i = 0; i < 20; i++) {
       await page.waitForTimeout(250)
+      // .catch: during the intentional location.href navigation above the
+      // evaluate can land while the old document is gone -> "Execution context
+      // was destroyed" (seen on the live site where nav is slower than local).
+      // Treat that as "not ready yet" and keep polling.
       const ready = await page.evaluate(() =>
-        document.querySelectorAll('[aria-label$="out of 5 stars"]').length >= 97)
+        document.querySelectorAll('[aria-label$="out of 5 stars"]').length >= 97,
+      ).catch(() => false)
       if (ready) break
     }
+    // Make sure the navigation actually settled before the next evaluate.
+    await page.waitForLoadState('load').catch(() => {})
     await shot(page, '05-library-after')
     const lib = await page.evaluate(() => {
       const body = document.body.innerText

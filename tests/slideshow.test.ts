@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildSlideDeck, exampleFromQuestion, slideMinSeconds } from '../src/engine/slideshow'
+import { buildSlideDeck, exampleFromQuestion, isLastSlide, nextSlideIndex, prevSlideIndex, slideMinSeconds } from '../src/engine/slideshow'
 import { getCurriculum } from '../src/content/registry'
 import type { McqQuestion, TrueFalseQuestion, TypeNumberQuestion } from '../src/content/types'
 
@@ -37,6 +37,31 @@ describe('exampleFromQuestion', () => {
   it('never returns an empty answer', () => {
     const ex = exampleFromQuestion(mcq)
     expect(ex?.answer.length).toBeGreaterThan(0)
+  })
+})
+
+describe('deck index clamps (overshoot deadlock regression, PLAN 151)', () => {
+  it('never advances past the mission slide', () => {
+    expect(nextSlideIndex(0, 5)).toBe(1)
+    expect(nextSlideIndex(3, 5)).toBe(4)
+    expect(nextSlideIndex(4, 5)).toBe(4) // already on the mission slide
+    expect(nextSlideIndex(5, 5)).toBe(4) // stale double-click overshoot lands back on mission
+  })
+
+  it('treats an overshot idx as the last slide so the deck still completes', () => {
+    // The pre-fix `idx === deck.length - 1` returned false here -> "Let's go!"
+    // never rendered and the slideshow deadlocked (reproduced live 2026-09-27).
+    expect(isLastSlide(3, 5)).toBe(false)
+    expect(isLastSlide(4, 5)).toBe(true)
+    expect(isLastSlide(5, 5)).toBe(true)
+    expect(isLastSlide(12, 5)).toBe(true)
+  })
+
+  it('never steps before slide 0 (stale back click at idx 0)', () => {
+    expect(prevSlideIndex(2)).toBe(1)
+    expect(prevSlideIndex(1)).toBe(0)
+    expect(prevSlideIndex(0)).toBe(0)
+    expect(prevSlideIndex(-3)).toBe(0)
   })
 })
 

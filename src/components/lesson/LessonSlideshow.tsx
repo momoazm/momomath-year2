@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import type { LessonDef } from '../../content/types'
 import { hashString } from '../../content/rng'
-import { buildSlideDeck, slideMinSeconds } from '../../engine/slideshow'
+import { buildSlideDeck, isLastSlide, nextSlideIndex, prevSlideIndex, slideMinSeconds } from '../../engine/slideshow'
 import { speakAsSonic, stopSpeaking, ttsAvailable } from '../../engine/tts'
 import { Mascot } from '../mascots/Mascots'
 import { sfx } from '../../engine/sfx'
@@ -39,7 +39,7 @@ export function LessonSlideshow({
 
   const slide = deck[Math.min(idx, deck.length - 1)]
   const speakText = slide.kind === 'mission' ? title : slide.text
-  const isLast = idx === deck.length - 1
+  const isLast = isLastSlide(idx, deck.length)
 
   // restart the anti-skip timer + speak in Sonic's voice on every slide change.
   // Timer reset is a LAYOUT effect: the first render after idx changes still
@@ -67,17 +67,23 @@ export function LessonSlideshow({
   const minSec = slideMinSeconds(speakText)
   const remain = Math.max(0, Math.ceil(minSec - (Date.now() - startRef.current) / 1000))
   const canNext = remain <= 0
+  // Live gate value shared with stale handlers (see next() — PLAN 151).
+  const canNextRef = useRef(canNext)
+  canNextRef.current = canNext
 
   const next = () => {
-    if (!canNext) return
+    // Gate against the LIVE value: a click on the exiting (stale) button must
+    // not bypass the current slide's anti-skip timer (PLAN 151).
+    if (!canNextRef.current) return
     sfx.tap()
     if (isLast) onDone()
-    else setIdx((i) => i + 1)
+    else setIdx((i) => nextSlideIndex(i, deck.length))
   }
   const prev = () => {
-    if (idx === 0) return
+    // Stale handlers may fire at idx 0; the clamp inside prevents deck[-1].
+    if (idx <= 0) return
     sfx.tap()
-    setIdx((i) => i - 1)
+    setIdx((i) => prevSlideIndex(i))
   }
 
   return (
