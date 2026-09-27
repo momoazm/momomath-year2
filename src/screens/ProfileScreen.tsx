@@ -30,7 +30,8 @@ export function ProfileScreen({ onOpenFriends, onStartCheckup }: {
 
   // PLAN 106: show the referral code right on the Friends entry card so it is
   // visible alongside the friend system (cached + fetched, never blocking).
-  const playerId = user?.sub ? `g:${user.sub}` : guestIdFromName(s.name)
+  // Frozen guest id (PLAN 141e): identity never follows the display name.
+  const playerId = user?.sub ? `g:${user.sub}` : (s.guestId || guestIdFromName(s.name))
   const [referralCode, setReferralCode] = useState('')
   const [copied, setCopied] = useState(false)
   useEffect(() => {

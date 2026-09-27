@@ -10,6 +10,9 @@ export const FRIENDS_API = 'https://momolearn-ai.vercel.app/api/year2/friends'
 export interface FriendRow {
   id: string
   name: string
+  /** Optimistic row (PLAN 141e-ii): shown right after a join until the next
+   *  /friends/list fetch confirms it — hides blob read-your-write lag. */
+  pending?: boolean
 }
 
 export interface JoinResult {
@@ -95,4 +98,18 @@ export async function fetchFriends(playerId: string): Promise<FriendRow[]> {
   return data.friends
     .filter((f: any) => f && typeof f.id === 'string')
     .map((f: any) => ({ id: String(f.id), name: String(f.name || 'Champion').slice(0, 24) }))
+}
+
+/**
+ * Blob read-your-write lag (PLAN 141e-ii): a confirmed list fetched right
+ * after a join can still be missing the friend we just added. Keep any
+ * optimistic `pending` row until a fetch actually includes that id; once the
+ * server row arrives it replaces the pending one (same id, non-pending).
+ */
+export function keepPendingFriends(prev: FriendRow[], refreshed: FriendRow[]): FriendRow[] {
+  const merged = refreshed.slice()
+  for (const row of prev) {
+    if (row.pending && !merged.some((m) => m.id === row.id)) merged.push(row)
+  }
+  return merged
 }

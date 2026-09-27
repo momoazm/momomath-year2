@@ -28,7 +28,8 @@
 //  16. Phase 27 (PLAN 121): START badge sits on the next lesson to be done
 //  17. Phase 27 (PLAN 123): fresh-lesson chest reveals the "STAR UP!" chip
 //  18. Phase 27 (PLAN 124): german lesson narrator speaks de-DE
-//  19. v14 persist migration (WS12-16: adaptive + activity calendar + sprint)
+//  19. persist migration v7 -> v15 (WS12-16: adaptive + activity calendar +
+//      sprint; v15: frozen guestId, PLAN 141e-i)
 import { createRequire } from 'node:module'
 import { mkdirSync, readFileSync } from 'node:fs'
 
@@ -154,9 +155,9 @@ async function main() {
   await page.goto(url, { waitUntil: 'domcontentloaded' })
   await page.waitForTimeout(900)
 
-  // --- 1. migration ran: v7 -> v14, arcade counters + WS12-16 fields backfilled ---
+  // --- 1. migration ran: v7 -> v15, arcade counters + WS12-16 fields backfilled ---
   const persisted = await page.evaluate((k) => JSON.parse(localStorage.getItem(k)), PLAYER_KEY)
-  ok('persist migrated to v14', persisted.version === 14, `version=${persisted.version}`)
+  ok('persist migrated to v15', persisted.version === 15, `version=${persisted.version}`)
   const st = persisted.state
   ok(
     'v10 arcade counters backfilled to 0',
@@ -183,6 +184,11 @@ async function main() {
     !!st.adaptive && Array.isArray(st.activityDays) && typeof st.sprintRuns === 'number' &&
       typeof st.sprintBest === 'number' && typeof st.sprintsToday === 'number',
     `adaptive=${!!st.adaptive} activityDays=${JSON.stringify(st.activityDays)} sprintRuns=${st.sprintRuns} sprintBest=${st.sprintBest} sprintsToday=${st.sprintsToday}`,
+  )
+  ok(
+    'v15 guestId frozen from the save name (PLAN 141e-i)',
+    st.guestId === 'name:momo',
+    `guestId=${st.guestId}`,
   )
   ok(
     'earlier fields still backfilled (dust/login/arcadeScores)',

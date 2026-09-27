@@ -8,6 +8,7 @@ import {
   fetchFriends,
   fetchMyCode,
   joinFriend,
+  keepPendingFriends,
   regenerateMyCode,
 } from '../src/engine/friends'
 
@@ -141,5 +142,35 @@ describe('fetchFriends normalisation', () => {
     stub(() => ({ body: { ok: true, friends: [] } }))
     await fetchFriends('name:momo learner')
     expect(calls[0].url).toBe(`${FRIENDS_API}/list?playerId=name%3Amomo%20learner`)
+  })
+})
+
+// PLAN 141e-ii: a lagging /friends/list fetch must not drop the friend the
+// player just added (optimistic pending row survives until confirmed).
+describe('keepPendingFriends', () => {
+  const pending = { id: 'g:sara', name: 'Sara', pending: true }
+
+  it('keeps a pending friend the lagging fetch missed', () => {
+    const merged = keepPendingFriends([pending], [{ id: 'g:older', name: 'Older' }])
+    expect(merged).toEqual([
+      { id: 'g:older', name: 'Older' },
+      { id: 'g:sara', name: 'Sara', pending: true },
+    ])
+  })
+
+  it('lets the confirmed server row replace the pending one', () => {
+    const merged = keepPendingFriends([pending], [{ id: 'g:sara', name: 'Sara' }])
+    expect(merged).toEqual([{ id: 'g:sara', name: 'Sara' }])
+  })
+
+  it('keeps the pending row while other rows change', () => {
+    const merged = keepPendingFriends([pending], [{ id: 'g:other', name: 'Other' }].filter((f) => f.id !== pending.id))
+    expect(merged).toEqual([{ id: 'g:other', name: 'Other' }, pending])
+  })
+
+  it('returns the refreshed list unchanged when nothing is pending', () => {
+    const rows = [{ id: 'g:a', name: 'A' }]
+    expect(keepPendingFriends(rows, [])).toEqual([])
+    expect(keepPendingFriends([], rows)).toEqual(rows)
   })
 })

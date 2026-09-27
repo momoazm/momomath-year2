@@ -13,3 +13,17 @@ export function guestIdFromName(name: string): string {
   const slug = (name.trim() || 'Champion').toLowerCase().replace(/[^\w:-]+/g, '_')
   return `name:${slug || 'champion'}`
 }
+
+/**
+ * Fresh install identity (PLAN 141e): a random id that never follows the
+ * display name, so renaming can't orphan friendships and two kids picking the
+ * same name can't share one identity. `guest:xxxx` passes the same
+ * `^[\w:-]+$` whitelist. Existing saves never call this — the v15 migration
+ * freezes their current name-derived id instead (zero server-data orphaning).
+ */
+export function newGuestId(): string {
+  const chars = 'abcdefghijkmnpqrstuvwxyz23456789'
+  let out = ''
+  for (let i = 0; i < 12; i++) out += chars[Math.floor(Math.random() * chars.length)]
+  return `guest:${out}`
+}

@@ -54,9 +54,10 @@ export function LeaguesScreen() {
   const [nowMs, setNowMs] = useState(() => Date.now())
   const [shared, setShared] = useState<SharedPlayer[]>([])
 
+  // Frozen guest id (PLAN 141e): identity never follows the display name.
   const myId = authUser?.sub
     ? `g:${authUser.sub}`
-    : guestIdFromName(s.name)
+    : (s.guestId || guestIdFromName(s.name))
 
   // League weeks are anchored at 12:00 AM of the day they began and run for
   // exactly 7 days. `boardWeek` is the shared Monday-based key used on the

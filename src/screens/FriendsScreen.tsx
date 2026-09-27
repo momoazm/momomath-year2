@@ -11,6 +11,7 @@ import {
   fetchFriends,
   fetchMyCode,
   joinFriend,
+  keepPendingFriends,
   regenerateMyCode,
   FriendsError,
   type FriendRow,
@@ -25,6 +26,7 @@ interface Row {
   xp: number
   isMe: boolean
   mascot?: string
+  pending?: boolean
 }
 
 const MEDALS = ['👑', '🥈', '🥉']
@@ -33,10 +35,12 @@ export function FriendsScreen({ onClose }: { onClose: () => void }) {
   const s = usePlayer()
   const user = useAuth((a) => a.user)
 
-  // Same id scheme the leaderboard uses (g:<sub> signed-in, name:<n> guest) so
-  // friend ids match leaderboard entries 1:1 for the weekly-XP join. The guest
-  // half is slugified (PLAN 141) so names with spaces/emoji still sync.
-  const playerId = user?.sub ? `g:${user.sub}` : guestIdFromName(s.name)
+  // Same id scheme the leaderboard uses (g:<sub> signed-in, frozen guest id
+  // otherwise) so friend ids match leaderboard entries 1:1 for the weekly-XP
+  // join. The guest id is persisted (PLAN 141e) instead of re-derived from
+  // the name, so renames no longer change identity; the fallback only covers
+  // saves written before v15.
+  const playerId = user?.sub ? `g:${user.sub}` : (s.guestId || guestIdFromName(s.name))
 
   const [code, setCode] = useState('')
   const [friends, setFriends] = useState<FriendRow[]>([])
@@ -119,6 +123,7 @@ export function FriendsScreen({ onClose }: { onClose: () => void }) {
         xp: entry ? weeklyXpOf(entry, boardWeekNow) : 0,
         isMe: false,
         mascot: entry?.mascot,
+        pending: f.pending,
       }
     }),
     { id: 'me', name: s.name.trim() || 'You', xp: myXp, isMe: true, mascot: s.mascot },
@@ -167,6 +172,14 @@ export function FriendsScreen({ onClose }: { onClose: () => void }) {
     try {
       const result = await joinFriend(playerId, s.name.trim() || 'Champion', raw)
       setJoinInput('')
+      if (!result.already) {
+        // Optimistic row (PLAN 141e-ii) — the list may lag behind the join
+        // write; show the friend immediately, confirmed by the fetch below.
+        setFriends((prev) => [
+          { id: result.friendId, name: result.friendName, pending: true },
+          ...prev.filter((f) => f.id !== result.friendId),
+        ])
+      }
       if (result.already) {
         sfx.tap()
         showToast(`You and ${result.friendName} are already friends! 🤝`)
@@ -181,7 +194,9 @@ export function FriendsScreen({ onClose }: { onClose: () => void }) {
       }
       try {
         const refreshed = await fetchFriends(playerId)
-        setFriends(refreshed)
+        // Blob read-your-write lag (PLAN 141e-ii): keep the optimistic row
+        // until a fetch confirms it.
+        setFriends((prev) => keepPendingFriends(prev, refreshed))
       } catch { /* keep the old list */ }
     } catch (e) {
       sfx.tap()
@@ -270,6 +285,7 @@ export function FriendsScreen({ onClose }: { onClose: () => void }) {
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-display font-bold">
                     {r.name}{r.isMe && <span className="ml-1 text-xs text-speed-blue">· you</span>}
+                    {r.pending && <span className="ml-1 text-xs font-bold text-slate-400">· just added ⏳</span>}
                   </p>
                 </div>
                 <span className="font-display text-sm font-extrabold text-amber-500">{r.xp} XP</span>

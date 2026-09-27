@@ -24,6 +24,7 @@ import { ADAPTIVE_CONFIG } from './adaptive/config'
 import { capSnapshots } from './adaptive/attempts'
 import { recordPick } from './adaptive/recommender'
 import { addActivityDay, isIsoDay, mergeActivityDays, normaliseActivityDays } from './recap'
+import { guestIdFromName, newGuestId } from './playerId'
 
 /** Fresh adaptive-learning slice (PLAN Phase 28 step 133). */
 const initialAdaptive = (): AdaptiveStore => ({
@@ -62,6 +63,8 @@ export const ENERGY_IS_UNLIMITED = true
 
 interface PlayerState {
   name: string
+  /** Frozen guest identity (PLAN 141e-i): never re-derived from `name`. */
+  guestId: string
   mascot: MascotId
   subject: Subject
   /** Optional DLC-style extras. German / Arabic / Religion / Social never
@@ -614,6 +617,7 @@ export const usePlayer = create<PlayerState>()(
   persist(
     (set, get) => ({
       name: 'Champion',
+      guestId: newGuestId(),
       mascot: 'sonic' as MascotId,
       subject: initialSubjectFromUrl(),
       germanEnabled: initialExtraEnabled('germanEnabled', 'german'),
@@ -1335,7 +1339,7 @@ export const usePlayer = create<PlayerState>()(
     }),
     {
       name: 'momomath-year2-player-v2',
-      version: 14,
+      version: 15,
       migrate: migratePersisted,
     },
   ),
@@ -1472,6 +1476,16 @@ export function migratePersisted(persisted: unknown, version: number): PlayerSta
           if (typeof anyP.sprintRuns !== 'number') anyP.sprintRuns = 0
           if (!isIsoDay(anyP.sprintsTodayDay)) anyP.sprintsTodayDay = firstDay
           if (typeof anyP.sprintsToday !== 'number') anyP.sprintsToday = 0
+        }
+        if (version < 15) {
+          // v15: frozen guest identity (PLAN 141e-i). Existing saves KEEP the
+          // exact id their friendships / weekly XP already live under (the
+          // current name-derived slug), so renaming stops changing the id
+          // without orphaning server data; fresh installs start from
+          // newGuestId() in the initial state and never hit this branch.
+          if (typeof p.guestId !== 'string' || !p.guestId.trim()) {
+            p.guestId = guestIdFromName(typeof p.name === 'string' && p.name.trim() ? p.name : 'Champion')
+          }
         }
         return p
 }
