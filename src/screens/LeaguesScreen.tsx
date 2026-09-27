@@ -18,6 +18,7 @@ import {
   type SharedPlayer,
 } from '../engine/leaderboard'
 import { buildStandings } from '../engine/standings'
+import { guestIdFromName } from '../engine/playerId'
 import { isValidAnchor, usePlayer } from '../engine/store'
 import { useAuth } from '../engine/auth'
 import { Mascot } from '../components/mascots/Mascots'
@@ -55,7 +56,7 @@ export function LeaguesScreen() {
 
   const myId = authUser?.sub
     ? `g:${authUser.sub}`
-    : `name:${s.name.trim().toLowerCase()}`
+    : guestIdFromName(s.name)
 
   // League weeks are anchored at 12:00 AM of the day they began and run for
   // exactly 7 days. `boardWeek` is the shared Monday-based key used on the

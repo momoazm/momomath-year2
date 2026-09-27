@@ -20,6 +20,7 @@ Vite + React + TS + Tailwind, zustand persist store, vitest. Deploys to GitHub P
 - NEVER merge the two projects: no `git remote add` of momolearn-ai, no cross-repo branch merges/cherry-picks/stashes, no folder sync. `origin` here is ONLY `momoazm/momomath-year2`.
 - ONLY permitted exception: consuming the momolearn-ai **HTTP API as a backend service** — the URL constants in `src/engine/cloudsave.ts` / `leaderboard.ts` / `friends.ts` and their JSON wire contract. A URL + JSON payload is not content; anything beyond that (server code, page markup, styles, assets) must be re-implemented natively here.
 - Before shipping work that adds a cross-project dependency, run a provenance check (does any new file match a file in the momolearn folders?) and record the result in `PLAN.md`.
+- NEVER EDIT the momolearn-ai folders either (standing, user-mandated 2026-09-27 — "everything must stay in momomath"): not `lib/`, not `scripts/`, not even a backend fix for an API this app calls. This project only CONSUMES the HTTP API. If a server-side bug blocks a feature, fix the CLIENT so it works against the deployed API, and REPORT the needed server change to the user for that repo's own session. Taking features FROM other websites means reading/porting them INTO this repo — never writing out.
 
 ## No-deletion rule (standing, user-mandated)
 

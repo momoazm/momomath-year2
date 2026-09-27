@@ -1,4 +1,4 @@
-// Live smoke test for the subject-roadmap + arcade-exclusives release.
+﻿// Live smoke test for the subject-roadmap + arcade-exclusives release.
 // Usage: node scripts/verify-gamification.mjs [url]
 // Exit 0 only when every check passes.
 //
@@ -25,8 +25,12 @@
 //      "Your referral code" invite card (PLAN 106-107)
 //  15. per-unit 🎯 fun activity: locked popup, theme + timer, full run to the
 //      results screen (PLAN 102-105)
+//  16. Phase 27 (PLAN 121): START badge sits on the next lesson to be done
+//  17. Phase 27 (PLAN 123): fresh-lesson chest reveals the "STAR UP!" chip
+//  18. Phase 27 (PLAN 124): german lesson narrator speaks de-DE
+//  19. v14 persist migration (WS12-16: adaptive + activity calendar + sprint)
 import { createRequire } from 'node:module'
-import { mkdirSync } from 'node:fs'
+import { mkdirSync, readFileSync } from 'node:fs'
 
 const require = createRequire('C:/Users/momo/AppData/Local/hermes/node/node_modules/@playwright/cli/playwright-core/index.js')
 const { chromium } = require('playwright-core')
@@ -75,15 +79,37 @@ const readState = (page) =>
 async function main() {
   const browser = await chromium.launch({ headless: true })
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } })
+  // PLAN 124: record the lang of every speechSynthesis utterance so the
+  // german-narrator check can assert de-DE without needing real audio.
+  await ctx.addInitScript(() => {
+    if (!('speechSynthesis' in window)) return
+    window.__spokenLangs = []
+    const orig = window.speechSynthesis.speak.bind(window.speechSynthesis)
+    window.speechSynthesis.speak = (u) => {
+      try {
+        window.__spokenLangs.push(String((u && u.lang) || ''))
+      } catch {
+        /* recording must never break speech */
+      }
+      return orig(u)
+    }
+  })
   const page = await ctx.newPage()
   const errors = []
   page.on('pageerror', (e) => errors.push(String(e)))
   page.on('console', (m) => {
     if (m.type() !== 'error') return
     const t = m.text()
+    const loc = m.location && m.location()
+    const full = loc && loc.url ? `${t} @ ${loc.url}` : t
     // Google Sign-In on localhost always logs a 403 origin error — not the app's.
-    if (/GSI_LOGGER|accounts\.google\.com|Failed to load resource.*403/i.test(t)) return
-    errors.push(t)
+    if (/GSI_LOGGER|accounts\.google\.com|Failed to load resource.*403/i.test(full)) return
+    // Optional adaptive LLM endpoints: graceful no-ops when the backend is
+    // absent (dev server / gh-pages) — by design, not app errors (PLAN 135).
+    if (/\/api\/year2\/(explain|followup)/i.test(full)) return
+    // Google Fonts CDN flake (offline/firewall) - environment, not the app.
+    if (/fonts\.(googleapis|gstatic)\.com/i.test(full)) return
+    errors.push(full)
   })
   page.setDefaultTimeout(20000)
 
@@ -128,9 +154,9 @@ async function main() {
   await page.goto(url, { waitUntil: 'domcontentloaded' })
   await page.waitForTimeout(900)
 
-  // --- 1. migration ran: v7 -> v13, arcade counters + unitActivity backfilled ---
+  // --- 1. migration ran: v7 -> v14, arcade counters + WS12-16 fields backfilled ---
   const persisted = await page.evaluate((k) => JSON.parse(localStorage.getItem(k)), PLAYER_KEY)
-  ok('persist migrated to v13', persisted.version === 13, `version=${persisted.version}`)
+  ok('persist migrated to v14', persisted.version === 14, `version=${persisted.version}`)
   const st = persisted.state
   ok(
     'v10 arcade counters backfilled to 0',
@@ -151,6 +177,12 @@ async function main() {
     'v13 unit activity best backfilled to empty record',
     st.unitActivityBest && typeof st.unitActivityBest === 'object' && Object.keys(st.unitActivityBest).length === 0,
     `unitActivityBest=${JSON.stringify(st.unitActivityBest)}`,
+  )
+  ok(
+    'v14 WS12-16 fields backfilled (adaptive + activityDays + sprint counters)',
+    !!st.adaptive && Array.isArray(st.activityDays) && typeof st.sprintRuns === 'number' &&
+      typeof st.sprintBest === 'number' && typeof st.sprintsToday === 'number',
+    `adaptive=${!!st.adaptive} activityDays=${JSON.stringify(st.activityDays)} sprintRuns=${st.sprintRuns} sprintBest=${st.sprintBest} sprintsToday=${st.sprintsToday}`,
   )
   ok(
     'earlier fields still backfilled (dust/login/arcadeScores)',
@@ -177,6 +209,14 @@ async function main() {
   // reading is ENGLISH-only: the Story Library panel must not render on Maths
   const libOnMaths = await page.getByTestId('story-library').isVisible().catch(() => false)
   ok('Story Library hidden on Maths roadmap', !libOnMaths, `visible=${libOnMaths}`)
+  // Phase 27 (PLAN 121): START badge tracks the NEXT lesson to be done
+  // (fresh seed -> unit 1 lesson 1 is untried + unlocked -> badge renders).
+  const startBadge = await page.evaluate(() =>
+    Array.from(document.querySelectorAll('span')).some(
+      (s) => (s.className || '').includes('animate-pop-in') && /^START/.test((s.textContent || '').trim()),
+    ),
+  )
+  ok('START badge sits on the next lesson (Phase 27)', startBadge, `badge=${startBadge}`)
 
   // --- 2b. battle smoke: node tap → BattleScreen; advance Sonic slideshow → battle; wrong answer shows hint; flee ---
   // JS click: the node unmounts the instant BattleScreen mounts, which makes
@@ -916,6 +956,263 @@ async function main() {
   const backOnProfile = await page.getByText('Daily XP goal').first().isVisible().catch(() => false)
   ok('Back returns to Profile', leftFriends && backOnProfile, `back=${leftFriends} profileVisible=${backOnProfile}`)
 
+  // --- 17. Phase 27 (PLAN 123): fresh-lesson chest reveals the STAR UP! chip ---
+  // Seed every STANDARD card one copy below the first star threshold (3) so
+  // ANY chest roll crosses a star boundary and the chip must render.
+  {
+    const cardsSrc = readFileSync(new URL('../src/engine/cards.ts', import.meta.url), 'utf8')
+    const carRegion = cardsSrc.slice(
+      cardsSrc.indexOf('export const CARDS'),
+      cardsSrc.indexOf('export const ARCADE_CARDS'),
+    )
+    const cardIds = [...carRegion.matchAll(/id:\s*'([a-z0-9-]+)'/g)].map((m) => m[1])
+    const starSeed = {
+      ...SEED,
+      state: {
+        ...SEED.state,
+        lessonProgress: {},
+        cardStars: Object.fromEntries(cardIds.map((id) => [id, 2])),
+        cardPity: 0,
+      },
+    }
+    await page.goto(`${URL_BASE}?cb=${Date.now()}`, { waitUntil: 'domcontentloaded' })
+    await page.evaluate((seed) => {
+      localStorage.setItem('momomath-year2-player-v2', JSON.stringify(seed))
+      localStorage.setItem('momomath-year2-auth', JSON.stringify({ state: { user: { sub: 'qa-seed', name: 'Momo', email: 'qa@example.com' }, credential: null, guestName: null }, version: 0 }))
+    }, starSeed)
+    await page.goto(`${URL_BASE}?lesson=u1l1&cb=${Date.now()}`, { waitUntil: 'domcontentloaded' })
+    await page.waitForTimeout(900)
+
+    // One driver for intro -> teaching slideshow -> question queue, adapted
+    // from the unit-activity driver (any answer advances; a fresh clear is
+    // what grants the chest).
+    const starStep = () =>
+      page.evaluate(() => {
+        const bodyText = document.body.innerText
+        if (/STAR UP!/.test(bodyText)) return 'starup'
+        if (/on first try|Flawless run/i.test(bodyText)) return 'done'
+        // LessonScreen's footer Continue (red, not btn-green) advances after
+        // EITHER outcome — wrong answers get requeued forever (L432), so the
+        // driver must click Continue whenever it is present, not just on
+        // 'Not quite'.
+        const cont = Array.from(document.querySelectorAll('button')).find(
+          (b) => /^Continue$/i.test((b.textContent || '').trim()) && !b.disabled,
+        )
+        if (cont) {
+          cont.click()
+          return 'continue'
+        }
+        const on = (b) => !b.disabled
+        const txt = (b) => (b.textContent || '').trim()
+        if (document.querySelector('[data-testid="lesson-slideshow"]')) {
+          const next = document.querySelector('[data-testid="slide-next"]')
+          if (next && !next.disabled) {
+            next.click()
+            return 'slide-next'
+          }
+          const lets = Array.from(document.querySelectorAll('button')).find((b) => /Let's go/i.test(txt(b)) && on(b))
+          if (lets) {
+            lets.click()
+            return 'mission'
+          }
+          return 'slide-wait'
+        }
+        const live = Array.from(document.querySelectorAll('button')).filter(on)
+        const intro = live.find((b) => /^Let's go/i.test(txt(b)))
+        if (intro && /Cambridge objectives/i.test(bodyText)) {
+          intro.click()
+          return 'intro'
+        }
+        // --- u1l1 kinds: answer CORRECTLY (wrong answers are requeued at the
+        // end of the queue forever, LessonScreen.tsx:432, so an all-wrong run
+        // never reaches done). Grading rules: tap-count needs every target
+        // emoji cell tapped (aria-pressed); gEstimateCount buckets n into
+        // 6-7->about 5, 8-12->about 10, 17-18->about 20 (generators.ts:1077).
+        const tapM = bodyText.match(/Tap ALL the (\S+)/)
+        if (tapM) {
+          const target = tapM[1]
+          const untapped = Array.from(document.querySelectorAll('button')).filter(
+            (b) => (b.textContent || '').trim() === target &&
+              b.getAttribute('aria-pressed') !== 'true',
+          )
+          if (untapped.length) {
+            untapped[0].click()
+            return 'tap-target'
+          }
+          // all target cells tapped -> fall through to the CHECK submit
+        }
+        if (/About how many can you see/i.test(bodyText)) {
+          const grp = Array.from(document.querySelectorAll('div')).find((d) => {
+            const kids = d.querySelectorAll(':scope > span.gpu.animate-bob')
+            return kids.length >= 6
+          })
+          if (grp) {
+            const n = grp.querySelectorAll(':scope > span.gpu.animate-bob').length
+            const label = n <= 7 ? 'about 5' : n <= 12 ? 'about 10' : 'about 20'
+            const pick = live.find(
+              (b) => b.classList.contains('choice-btn') && txt(b) === label,
+            )
+            if (!pick) return 'est-wait' // label never matched - surface it
+            if (!pick.classList.contains('selected')) {
+              pick.click()
+              return 'est-pick'
+            }
+            // correct choice already selected -> fall through to CHECK
+          }
+        }
+        const input =
+          document.querySelector('input#numans') ||
+          Array.from(document.querySelectorAll('input')).find((i) => !i.disabled && i.type !== 'hidden')
+        if (input && input.value === '') {
+          Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')
+            .set.call(input, '1')
+          input.dispatchEvent(new Event('input', { bubbles: true }))
+          return 'typed'
+        }
+        const said = live.find((b) => /I said it/i.test(txt(b)))
+        if (said) {
+          said.click()
+          return 'said'
+        }
+        const submit = live.find((b) => b.classList.contains('btn-green'))
+        if (submit) {
+          submit.click()
+          return 'submit'
+        }
+        // LessonScreen's own choice buttons carry `choice-btn` (no rounded-*)
+        const choiceBtn = live.find(
+          (b) => b.classList.contains('choice-btn') && !b.classList.contains('selected'),
+        )
+        if (choiceBtn) {
+          choiceBtn.click()
+          return 'choice-btn'
+        }
+        const mg = Array.from(document.querySelectorAll('div')).find(
+          (d) => d.classList.contains('gap-3') &&
+            d.querySelectorAll(':scope > div').length === 2 &&
+            d.querySelector(':scope > div > button'),
+        )
+        if (mg) {
+          const [lc, rc] = mg.querySelectorAll(':scope > div')
+          const left = Array.from(lc.querySelectorAll('button')).filter(on)
+          const right = Array.from(rc.querySelectorAll('button')).filter(on)
+          const picked = left.find((b) => /👆/.test(txt(b)))
+          if (picked && right.length) {
+            right[0].click()
+            return 'match-right'
+          }
+          if (!picked && left.length) {
+            left[0].click()
+            return 'match-left'
+          }
+          return 'match-idle'
+        }
+        const choice = live.find((b) => b.classList.contains('rounded-2xl'))
+        if (choice) {
+          choice.click()
+          return 'choice'
+        }
+        const tile = live.find((b) => b.classList.contains('h-9') && b.classList.contains('border-2'))
+        if (tile) {
+          tile.click()
+          return 'tile'
+        }
+        const cell = live.find((b) => b.className.includes('border-slate-200'))
+        if (cell) {
+          cell.click()
+          return 'cell'
+        }
+        const any = live.find((b) => b.className.includes('rounded-xl'))
+        if (any) {
+          any.click()
+          return 'any'
+        }
+        return 'idle'
+      })
+
+    let starUp = false
+    const starSteps = []
+    for (let round = 0; round < 320 && !starUp; round++) {
+      const phase = await starStep()
+      starSteps.push(phase)
+      if (phase === 'starup') {
+        starUp = true
+        break
+      }
+      if (phase === 'done') {
+        // ChestReveal is interactive: 4 kicks (aria-label "Tap to kick your
+        // chest") reveal the chest, then the card lands and the STAR UP! chip
+        // pops (ChestReveal.tsx:369, after ~0.55s + 0.22s per star).
+        for (let i = 0; i < 40 && !starUp; i++) {
+          const k = await page.evaluate(() => {
+            if (/STAR UP!/.test(document.body.innerText)) return 'starup'
+            const chest = document.querySelector('[aria-label="Tap to kick your chest"]')
+            if (chest) {
+              chest.click()
+              return 'kick'
+            }
+            return 'wait'
+          })
+          if (k === 'starup') {
+            starUp = true
+            break
+          }
+          await page.waitForTimeout(320)
+        }
+        break
+      }
+      await page.waitForTimeout(phase === 'reveal-wait' ? 600 : 260)
+    }
+    ok('fresh lesson chest shows STAR UP! chip (Phase 27)', starUp,
+      `starUp=${starUp} cards=${cardIds.length} steps=${JSON.stringify(starSteps.slice(-40))}`)
+    await shot(page, '16b-star-up')
+  }
+
+  // --- 18. Phase 27 (PLAN 124): german lesson narrator speaks de-DE ---
+  {
+    const germanSeed = {
+      ...SEED,
+      state: { ...SEED.state, subject: 'german', germanEnabled: true, lessonProgress: {} },
+    }
+    await page.goto(`${URL_BASE}?cb=${Date.now()}`, { waitUntil: 'domcontentloaded' })
+    await page.evaluate((seed) => {
+      localStorage.setItem('momomath-year2-player-v2', JSON.stringify(seed))
+      localStorage.setItem('momomath-year2-auth', JSON.stringify({ state: { user: { sub: 'qa-seed', name: 'Momo', email: 'qa@example.com' }, credential: null, guestName: null }, version: 0 }))
+    }, germanSeed)
+    await page.goto(`${URL_BASE}?cb=${Date.now()}`, { waitUntil: 'domcontentloaded' })
+    await page.waitForTimeout(900)
+    // Empty voice list => speak() falls back to the lang PARAM (de-DE), so the
+    // assertion tests PLAN 124's plumbing instead of this machine's SAPI voices.
+    await page.evaluate(() => {
+      try {
+        window.speechSynthesis.getVoices = () => []
+      } catch {
+        /* speech may be unavailable - the check then simply fails */
+      }
+    })
+    // Click the START badge's node (subject pills also carry title attrs, so a
+    // plain `button[title]` query would hit the Maths pill instead).
+    const germanOpened = await page.evaluate(() => {
+      const badge = Array.from(document.querySelectorAll('span')).find(
+        (s) => (s.className || '').includes('animate-pop-in') && /^START/.test((s.textContent || '').trim()),
+      )
+      const node = badge && badge.closest('button')
+      if (!node || node.disabled) return false
+      node.click()
+      return true
+    })
+    const germanSlideshow = await page
+      .waitForSelector('[data-testid="lesson-slideshow"]', { timeout: 8000 })
+      .then(() => true)
+      .catch(() => false)
+    await page.waitForTimeout(600)
+    const langs = await page.evaluate(() => window.__spokenLangs || [])
+    ok('german lesson narrator speaks de-DE (Phase 27)',
+      germanOpened && germanSlideshow && langs.includes('de-DE'),
+      `opened=${germanOpened} slideshow=${germanSlideshow} langs=${JSON.stringify(langs.slice(-4))}`)
+    await shot(page, '17-german-narrator')
+  }
+
   ok('no page errors', errors.length === 0, errors.length ? errors.slice(0, 3).join(' | ') : 'zero pageerror/console errors')
 
   // --- mobile viewport (360x740): header + bottom nav fully visible, no h-scroll ---
@@ -926,8 +1223,13 @@ async function main() {
   mp.on('console', (m) => {
     if (m.type() !== 'error') return
     const t = m.text()
-    if (/GSI_LOGGER|accounts\.google\.com|Failed to load resource.*403/i.test(t)) return
-    errors.push(t)
+    const loc = m.location && m.location()
+    const full = loc && loc.url ? `${t} @ ${loc.url}` : t
+    if (/GSI_LOGGER|accounts\.google\.com|Failed to load resource.*403/i.test(full)) return
+    if (/\/api\/year2\/(explain|followup)/i.test(full)) return
+    // Google Fonts CDN flake (offline/firewall) - environment, not the app.
+    if (/fonts\.(googleapis|gstatic)\.com/i.test(full)) return
+    errors.push(full)
   })
   mp.setDefaultTimeout(20000)
   await mp.goto(`${URL_BASE}?cb=${Date.now()}`, { waitUntil: 'domcontentloaded' })

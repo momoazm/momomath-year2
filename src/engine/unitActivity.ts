@@ -54,7 +54,10 @@ export function buildUnitChallenge(unit: UnitDef, seed: number): Question[] {
         continue
       }
       for (const q of shuffle(rng, [...bank])) {
-        const key = `${lesson.id}|${questionKey(q)}`
+        // Dedupe by the question itself - NOT by lesson: the same question
+        // can surface from two lessons in one unit, and a run must not ask
+        // it twice (PLAN 138a).
+        const key = questionKey(q)
         if (seen.has(key)) continue
         seen.add(key)
         picked.push(q)

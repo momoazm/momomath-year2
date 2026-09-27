@@ -268,3 +268,53 @@ User asks: (1) fix the chest animation to upgrade when the card star-upgrades, (
 - [x] 128. **Gates + ship:** `tsc` / `vitest` / `precommit` → local `verify-live` + `verify-gamification` (URL arg!) → commit → `node scripts/deploy.mjs` → live verify — commit/deploy on explicit user approval.
 
 - [x] 129. **Question-pool content expansion (PLAN 119b, user-approved "all 80 -> zero repeats"):** 80 lessons had generator pools <10 distinct questions (kids saw repeats up to 4x). Expanded ADDITIVELY via 5 parallel agents (math=generators.ts; english/science/arabic+religion/social = their content dirs) - new statements/pairs/options/rand branches only, nothing deleted; every agent ran `tests/zz-pool-probe.test.ts` (now 0 lessons <10) + `tsc -b` green. Residual sweep `tests/zz-sweep-probe.test.ts`: 14 lessons still flag dup queues (56 total, mostly 1-dupe-on-rare-seed from pools of exactly ~10 + weighted branches): `u8l2 (4/14)` serious, plus `d5l3, e7l3, e5l2, e13l1, e13l5, e7l5, e8l3, e13l3, d3l3, e8l2, g10l3, d1l1, d2l1`. Straggler agents pad these until sweep = 0. THEN step 126 promotes the probes into permanent tests with dup threshold 0.
+
+## Phase 28 - Recover WS12-16 + adaptive engine (full restore) (user "go" 2026-09-26)
+
+Context: `Documents\momomath-year2` @ 43b00f0 shipped WS12-16 (user-approved
+2026-09-25) and deployed it once (gh-pages c4cb6c7, live 19:19-20:48 on 09-25);
+deploys from the home copy since then silently dropped PWA/checkup/recap/sprint
+from live (manifest.webmanifest + sw.js now 404). The adaptive engine (vault
+s165, commit 5755ef4) lives only on branch chat/year2-signin-20260918 + the
+Documents copy - never on main. Sources of truth:
+- WS12-16 + adaptive engine files: Documents copy working tree (clean, HEAD 43b00f0)
+- adaptive unit tests: origin/chat/year2-signin-20260918 tests/adaptive/ (8 files)
+- Integration target: this repo (store v13, screens through Phase 27).
+
+- [x] 130. **Divergence backup:** from the Documents copy push its 14 unpushed commits to `origin/chat/year2-ws12-16` before any porting (nothing lives only on that disk).
+- [x] 131. **WS12 PWA install + offline:** port `public/manifest.webmanifest`, `public/sw.js`, `public/icon-192.png`, `public/icon-512.png`, `public/apple-touch-icon.png` + `index.html` link/meta tags + sw registration in `main.tsx`; verify `start_url`/`scope`/precache paths honor the `/momomath-year2/` base; fix stale title/meta ("Momo Year 2 Cambridge - Maths Adventure" -> multi-subject wording per their changelog); port `tests/pwa.test.ts`.
+- [x] 132. **Adaptive core:** port `src/engine/adaptive/{model,difficulty,recommender,mistakes,catalog,attempts,explanations,questions,review,lessons,types,config,byok,useAdaptiveLesson,index}.ts`; port 8 `tests/adaptive/*` files from the branch (adapt imports); copy `docs/adaptive-spec.md` for reference; wire the 3 LessonScreen hooks (response-time tracking, BKT first-attempt update, wrong-answer explanation); do NOT re-add the PathScreen "Recommended for you" card (removed by 508469c on purpose).
+- [x] 133. **Store v14 + cloudsave:** additive `adaptive` slice (+ checkup/recap/sprint fields added by later steps) with v14 backfill migration; `mergeAdaptive` union in `cloudsave.ts` (null passthrough) + tests.
+- [x] 134. **WS13 Daily check-up:** port `adaptive/checkup.ts`; PathScreen "N skills due" banner entry + Profile entry; due-selection determinism + session composition tests (write where their tree lacks a committed file).
+- [x] 135. **WS14 follow-up (client-side only):** port `adaptive/followup.ts`; LessonScreen "Try a similar one" after first-attempt wrong runs the deterministic `siblingFollowup()` in-browser (offline, no PII); `api/year2/followup.ts` LLM route DEFERRED (no server on gh-pages - record, do not port); port client-side tests only (skip `year2-api.test.ts` route tests).
+- [x] 136. **WS15 streak calendar + weekly recap:** port `src/engine/recap.ts` (activityDays cap ~60, max-merge); Profile month grid + weekly recap card; cloudsave activityDays union merge; port `tests/recap.test.ts`.
+  - NOTE (server follow-up for a momolearn-ai session): the deployed `lib/year2/cloudsave.js` sanitizeSave whitelist has NO `activityDays`, so the server drops it on PUT — cross-device day union degrades to local-only until that repo adds the field. Client wire shape, normalise/union merge, store field + v14 backfill are all in place (isolation rule: no edits to that repo from here).
+- [x] 137. **WS16 Flashcard Sprint:** port `src/engine/sprint.ts` + `src/screens/SprintScreen.tsx`; App route + entry point; quest `sprint1` + achievement (additive `gamification.ts`); port `tests/sprint.test.ts`.
+- [x] 138. **Quick wins:** (a) `unitActivity.ts` run dedupe key drops `lesson.id` (same question from two lessons can repeat in ONE activity run) + test; (b) verify-gamification checks for Phase 27: START badge on next lesson, german lesson narrator lang=de-DE, chest "STAR UP!" chip in reveal; (c) `prefers-reduced-motion` support (MotionConfig/useReducedMotion); (d) optional: code-split the 933 KB bundle.
+  - Done: (a) key = `questionKey(q)` only + test in `tests/unitActivity.test.ts`; (b) vgam checks 16/17/18 + v14 migration assertions (+ speech-synthesis lang recorder); (c) `<MotionConfig reducedMotion="user">` in `src/main.tsx`; (d) SKIPPED as optional - single-bundle keeps the PWA sw.js precache simple (splitting adds chunk-precache risk for a Phase-28 speed-run; revisit on user request).
+- [ ] 139. **Gates + ship:** tsc / full vitest / `npm run verify` -> local `verify-live` + `verify-gamification` (URL arg) -> commit -> push -> `node scripts/deploy.mjs` -> live verify incl. `manifest.webmanifest` + `sw.js` 200 AND `Flashcard Sprint` present in the served bundle -> PLAN tick + docs commit.
+- [ ] 140. **Recorded exclusions (do not port):** `api/year2/followup.ts` + `year2-api.test.ts` (needs backend); LM-tracker UI extras (mastery sparklines, Path coach nudge, confidence pills) unless user asks; session-auth commit 7fb4eb9 (needs /api/session); Documents content-QA tests superseded by `questionSweep` (`noDuplicateQuestions`, `dupStats`, `everyLesson`).
+
+- [ ] 141. **Friend system fix (user "also fix the friend system" 2026-09-27):** guest
+  playerIds are raw display names (`name:sarah ali`) but every year2 API whitelists
+  `^[\w:-]+$` — spaces/apostrophes/accents/emoji in a kid name → 400 on
+  `/friends/code`, `/friends/join`, `/friends/list` AND leaderboard PUT, so codes
+  never render, joins fail, and weekly XP never syncs (verified live: space/apost
+  → `Invalid player.`, lb space → `Invalid leaderboard entry.`; dash/plain → 200).
+  - [x] 141a. Client: `src/engine/playerId.ts#guestIdFromName` (trim, lower,
+    `[^\w:-]+` → `_`, fallback Champion) used at FriendsScreen:37, ProfileScreen:25,
+    LeaguesScreen:58 (Leagues gains the Champion fallback too); `tests/playerId.test.ts`.
+  - [x] 141b. Server normalization in momolearn-ai — CUT by user 2026-09-27 under the
+    website-isolation rule (never edit another repo): it was written + tested there,
+    then fully reverted (friends.js/leaderboard.js/tests back to HEAD, temp test file
+    removed; the other session's uncommitted work untouched, its suite 35/35). Not
+    needed anyway — the client slug already passes the deployed API's `^[\w:-]+$`
+    whitelist, so the frontend fix works against what is live today.
+  - [x] 141c. Server tests (`scripts/test-friends.mjs` extension +
+    `scripts/test-leaderboard.mjs`) — CUT with 141b (they tested the reverted server
+    code). Client coverage lives in `tests/playerId.test.ts` (141a), full suite 1599.
+  - [ ] 141d. Ship: frontend rides step 139 deploy (server half cut — see 141b; if the
+    stale-tab hardening is ever wanted, it must be done in a momolearn-ai session).
+  - [ ] 141e. Known limitations NOT fixed here (confirm with user if wanted): guest
+    rename changes the id and orphans friendships; two guests with the same name
+    share one identity; blob read-your-write lag shows a new friend for a few seconds.

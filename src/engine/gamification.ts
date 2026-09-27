@@ -318,6 +318,8 @@ export interface QuestSnapshot {
   correctToday: number
   bossesToday: number
   arcadeCorrectToday: number
+  /** Flashcard Sprints finished today (day-rolled, WS16). */
+  sprintsToday: number
 }
 
 /** Rotating pool — questsForDay picks 3 for a given day. */
@@ -331,6 +333,7 @@ export const DAILY_QUESTS: QuestDef[] = [
   { id: 'boss1', label: () => 'Clear 1 boss level', goal: 1, reward: 30, progress: (s) => s.bossesToday },
   { id: 'arcade10', label: (g) => `Score ${g} points in the arcade`, goal: 10, reward: 20, progress: (s) => s.arcadeCorrectToday },
   { id: 'xp100', label: (g) => `Earn ${g} XP`, goal: 100, reward: 40, progress: (s) => s.xpToday },
+  { id: 'sprint1', label: () => 'Play a Flashcard Sprint', goal: 1, reward: 15, progress: (s) => s.sprintsToday },
 ]
 
 /** Deterministic pick of 3 quests for a given calendar day. */
@@ -407,6 +410,8 @@ export interface AchievementSnapshot {
   leagueWeeks: number
   arcadeBests: number
   arcadeTop: number
+  /** Lifetime Flashcard Sprints finished (WS16). */
+  sprintRuns: number
   subjectsPlayed: number
   dailyLoginStreak: number
   friendsAdded: number
@@ -471,6 +476,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   { id: 'arcade-debut', title: 'Arcade Debut', desc: 'Set a score in any arcade game', icon: '🕹️', test: (s) => s.arcadeBests >= 1 },
   { id: 'arcade-3', title: 'Arcade Ace', desc: 'Set scores in 3 arcade games', icon: '👾', test: (s) => s.arcadeBests >= 3 },
   { id: 'arcade-100', title: 'High Scorer', desc: 'Score 100+ in an arcade game', icon: '🚀', test: (s) => s.arcadeTop >= 100 },
+  { id: 'sprint-debut', title: 'Word Sprinter', desc: 'Finish a Flashcard Sprint', icon: '💨', test: (s) => s.sprintRuns >= 1 },
   { id: 'subjects-3', title: 'Triple Threat', desc: 'Play all 3 subjects', icon: '🎓', test: (s) => s.subjectsPlayed >= 3 },
   { id: 'login-7', title: 'Loyal Player', desc: 'Claim 7 login rewards in a row', icon: '🎁', test: (s) => s.dailyLoginStreak >= 7 },
   // Unlocked by recordFriendJoin() on the first successful referral join

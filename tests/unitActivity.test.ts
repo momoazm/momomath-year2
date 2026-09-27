@@ -6,7 +6,8 @@ import {
   buildUnitChallenge,
 } from '../src/engine/unitActivity'
 import { getCurriculum } from '../src/content/registry'
-import type { Subject } from '../src/content/types'
+import { questionKey } from '../src/content/lessonQueue'
+import type { Question, Subject, UnitDef } from '../src/content/types'
 
 describe('activity themes (PLAN 103)', () => {
   it('covers all 7 subjects with distinct games', () => {
@@ -62,6 +63,26 @@ describe('buildUnitChallenge (PLAN 102)', () => {
   it('an empty unit yields an empty challenge', () => {
     const unit = getCurriculum('math').units[0]
     expect(buildUnitChallenge({ ...unit, lessons: [] }, 1)).toEqual([])
+  })
+
+  it('never repeats a question twice in one run, even across lessons (PLAN 138a)', () => {
+    const shared = {
+      kind: 'mcq',
+      prompt: 'Shared question?',
+      choices: ['A', 'B'],
+      answerIndex: 0,
+    } as unknown as Question
+    const unit = {
+      id: 'u-shared',
+      lessons: [
+        { id: 'lesson-a', generate: () => [shared] },
+        { id: 'lesson-b', generate: () => [shared] },
+      ],
+    } as unknown as UnitDef
+    const qs = buildUnitChallenge(unit, 5)
+    expect(qs.length).toBeGreaterThanOrEqual(1)
+    const keys = qs.map((q) => questionKey(q))
+    expect(new Set(keys).size).toBe(keys.length)
   })
 })
 

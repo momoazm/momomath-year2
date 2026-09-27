@@ -6,6 +6,7 @@ import { sfx } from '../engine/sfx'
 import { speak, stopSpeaking } from '../engine/tts'
 import { fetchSharedPlayers, pushSharedPlayer, weeklyXpOf, type SharedPlayer } from '../engine/leaderboard'
 import { leagueWeekElapsed, weekKey } from '../engine/gamification'
+import { guestIdFromName } from '../engine/playerId'
 import {
   fetchFriends,
   fetchMyCode,
@@ -33,8 +34,9 @@ export function FriendsScreen({ onClose }: { onClose: () => void }) {
   const user = useAuth((a) => a.user)
 
   // Same id scheme the leaderboard uses (g:<sub> signed-in, name:<n> guest) so
-  // friend ids match leaderboard entries 1:1 for the weekly-XP join.
-  const playerId = user?.sub ? `g:${user.sub}` : `name:${(s.name.trim() || 'Champion').toLowerCase()}`
+  // friend ids match leaderboard entries 1:1 for the weekly-XP join. The guest
+  // half is slugified (PLAN 141) so names with spaces/emoji still sync.
+  const playerId = user?.sub ? `g:${user.sub}` : guestIdFromName(s.name)
 
   const [code, setCode] = useState('')
   const [friends, setFriends] = useState<FriendRow[]>([])

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { ACHIEVEMENTS, LEAGUES, LEAGUE_META, ARCADE_GAMES, displayStreak, isStreakActive } from '../engine/gamification'
 import { usePlayer } from '../engine/store'
 import { MASCOTS, Mascot } from '../components/mascots/Mascots'
@@ -6,12 +6,20 @@ import { GoogleSignInInline } from '../components/ui/AuthBadge'
 import { signOutGoogle, useAuth } from '../engine/auth'
 import { sfx } from '../engine/sfx'
 import { fetchMyCode } from '../engine/friends'
+import { guestIdFromName } from '../engine/playerId'
+import { buildCheckup, dueSkillCodes } from '../engine/adaptive'
+import type { RetryItem } from '../engine/adaptive'
+import { buildMonthGrid, buildWeeklyRecap } from '../engine/recap'
 import type { MascotId } from '../content/types'
 import { ALL_CARDS, STAR_THRESHOLDS, toStar } from '../engine/cards'
 
 const CODE_CACHE_KEY = 'momomath-year2-friendcode'
 
-export function ProfileScreen({ onOpenFriends }: { onOpenFriends?: () => void }) {
+export function ProfileScreen({ onOpenFriends, onStartCheckup }: {
+  onOpenFriends?: () => void
+  /** Start the daily check-up (mixed due-skill + wrong-question round). */
+  onStartCheckup?: (items: RetryItem[]) => void
+}) {
   const s = usePlayer()
   const user = useAuth((a) => a.user)
   const signOut = useAuth((a) => a.signOut)
@@ -22,7 +30,7 @@ export function ProfileScreen({ onOpenFriends }: { onOpenFriends?: () => void })
 
   // PLAN 106: show the referral code right on the Friends entry card so it is
   // visible alongside the friend system (cached + fetched, never blocking).
-  const playerId = user?.sub ? `g:${user.sub}` : `name:${(s.name.trim() || 'Champion').toLowerCase()}`
+  const playerId = user?.sub ? `g:${user.sub}` : guestIdFromName(s.name)
   const [referralCode, setReferralCode] = useState('')
   const [copied, setCopied] = useState(false)
   useEffect(() => {
@@ -40,6 +48,31 @@ export function ProfileScreen({ onOpenFriends }: { onOpenFriends?: () => void })
 
   const lessonsCompleted = Object.values(s.lessonProgress).reduce((a, p) => a + p.completions, 0)
   const crowns = Object.values(s.lessonProgress).reduce((a, p) => a + p.crown, 0)
+
+  // Daily check-up: due-for-review skills (any subject) + recent misses.
+  const checkup = useMemo(() => {
+    const due = dueSkillCodes(s.adaptive.snapshot)
+    if (due.length === 0) return null
+    const session = buildCheckup({
+      snap: s.adaptive.snapshot,
+      attempts: s.adaptive.attempts,
+    })
+    if (session.items.length === 0) return null
+    return { count: due.length, items: session.items }
+  }, [s.adaptive.snapshot, s.adaptive.attempts])
+
+  // WS15 (PLAN 136) — practice calendar (this month) + weekly recap. Pure
+  // local math (deterministic, no AI): tiny inputs (≤60 day strings,
+  // ≤500 attempts), recomputed per render so the grid rolls over at midnight.
+  const monthGrid = buildMonthGrid(new Date().getFullYear(), new Date().getMonth(), s.activityDays)
+  const recap = buildWeeklyRecap({
+    weeklyXp: s.weeklyXp,
+    weeklyXpWeek: s.weeklyXpWeek,
+    cardsWonWeek: s.cardsWonWeek,
+    cardsWonWeekKey: s.cardsWonWeekKey,
+    activityDays: s.activityDays,
+    attempts: s.adaptive.attempts,
+  })
 
   return (
     <div className="mx-auto w-full max-w-xl px-4 pb-28 pt-4">
@@ -95,6 +128,91 @@ export function ProfileScreen({ onOpenFriends }: { onOpenFriends?: () => void })
           sub={`${Object.values(s.arcadeScores).filter((v) => v > 0).length}/${ARCADE_GAMES.length} games`}
         />
         <Stat icon="🎁" label="Login streak" value={`${s.dailyLoginStreak}`} sub="daily calendar" />
+      </section>
+
+      {/* daily check-up - one mixed round of due skills + recent misses */}
+      {checkup && onStartCheckup && (
+        <section className="card-white mt-4" data-testid="profile-checkup">
+          <div className="flex items-center gap-2">
+            <div className="min-w-0 flex-1">
+              <p className="font-display text-sm font-bold uppercase tracking-wide text-slate-400">
+                🩺 Daily check-up
+              </p>
+              <p className="mt-1 text-xs font-semibold text-slate-500">
+                {checkup.count} skill{checkup.count === 1 ? '' : 's'} due for a refresh, plus your
+                recent misses — one quick mixed round.
+              </p>
+            </div>
+            <button
+              onClick={() => { sfx.tap(); onStartCheckup(checkup.items) }}
+              className="btn3d btn-green shrink-0 !px-3 !py-1.5 !text-xs"
+            >
+              Start ({checkup.items.length})
+            </button>
+          </div>
+        </section>
+      )}
+
+      {/* WS15 (PLAN 136) - practice calendar (practised days of the month) */}
+      <section className="card-white mt-4" data-testid="practice-calendar">
+        <div className="flex items-baseline justify-between">
+          <p className="font-display text-sm font-bold uppercase tracking-wide text-slate-400">Practice calendar</p>
+          <p className="text-xs font-semibold text-slate-400">
+            {monthGrid.monthLabel} · {monthGrid.practisedCount} {monthGrid.practisedCount === 1 ? 'day' : 'days'}
+          </p>
+        </div>
+        <div className="mt-3 grid grid-cols-7 gap-1 text-center text-[10px] font-bold uppercase text-slate-400">
+          {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => (
+            <span key={i}>{d}</span>
+          ))}
+        </div>
+        <div className="mt-1 grid grid-cols-7 gap-1">
+          {monthGrid.cells.map((c, i) =>
+            c === null ? (
+              <span key={i} />
+            ) : (
+              <span
+                key={i}
+                title={c.active ? `Practised on ${c.iso}` : c.iso}
+                className={`flex aspect-square items-center justify-center rounded-lg text-xs font-bold ${
+                  c.active
+                    ? 'bg-green-500 text-white shadow-sm'
+                    : c.isToday
+                      ? 'border-2 border-speed-blue text-slate-700'
+                      : c.future
+                        ? 'text-slate-300'
+                        : 'bg-slate-100 text-slate-500'
+                }`}
+              >
+                {c.day}
+              </span>
+            ),
+          )}
+        </div>
+      </section>
+
+      {/* WS15 (PLAN 136) - weekly recap (XP, accuracy, subjects touched, cards won) */}
+      <section className="card-white mt-4" data-testid="weekly-recap">
+        <p className="font-display text-sm font-bold uppercase tracking-wide text-slate-400">Your week</p>
+        <div className="mt-2 grid grid-cols-2 gap-3 text-center sm:grid-cols-4">
+          <Stat icon="⚡" label="XP" value={String(recap.xp)} sub="last 7 days" />
+          <Stat
+            icon="🎯"
+            label="Accuracy"
+            value={recap.accuracyPct === null ? '-' : `${recap.accuracyPct}%`}
+            sub={recap.attemptCount > 0 ? `${recap.correctCount}/${recap.attemptCount} answers` : 'no answers yet'}
+          />
+          <Stat
+            icon="🌍"
+            label="Subjects"
+            value={String(recap.subjects.length)}
+            sub={recap.subjects.join(' · ') || 'none yet'}
+          />
+          <Stat icon="🃏" label="Cards won" value={String(recap.cardsWon)} sub="this week" />
+        </div>
+        <p className="mt-3 text-center text-xs font-semibold text-slate-400">
+          Practised {recap.activeDays} of the last 7 days
+        </p>
       </section>
 
       {/* friends entry (PLAN Phase 17 + PLAN 106) — Profile section, so the

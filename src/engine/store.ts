@@ -19,6 +19,29 @@ import { setMuted, sfx } from './sfx'
 import { STAR_THRESHOLDS, DUST_PER_CARD, ARCADE_CARDS, ARCADE_CARD_GOALS } from './cards'
 import type { ChestResult } from './cards'
 import { ARCADE_GAMES } from './arcade'
+import type { AdaptiveStore, SkillState, AttemptLogEntry, AdaptiveRecommendation } from './adaptive/types'
+import { ADAPTIVE_CONFIG } from './adaptive/config'
+import { capSnapshots } from './adaptive/attempts'
+import { recordPick } from './adaptive/recommender'
+import { addActivityDay, isIsoDay, mergeActivityDays, normaliseActivityDays } from './recap'
+
+/** Fresh adaptive-learning slice (PLAN Phase 28 step 133). */
+const initialAdaptive = (): AdaptiveStore => ({
+  snapshot: { skills: {}, seenCodes: [], recentPicks: [], lastRecommendation: null },
+  attempts: [],
+  masteryHistory: {},
+  telemetry: {
+    llmRequests: 0,
+    llmHits: 0,
+    llmFallbacks: 0,
+    lastLlmProvider: null,
+    lastLlmLatencyMs: null,
+    recommended: 0,
+    recommendedAccepted: 0,
+  },
+})
+
+export { ADAPTIVE_CONFIG, initialAdaptive }
 
 export interface LessonProgress {
   crown: number
@@ -114,6 +137,20 @@ interface PlayerState {
   arcadeRounds: number
   /** lifetime bosses defeated in Boss Rush (local-only; drives the Bark unlock) */
   arcadeBossesDown: number
+  /** capped log of ISO days the child practised (~60; union-merged on sync).
+   *  Drives the Profile practice-calendar month grid (WS15 / PLAN 136). */
+  activityDays: string[]
+  /** cards won this league week (weekly-recap counter; local-only). */
+  cardsWonWeek: number
+  /** league week key `cardsWonWeek` counts against — stale key → recap shows 0. */
+  cardsWonWeekKey: string
+  /** lifetime Flashcard Sprint best score (WS16; local-only display record). */
+  sprintBest: number
+  /** lifetime Flashcard Sprints finished (drives the sprint achievement). */
+  sprintRuns: number
+  /** day-rolled count of sprints finished today (feeds the sprint1 quest) */
+  sprintsTodayDay: string
+  sprintsToday: number
   /** unit storybooks read to the last page (bookId -> true); synced (PLAN 72) */
   booksRead: Record<string, boolean>
   /** unit ids whose 🏆 trophy celebration (+30 gems) already fired (PLAN 76) */
@@ -137,6 +174,13 @@ interface PlayerState {
     crownsGained: number
     accuracy: number
   }) => void
+  /** XP-only practice (wrong-question retry / daily check-up): moves
+   *  XP/gems/dailies/streak but never touches lessonProgress crowns or
+   *  chests — loot stays reserved for fresh clears. */
+  recordPractice: (args: { xp: number; correct: number; totalQuestions: number }) => void
+  /** Record a finished Flashcard Sprint run (WS16): lifetime runs/best +
+   *  day-rolled quest counter (XP itself goes through recordPractice). */
+  finishSprint: (score: number) => void
   /** Mark a unit storybook finished (+20 gems, first read only). Idempotent. */
   finishBook: (bookId: string) => void
   /** Fire the unit 🏆 celebration reward (+30 gems, once per unit). Idempotent. */
@@ -180,8 +224,16 @@ interface PlayerState {
   addLuckyTickets: (n: number) => void
   /** consume one Lucky Ticket if available; returns true if it was active */
   consumeLuckyTicket: () => boolean
-  applySyncedSnapshot: (snap: Partial<PlayerState>) => void
+  applySyncedSnapshot: (snap: Omit<Partial<PlayerState>, 'adaptive'> & { adaptive?: AdaptiveStore | null }) => void
   setLastSyncedAt: (t: number | null) => void
+
+  // --- adaptive learning (PLAN Phase 28 step 133) ---
+  adaptive: AdaptiveStore
+  recordAdaptiveAttempt: (entry: AttemptLogEntry, skill: SkillState, code: string) => void
+  setLastAdaptiveRecommendation: (rec: AdaptiveRecommendation | null) => void
+  bumpLlm: (args: { hit: boolean; provider: string | null; latencyMs: number | null }) => void
+  bumpRecommendationShown: (accepted: boolean) => void
+  resetAdaptive: () => void
   /** Spend `amount` dust; false if balance is short. */
   spendDust: (amount: number) => boolean
   /** Record an arcade score; returns true when a new personal best. */
@@ -228,6 +280,25 @@ function rollDay(s: PlayerState) {
   if (s.arcadeCorrectTodayDay !== today) {
     s.arcadeCorrectTodayDay = today
     s.arcadeCorrectToday = 0
+  }
+  if (s.sprintsTodayDay !== today) {
+    s.sprintsTodayDay = today
+    s.sprintsToday = 0
+  }
+}
+
+/** Light the practice calendar for today (idempotent; dedupe + cap live in
+ *  addActivityDay). Called from every XP-paying action (PLAN 136 / WS15). */
+function markActivity(s: PlayerState) {
+  s.activityDays = addActivityDay(s.activityDays, todayISO())
+}
+
+/** Weekly cards-won counter: resets when the league week changes. */
+function bumpCardsWon(state: PlayerState, n: number): { cardsWonWeek: number; cardsWonWeekKey: string } {
+  const sameWeek = state.cardsWonWeekKey === state.weeklyXpWeek
+  return {
+    cardsWonWeek: (sameWeek ? state.cardsWonWeek : 0) + n,
+    cardsWonWeekKey: state.weeklyXpWeek,
   }
 }
 
@@ -496,6 +567,7 @@ export function updateStreak(
       leagueWeeks: s.leagueHistory.length,
       arcadeBests: Object.values(s.arcadeScores).filter((v) => v > 0).length,
       arcadeTop: Math.max(0, ...Object.values(s.arcadeScores)),
+      sprintRuns: s.sprintRuns ?? 0,
       subjectsPlayed: subjects.size,
       dailyLoginStreak: s.dailyLoginStreak,
       friendsAdded: s.friendsAdded,
@@ -593,11 +665,19 @@ export const usePlayer = create<PlayerState>()(
       arcadeScores: {},
       arcadeRounds: 0,
       arcadeBossesDown: 0,
+      activityDays: [],
+      cardsWonWeek: 0,
+      cardsWonWeekKey: todayISO(),
+      sprintBest: 0,
+      sprintRuns: 0,
+      sprintsTodayDay: todayISO(),
+      sprintsToday: 0,
       booksRead: {},
       unitActivityBest: {},
       unitsCelebrated: [],
       friendsAdded: 0,
       lastSyncedAt: null,
+      adaptive: initialAdaptive(),
 
       completeLesson: ({ lessonId, xp, correct, totalQuestions, crownsGained, accuracy }) =>
         set((state) => {
@@ -607,6 +687,7 @@ export const usePlayer = create<PlayerState>()(
           }
           rollDay(s)
           rollWeek(s)
+          markActivity(s)
 
           const prev = s.lessonProgress[lessonId] ?? {
             crown: 0,
@@ -642,6 +723,51 @@ export const usePlayer = create<PlayerState>()(
 
           if (!wasStreakActive && s.streakCurrent > 1) sfx.streak()
 
+          return s
+        }),
+
+      recordPractice: ({ xp, correct, totalQuestions }) =>
+        set((state) => {
+          void totalQuestions
+          const s: PlayerState = { ...state }
+          rollDay(s)
+          rollWeek(s)
+          markActivity(s)
+
+          s.xpTotal += xp
+          s.gems += Math.round(xp / 10)
+          s.todayXp += xp
+          s.correctToday += correct
+          s.weeklyXp += xp
+
+          const wasStreakActive = state.lastActiveDay === todayISO()
+          updateStreak(s)
+
+          // Keep the streak-milestone bonus consistent with lessons: a
+          // practice round can push the streak over a 7-day milestone, and
+          // the pending chest waits for the next fresh-lesson reveal.
+          const milestone = streakMilestoneFor(s.streakCurrent, s.lastStreakReward)
+          if (milestone !== null) {
+            s.lastStreakReward = milestone
+            s.pendingStreakMilestone = milestone
+          }
+
+          checkAchievements(s)
+
+          if (!wasStreakActive && s.streakCurrent > 1) sfx.streak()
+
+          return s
+        }),
+
+      finishSprint: (score) =>
+        set((state) => {
+          const s: PlayerState = { ...state }
+          rollDay(s)
+          markActivity(s)
+          s.sprintRuns += 1
+          s.sprintBest = Math.max(s.sprintBest, Math.max(0, Math.round(Number(score) || 0)))
+          s.sprintsToday += 1
+          checkAchievements(s)
           return s
         }),
 
@@ -766,6 +892,7 @@ export const usePlayer = create<PlayerState>()(
           const s: PlayerState = { ...state }
           rollDay(s)
           rollWeek(s)
+          markActivity(s)
           s.xpTotal += amt
           s.todayXp += amt
           s.weeklyXp += amt
@@ -883,6 +1010,7 @@ export const usePlayer = create<PlayerState>()(
             dust: state.dust + dustEarned,
             cardStars,
             cardPity: pity,
+            ...bumpCardsWon(state, chest.copies),
           }
         }),
       addLuckyTickets: (n) => set((state) => ({ luckyTickets: state.luckyTickets + n })),
@@ -1008,9 +1136,92 @@ export const usePlayer = create<PlayerState>()(
             next.arcadeScores = merged
           }
           if (snap.claimedQuests?.day) next.claimedQuests = snap.claimedQuests
+          // Practice calendar: a day practised anywhere stays lit (WS15).
+          if (Array.isArray((snap as Partial<PlayerState>).activityDays)) {
+            next.activityDays = mergeActivityDays(
+              state.activityDays,
+              (snap as Partial<PlayerState>).activityDays,
+            )
+          }
+          // Learning tracker arrives pre-merged from mergeCloudSave — apply
+          // wholesale after normalising shapes from old/foreign saves.
+          const ad = (snap as Record<string, unknown>).adaptive as AdaptiveStore | null | undefined
+          if (ad && typeof ad === 'object' && ad.snapshot && typeof ad.snapshot === 'object') {
+            const skillsIn = (ad.snapshot.skills ?? {}) as Record<string, SkillState>
+            next.adaptive = {
+              snapshot: {
+                skills: skillsIn,
+                seenCodes: Array.isArray(ad.snapshot.seenCodes) ? [...new Set(ad.snapshot.seenCodes)] : [],
+                recentPicks: Array.isArray(ad.snapshot.recentPicks) ? ad.snapshot.recentPicks.slice(0, 8) : [],
+                lastRecommendation: ad.snapshot.lastRecommendation ?? null,
+              },
+              attempts: capSnapshots((Array.isArray(ad.attempts) ? ad.attempts : []).slice(-500)),
+              masteryHistory: Object.fromEntries(
+                Object.entries(ad.masteryHistory ?? {}).map(([k, v]) => [k, (Array.isArray(v) ? v : []).slice(-200)]),
+              ),
+              telemetry: { ...initialAdaptive().telemetry, ...(ad.telemetry ?? {}) },
+            }
+          }
           return next
         }),
       setLastSyncedAt: (t) => set({ lastSyncedAt: t }),
+
+      // --- adaptive learning (PLAN Phase 28 step 133) ---
+      recordAdaptiveAttempt: (entry, skill, code) =>
+        set((state) => {
+          // Write back the updated BKT skill + recency (the hook does the
+          // math pure; the store persists it). Without this, mastery freezes.
+          const prevSnap = state.adaptive.snapshot
+          const skills = { ...prevSnap.skills, [code]: skill }
+          const seenCodes = prevSnap.seenCodes.includes(code)
+            ? prevSnap.seenCodes
+            : [...prevSnap.seenCodes, code]
+          const snapshot = recordPick({ ...prevSnap, skills, seenCodes }, code)
+          const raw = state.adaptive.attempts.length >= ADAPTIVE_CONFIG.ATTEMPT_LOG_CAP
+            ? [...state.adaptive.attempts.slice(-(ADAPTIVE_CONFIG.ATTEMPT_LOG_CAP - 1)), entry]
+            : [...state.adaptive.attempts, entry]
+          const mh = state.adaptive.masteryHistory
+          const series = mh[entry.objectiveCode] ?? []
+          const nextSeries = [...series, { ts: entry.ts, pL: entry.masteryAfter }].slice(-200)
+          return {
+            adaptive: {
+              ...state.adaptive,
+              snapshot,
+              attempts: capSnapshots(raw),
+              masteryHistory: { ...mh, [entry.objectiveCode]: nextSeries },
+            },
+          }
+        }),
+      setLastAdaptiveRecommendation: (rec) =>
+        set((state) => ({
+          adaptive: { ...state.adaptive, snapshot: { ...state.adaptive.snapshot, lastRecommendation: rec } },
+        })),
+      bumpLlm: ({ hit, provider, latencyMs }) =>
+        set((state) => ({
+          adaptive: {
+            ...state.adaptive,
+            telemetry: {
+              ...state.adaptive.telemetry,
+              llmRequests: state.adaptive.telemetry.llmRequests + 1,
+              llmHits: state.adaptive.telemetry.llmHits + (hit ? 1 : 0),
+              llmFallbacks: state.adaptive.telemetry.llmFallbacks + (hit ? 0 : 1),
+              lastLlmProvider: provider,
+              lastLlmLatencyMs: latencyMs,
+            },
+          },
+        })),
+      bumpRecommendationShown: (accepted) =>
+        set((state) => ({
+          adaptive: {
+            ...state.adaptive,
+            telemetry: {
+              ...state.adaptive.telemetry,
+              recommended: state.adaptive.telemetry.recommended + 1,
+              recommendedAccepted: state.adaptive.telemetry.recommendedAccepted + (accepted ? 1 : 0),
+            },
+          },
+        })),
+      resetAdaptive: () => set({ adaptive: initialAdaptive() }),
       spendDust: (amount) => {
         let success = false
         set((state) => {
@@ -1042,7 +1253,10 @@ export const usePlayer = create<PlayerState>()(
           if ((state.cardStars[id] ?? 0) >= STAR_THRESHOLDS[0]) return state
           granted = true
           // Jump straight to 3 copies (1★); don't stack on partial counts.
-          return { cardStars: { ...state.cardStars, [id]: STAR_THRESHOLDS[0] } }
+          return {
+            cardStars: { ...state.cardStars, [id]: STAR_THRESHOLDS[0] },
+            ...bumpCardsWon(state, 1),
+          }
         })
         return granted
       },
@@ -1121,7 +1335,7 @@ export const usePlayer = create<PlayerState>()(
     }),
     {
       name: 'momomath-year2-player-v2',
-      version: 13,
+      version: 14,
       migrate: migratePersisted,
     },
   ),
@@ -1231,6 +1445,34 @@ export function migratePersisted(persisted: unknown, version: number): PlayerSta
           // never merged from cloud (server whitelist has no such field).
           p.unitActivityBest = p.unitActivityBest && typeof p.unitActivityBest === 'object' ? p.unitActivityBest : {}
         }
+        if (version < 14) {
+          // v14: adaptive learning slice (PLAN Phase 28 step 133). Existing
+          // saves start with a fresh empty snapshot — no data is lost because
+          // no pre-v14 save ever had adaptive state.
+          const stored = p as Partial<PlayerState> & { adaptive?: unknown }
+          if (!stored.adaptive || typeof stored.adaptive !== 'object') {
+            p.adaptive = initialAdaptive()
+          }
+          // v14 also carries WS15 (PLAN 136): practice calendar + weekly-recap
+          // counters. Backfill the activity log from the last active day so
+          // returning players see at least their most recent practised day.
+          const anyP = p as Partial<PlayerState>
+          anyP.activityDays = normaliseActivityDays(
+            Array.isArray(anyP.activityDays)
+              ? anyP.activityDays
+              : anyP.lastActiveDay
+                ? [anyP.lastActiveDay]
+                : [],
+          )
+          if (typeof anyP.cardsWonWeek !== 'number') anyP.cardsWonWeek = 0
+          if (!isIsoDay(anyP.cardsWonWeekKey)) {
+            anyP.cardsWonWeekKey = isIsoDay(anyP.weeklyXpWeek) ? anyP.weeklyXpWeek : firstDay
+          }
+          if (typeof anyP.sprintBest !== 'number') anyP.sprintBest = 0
+          if (typeof anyP.sprintRuns !== 'number') anyP.sprintRuns = 0
+          if (!isIsoDay(anyP.sprintsTodayDay)) anyP.sprintsTodayDay = firstDay
+          if (typeof anyP.sprintsToday !== 'number') anyP.sprintsToday = 0
+        }
         return p
 }
 
@@ -1242,6 +1484,7 @@ export function questProgressSnapshot(s: PlayerState) {
     correctToday: s.correctTodayDay === today ? s.correctToday : 0,
     bossesToday: s.bossesTodayDay === today ? s.bossesToday : 0,
     arcadeCorrectToday: s.arcadeCorrectTodayDay === today ? s.arcadeCorrectToday : 0,
+    sprintsToday: s.sprintsTodayDay === today ? s.sprintsToday : 0,
   }
 }
 

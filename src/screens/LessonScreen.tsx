@@ -5,6 +5,8 @@ import { QUESTIONS_PER_LESSON } from '../content/curriculum'
 import { getCurriculum } from '../content/registry'
 import { isLessonRedo, crownsEarned } from '../engine/path'
 import { usePlayer } from '../engine/store'
+import { fetchFollowup, primaryCode, questionPrompt, useAdaptiveLesson } from '../engine/adaptive'
+import type { RetryItem } from '../engine/adaptive'
 import { rollChest, type ChestContext, type ChestResult } from '../engine/cards'
 import { chestGemMultiplier } from '../engine/shop'
 import { speakFor, stopSpeaking, ttsLangFor } from '../engine/tts'
@@ -172,9 +174,21 @@ function NumberPad({ value, onChange }: { value: string; onChange: (v: string) =
 
 type Phase = 'intro' | 'teaching' | 'playing' | 'done'
 
-export function LessonScreen({ lessonId, onExit }: { lessonId: string; onExit: () => void }) {
+export function LessonScreen({ lessonId, onExit, retryItems, checkup }: {
+  lessonId: string
+  onExit: () => void
+  /** Wrong-question practice: replay these exact snapshots instead of
+   *  generating a fresh lesson. XP only — no crowns, no chests. */
+  retryItems?: RetryItem[]
+  /** Daily check-up (PLAN 134): a mixed due-skill + wrong-question round.
+   *  Same XP-only flow as retry; only the intro/done copy differs. */
+  checkup?: boolean
+}) {
   const subject = usePlayer((s) => s.subject)
-  const entry = getCurriculum(subject).allLessons[lessonId]
+  // Retry mode never generates: entry is only needed for fresh lessons.
+  const entry = retryItems?.length
+    ? null
+    : (getCurriculum(subject).allLessons[lessonId] ?? null)
   const player = usePlayer()
   const [attempt, setAttempt] = useState(1)
   const [phase, setPhase] = useState<Phase>('intro')
@@ -204,17 +218,86 @@ export function LessonScreen({ lessonId, onExit }: { lessonId: string; onExit: (
   const [tilePicks, setTilePicks] = useState<number[]>([])
   // speak
   const [speakPhase, setSpeakPhase] = useState<'idle' | 'listening' | 'heard'>('idle')
-  // track first-attempt state per queue index
-  const [firstAttemptDone, setFirstAttemptDone] = useState<Set<number>>(new Set())
+  // track first-attempt state per question INSTANCE (requeued retries are
+  // the same object, so a requeue never counts as a new first attempt — no
+  // double BKT update and no inflated accuracy)
+  const [firstAttemptDone, setFirstAttemptDone] = useState<Set<Question>>(new Set())
+  /** Active retry set (prop on mount, or "retry the tricky ones" from done). */
+  const [retry, setRetry] = useState<RetryItem[] | null>(retryItems?.length ? retryItems : null)
+  /** Per-queue-index origin (lesson + skill) — checkup items mix lessons. */
+  const [queueMeta, setQueueMeta] = useState<{ lessonId: string; objectiveCode: string }[]>([])
+  /** Wrong first-attempt questions of the CURRENT session (for the retry chain). */
+  const missedRef = useRef(new Map<Question, { lessonId: string; objectiveCode: string }>())
+  /** Missed count snapshot for the done screen (refs don't re-render). */
+  const [missedCount, setMissedCount] = useState(0)
+  // AI follow-up ("Try a similar one", PLAN 135) - prefetched on a wrong
+  // first attempt, shown only once it exists; the id guards against a late
+  // answer landing on the wrong question after the child moved on.
+  const [followupQ, setFollowupQ] = useState<Question | null>(null)
+  const followupReqId = useRef(0)
 
   const q: Question | undefined = queue[qIdx]
 
-  const startLesson = useCallback(() => {
-    setQueue(entry.lesson.generate(QUESTIONS_PER_LESSON, attempt))
+  // Adaptive engine — BKT update + optional explanation on first attempts
+  // (PLAN Phase 28 step 132): response-time timer, mastery write-back, and
+  // wrong-answer explanation are all driven from here.
+  const adaptive = useAdaptiveLesson()
+  const lessonCode = useMemo(() => primaryCode(lessonId, subject) ?? 'unknown', [lessonId, subject])
+
+  // Fresh per-question timer for response-time tracking + explanation reset.
+  useEffect(() => {
+    adaptive.reset()
+    adaptive.markShown()
+    // Any in-flight follow-up now belongs to a previous question.
+    followupReqId.current += 1
+    setFollowupQ(null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [qIdx])
+
+  /** Start a session: retry items when given (or held), else a fresh lesson. */
+  const startLesson = useCallback((items?: RetryItem[]) => {
+    const active: RetryItem[] | null =
+      items !== undefined
+        ? (items.length ? items : null)
+        : retry && retry.length
+          ? retry
+          : null
+    const qs = active
+      ? active.map((r) => r.question)
+      : entry!.lesson.generate(QUESTIONS_PER_LESSON, attempt)
+    const meta = active
+      ? active.map((r) => ({ lessonId: r.lessonId, objectiveCode: r.objectiveCode }))
+      : qs.map(() => ({ lessonId, objectiveCode: lessonCode }))
+    setQueue(qs)
+    setQueueMeta(meta)
+    missedRef.current.clear()
+    setMissedCount(0)
     setQIdx(0); setPhase('playing'); setFeedback(null)
     setFirstAttemptCorrect(0); setTotalFirstAttempts(0); setFirstAttemptDone(new Set())
     resetQState()
-  }, [entry, attempt])
+    // Restarting keeps qIdx at 0, so the qIdx effect won't re-fire — arm the
+    // timer for the fresh queue explicitly.
+    adaptive.reset()
+    adaptive.markShown()
+  }, [retry, entry, attempt, lessonId, lessonCode, adaptive])
+
+  /** Done-screen action: replay exactly the questions missed in this
+   *  session — XP only, no second chest. */
+  function startRetryFromMissed() {
+    const items: RetryItem[] = [...missedRef.current.entries()].map(
+      ([question, m]) => ({
+        question,
+        lessonId: m.lessonId,
+        objectiveCode: m.objectiveCode,
+        difficulty:
+          player.adaptive.snapshot.skills[m.objectiveCode]?.difficulty ?? 1,
+      }),
+    )
+    if (items.length === 0) return
+    sfx.tap()
+    setRetry(items)
+    startLesson(items)
+  }
 
   function resetQState() {
     setChoiceIdx(null); setTyped(''); setTapped(new Set())
@@ -265,16 +348,81 @@ export function LessonScreen({ lessonId, onExit }: { lessonId: string; onExit: (
     }
   }, [q, choiceIdx, typed, tapped, matched.size, matchErrors, orderPick, tilePicks, speakPhase])
 
+  function studentAnswerString(): string {
+    if (!q) return ''
+    switch (q.kind) {
+      case 'mcq': return choiceIdx != null ? (q.choices[choiceIdx] ?? '') : ''
+      case 'type-number': return typed
+      case 'tap-count': return String(tapped.size)
+      case 'match': return matched.size === q.pairs.length ? 'all-matched' : `partial:${matched.size}`
+      case 'order': return orderPick.map((i) => q.items[i] ?? '').join(',')
+      case 'letter-tiles': return tilePicks.map((i) => q.targetWord[i] ?? '').join('')
+      case 'truefalse': return choiceIdx === 0 ? 'true' : choiceIdx === 1 ? 'false' : ''
+      case 'speak': return speakPhase === 'heard' ? 'self-confirmed' : ''
+    }
+  }
+
+  function correctAnswerString(): string {
+    if (!q) return ''
+    switch (q.kind) {
+      case 'mcq': return q.choices[q.answerIndex] ?? ''
+      case 'type-number': return String(q.answer)
+      case 'tap-count': return String(q.target)
+      case 'match': return 'all-matched'
+      case 'order': return q.items.join(',')
+      case 'letter-tiles': return q.targetWord
+      case 'truefalse': return q.answer ? 'true' : 'false'
+      case 'speak': return q.targetText
+    }
+  }
+
   function handleCheck() {
     if (!canCheck || !q || feedback) return
-    const isFirstAttempt = !firstAttemptDone.has(qIdx)
+    const isFirstAttempt = !firstAttemptDone.has(q)
     const ok = isCorrectNow()
     if (ok) sfx.correct()
     else sfx.wrong()
     if (isFirstAttempt) {
-      setFirstAttemptDone((s) => new Set(s).add(qIdx))
+      setFirstAttemptDone((s) => new Set(s).add(q))
       setTotalFirstAttempts((n) => n + 1)
       if (ok) setFirstAttemptCorrect((n) => n + 1)
+      // Adaptive: BKT mastery update + wrong-question snapshot. The hook
+      // measures response time itself and writes the skill back to the store.
+      // Origin travels from queueMeta so mixed checkup rounds attribute each
+      // question to the lesson/skill it actually came from.
+      const origin = retry
+        ? (queueMeta[qIdx] ?? { lessonId, objectiveCode: lessonCode })
+        : { lessonId, objectiveCode: lessonCode }
+      if (!ok) missedRef.current.set(q, origin)
+      adaptive.recordFirstAttempt({
+        lessonId: origin.lessonId,
+        objectiveCode: origin.objectiveCode,
+        difficulty: player.adaptive.snapshot.skills[origin.objectiveCode]?.difficulty ?? 1,
+        question: q,
+        studentAnswer: studentAnswerString(),
+        correctAnswer: correctAnswerString(),
+        prompt: questionPrompt(q),
+        correct: ok,
+        isFirstAttempt: true,
+        enabled: true,
+      })
+      if (!ok) {
+        // Follow-up ("similar one", PLAN 135): start fetching now so the
+        // offer is ready by the time the child finishes reading the feedback.
+        // Offline/404 falls back to the in-browser sibling re-roll — no PII,
+        // no server required. The request id guards a late answer landing on
+        // a later question.
+        const myId = ++followupReqId.current
+        void fetchFollowup({
+          prompt: questionPrompt(q),
+          studentAnswer: studentAnswerString(),
+          correctAnswer: correctAnswerString(),
+          objectiveCode: origin.objectiveCode,
+          lessonId: origin.lessonId,
+        }).then((r) => {
+          if (r && followupReqId.current === myId) setFollowupQ(r.question)
+        })
+      }
     }
     setFeedback(ok ? 'correct' : 'wrong')
   }
@@ -282,7 +430,11 @@ export function LessonScreen({ lessonId, onExit }: { lessonId: string; onExit: (
   function handleContinue() {
     if (!q) return
     const requeued = feedback === 'wrong'
-    if (requeued) setQueue((qq) => [...qq, q]) // retry at the end, Duolingo-style
+    if (requeued) {
+      setQueue((qq) => [...qq, q]) // retry at the end, Duolingo-style
+      // Keep the origin map aligned with the queue (same index space).
+      setQueueMeta((mm) => [...mm, mm[qIdx] ?? { lessonId, objectiveCode: lessonCode }])
+    }
     const finished = !requeued && qIdx + 1 >= queue.length
     setFeedback(null)
     resetQState()
@@ -293,8 +445,64 @@ export function LessonScreen({ lessonId, onExit }: { lessonId: string; onExit: (
     }
   }
 
+  /** Wrong first attempt + follow-up ready: insert the similar question as
+   *  the VERY NEXT one, then continue — handleContinue re-queues the missed
+   *  one at the end as usual, so the child practises the similar one first
+   *  and retries the original later. Both queue and origin-meta are spliced
+   *  at the same index, so they stay index-aligned. */
+  function trySimilar() {
+    if (!followupQ || feedback !== 'wrong') return
+    const origin = retry
+      ? (queueMeta[qIdx] ?? { lessonId, objectiveCode: lessonCode })
+      : { lessonId, objectiveCode: lessonCode }
+    sfx.tap()
+    setQueue((qq) => {
+      const next = [...qq]
+      next.splice(qIdx + 1, 0, followupQ)
+      return next
+    })
+    setQueueMeta((mm) => {
+      const next = [...mm]
+      next.splice(qIdx + 1, 0, origin)
+      return next
+    })
+    setFollowupQ(null)
+    handleContinue()
+  }
+
   function finishLesson() {
-    const isBoss = entry.lesson.id.endsWith('boss')
+    const accuracy = totalFirstAttempts > 0
+      ? Math.round((firstAttemptCorrect / totalFirstAttempts) * 100)
+      : 100
+    const firstAttemptMistakes = totalFirstAttempts - firstAttemptCorrect
+    setFirstAttemptMistakes(firstAttemptMistakes)
+    setMissedCount(missedRef.current.size)
+
+    // Retry / check-up practice: XP only (1 XP per fixed mistake), streak +
+    // dailies move, but lessonProgress crowns/completions and chests are
+    // untouched — loot stays reserved for fresh clears, so retrying can't
+    // farm rewards. Runs FIRST: sessions entered via retryItems (daily
+    // check-up) have no lesson entry, so nothing below that dereferences
+    // `entry` or consumes boosts may run for them.
+    if (retry) {
+      let retryGained = firstAttemptCorrect
+      if (player.doubleXpLessons > 0) {
+        retryGained *= 2
+        player.useDoubleXp()
+      }
+      player.recordPractice({
+        xp: retryGained,
+        correct: firstAttemptCorrect,
+        totalQuestions: totalFirstAttempts,
+      })
+      setXpEarned(retryGained)
+      sfx.complete()
+      confetti({ particleCount: firstAttemptMistakes === 0 ? 120 : 60, spread: 75, origin: { y: 0.7 }, disableForReducedMotion: true })
+      setPhase('done')
+      return
+    }
+
+    const isBoss = entry!.lesson.id.endsWith('boss')
     const base = isBoss ? 20 : 10
     const bonus = firstAttemptCorrect === QUESTIONS_PER_LESSON ? 5 : 0
     let gained = base + bonus
@@ -304,13 +512,6 @@ export function LessonScreen({ lessonId, onExit }: { lessonId: string; onExit: (
       gained *= 2
       player.useDoubleXp()
     }
-
-    const accuracy = totalFirstAttempts > 0
-      ? Math.round((firstAttemptCorrect / totalFirstAttempts) * 100)
-      : 100
-
-    const firstAttemptMistakes = totalFirstAttempts - firstAttemptCorrect
-    setFirstAttemptMistakes(firstAttemptMistakes)
 
     // Redos (replays of an already-completed lesson) earn XP but never
     // stars/crowns or chests — loot is reserved for fresh clears.
@@ -358,7 +559,59 @@ export function LessonScreen({ lessonId, onExit }: { lessonId: string; onExit: (
 
   /* ------------------------------ INTRO ------------------------------ */
   if (phase === 'intro') {
-    const { intro } = entry.lesson
+    // Daily check-up entry (PLAN 134): mixed due-skill + wrong-question round.
+    if (checkup && retry?.length) {
+      return (
+        <div className="mx-auto flex h-[100dvh] max-w-xl flex-col items-center justify-center px-6 pb-28 pt-16">
+          <motion.div initial={{ scale: 0.6, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+            transition={{ type: 'spring', stiffness: 260, damping: 18 }}
+            className="h-44 w-44 gpu animate-float-y">
+            <Mascot id={player.mascot} expression="happy" />
+          </motion.div>
+          <h1 className="mt-4 text-center font-display text-3xl font-extrabold">Daily check-up 🩺</h1>
+          <p className="mt-2 max-w-sm text-center font-body text-lg font-semibold leading-relaxed text-slate-500">
+            {retry.length} quick question{retry.length === 1 ? '' : 's'} — a mix of skills due for a
+            refresh and the ones you missed recently. Keep them fresh!
+          </p>
+          <div className="card-white mt-4 text-center text-sm font-bold text-slate-400">
+            Mixed review · XP only · no chest
+          </div>
+          <button onClick={() => { sfx.tap(); startLesson() }} className="btn3d btn-green mt-8 gpu">
+            Let's check! 🩺
+          </button>
+          <button onClick={onExit} className="mt-3 font-display text-sm font-bold text-slate-400 hover:text-slate-600">
+            ← Back
+          </button>
+        </div>
+      )
+    }
+    // Wrong-question practice round (the retry half of the same session).
+    if (retry?.length) {
+      return (
+        <div className="mx-auto flex h-[100dvh] max-w-xl flex-col items-center justify-center px-6 pb-28 pt-16">
+          <motion.div initial={{ scale: 0.6, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+            transition={{ type: 'spring', stiffness: 260, damping: 18 }}
+            className="h-44 w-44 gpu animate-float-y">
+            <Mascot id={player.mascot} expression="thinking" />
+          </motion.div>
+          <h1 className="mt-4 text-center font-display text-3xl font-extrabold">Fix your tricky ones! 💪</h1>
+          <p className="mt-2 max-w-sm text-center font-body text-lg font-semibold leading-relaxed text-slate-500">
+            {retry.length} question{retry.length === 1 ? '' : 's'} you missed before. Get{' '}
+            {retry.length === 1 ? 'it' : 'them'} right this time!
+          </p>
+          <div className="card-white mt-4 text-center text-sm font-bold text-slate-400">
+            Practice round · 1 XP per fix · no chest
+          </div>
+          <button onClick={() => { sfx.tap(); startLesson() }} className="btn3d btn-green mt-8 gpu">
+            Let's fix them! 💪
+          </button>
+          <button onClick={onExit} className="mt-3 font-display text-sm font-bold text-slate-400 hover:text-slate-600">
+            ← Back
+          </button>
+        </div>
+      )
+    }
+    const { intro } = entry!.lesson
     return (
       <div className="mx-auto flex h-[100dvh] max-w-xl flex-col items-center justify-center px-6 pb-28 pt-16">
         <motion.div initial={{ scale: 0.6, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
@@ -371,7 +624,7 @@ export function LessonScreen({ lessonId, onExit }: { lessonId: string; onExit: (
           {intro.body}
         </p>
         <div className="card-white mt-4 text-center text-sm font-bold text-slate-400">
-          Cambridge objectives · {entry.lesson.objectiveCodes.join(' · ') || 'Review boss level'}
+          Cambridge objectives · {entry!.lesson.objectiveCodes.join(' · ') || 'Review boss level'}
         </div>
         <button onClick={() => { sfx.tap(); setPhase('teaching') }} className="btn3d btn-green mt-8 gpu">
           Let's go! 🚀
@@ -388,10 +641,10 @@ export function LessonScreen({ lessonId, onExit }: { lessonId: string; onExit: (
   if (phase === 'teaching') {
     return (
       <LessonSlideshow
-        lesson={entry.lesson}
-        title={entry.lesson.intro.title}
-        lines={entry.lesson.teach ?? [entry.lesson.intro.body]}
-        objectives={entry.lesson.objectiveCodes}
+        lesson={entry!.lesson}
+        title={entry!.lesson.intro.title}
+        lines={entry!.lesson.teach ?? [entry!.lesson.intro.body]}
+        objectives={entry!.lesson.objectiveCodes}
         onDone={startLesson}
         lang={ttsLangFor(subject)}
       />
@@ -400,6 +653,37 @@ export function LessonScreen({ lessonId, onExit }: { lessonId: string; onExit: (
 
   /* ------------------------------- DONE ------------------------------ */
   if (phase === 'done') {
+    // Retry / check-up practice has no chest ritual — just XP, stats, and the
+    // option to chain another round on the still-missed ones.
+    if (retry) {
+      return (
+        <div className="mx-auto flex h-[100dvh] max-w-xl flex-col items-center justify-center px-6 pb-24">
+          <motion.div initial={{ scale: 0.5, rotate: -8, opacity: 0 }} animate={{ scale: 1, rotate: 0, opacity: 1 }}
+            transition={{ type: 'spring', stiffness: 220, damping: 14 }}
+            className="h-40 w-40 gpu">
+            <Mascot id={player.mascot} expression="cheer" />
+          </motion.div>
+          <motion.h1 initial={{ y: 12, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.15 }}
+            className="mt-3 text-center font-display text-4xl font-extrabold text-yellow-500 drop-shadow">
+            {missedCount === 0 ? 'ALL FIXED! 🎉' : 'Practice complete!'}
+          </motion.h1>
+          <p className="mt-1 text-center font-body text-sm font-bold text-slate-700">
+            {firstAttemptCorrect}/{totalFirstAttempts} fixed · +{xpEarned} ⭐ XP
+            {missedCount > 0 ? ` · ${missedCount} still tricky` : ' · nothing left tricky!'}
+          </p>
+          <div className="mt-8 w-full max-w-xs space-y-3">
+            {missedCount > 0 && (
+              <button onClick={startRetryFromMissed} className="btn3d btn-blue w-full gpu">
+                🔁 Retry the tricky ones ({missedCount})
+              </button>
+            )}
+            <button onClick={onExit} className="btn3d btn-green w-full gpu">
+              Done ✅
+            </button>
+          </div>
+        </div>
+      )
+    }
     return (
       <div className="mx-auto flex h-[100dvh] max-w-xl flex-col items-center justify-center px-6 pb-24">
         <motion.div initial={{ scale: 0.5, rotate: -8, opacity: 0 }} animate={{ scale: 1, rotate: 0, opacity: 1 }}
@@ -502,10 +786,23 @@ export function LessonScreen({ lessonId, onExit }: { lessonId: string; onExit: (
                   {feedback === 'correct' ? ['Nice one!', 'Zoom-tastic!', 'You speedster!', 'Brilliant!'][qIdx % 4] : 'Not quite!'}
                 </p>
                 {feedback === 'wrong' && <p className="text-sm font-bold text-slate-500">{correctText(q)}</p>}
+                {feedback === 'wrong' && adaptive.explanation && (
+                  <p className="mt-1 text-sm font-semibold text-slate-500">
+                    {adaptive.explanation}
+                    {adaptive.explanationIsLlm && (
+                      <span className="ml-1 text-[10px] uppercase tracking-wider text-slate-400">· gentle hint</span>
+                    )}
+                  </p>
+                )}
               </div>
             </motion.div>
           )}
         </AnimatePresence>
+        {feedback === 'wrong' && followupQ && (
+          <button onClick={trySimilar} className="btn3d btn-blue mb-2 w-full !py-2 text-sm">
+            🔁 Try a similar one
+          </button>
+        )}
         {!feedback ? (
           <button disabled={!canCheck} onClick={handleCheck} className={`btn3d w-full ${canCheck ? 'btn-green' : 'btn-grey'}`}>
             Check

@@ -15,8 +15,10 @@ import { ArcadeScreen } from './screens/ArcadeScreen'
 import { BookScreen } from './screens/BookScreen'
 import { UnitActivityScreen } from './screens/UnitActivityScreen'
 import { FriendsScreen } from './screens/FriendsScreen'
+import { SprintScreen } from './screens/SprintScreen'
 import { getCurriculum } from './content/registry'
 import { usePlayer } from './engine/store'
+import type { RetryItem } from './engine/adaptive'
 import { BOOKS_BY_ID } from './content/english/books'
 import { WelcomeGate } from './components/ui/WelcomeGate'
 import { AutoLeagueSettle } from './components/ui/AutoLeagueSettle'
@@ -34,6 +36,13 @@ export default function App() {
     () => new URLSearchParams(window.location.search).get('lesson'),
   )
   const [activeActivity, setActiveActivity] = useState<string | null>(null)
+  /** Wrong-question practice round (snapshots from the adaptive tracker). */
+  const [retryItems, setRetryItems] = useState<RetryItem[] | null>(null)
+  /** true when retryItems came from the daily check-up (XP-only too, but the
+   *  intro copy differs). Reset on exit so a later retry round is normal. */
+  const [retryCheckup, setRetryCheckup] = useState(false)
+  /** WS16 - Flashcard Sprint overlay (standalone full-screen round). */
+  const [sprintOpen, setSprintOpen] = useState(false)
   const subject = usePlayer((s) => s.subject)
   const [reviewBook, setReviewBook] = useState<string | null>(
     () => new URLSearchParams(window.location.search).get('book'),
@@ -81,6 +90,32 @@ export default function App() {
           }}
         />
       </>
+    )
+  }
+
+  // WS16 - Flashcard Sprint overlay: standalone 60-second round.
+  if (sprintOpen) {
+    return <SprintScreen onExit={() => setSprintOpen(false)} />
+  }
+
+  // Daily check-up entry (Path banner + Profile card): runs in the plain
+  // LessonScreen with the exact snapshot queue - XP only, no battle/crowns.
+  function startCheckup(items: RetryItem[]) {
+    if (items.length === 0) return
+    setRetryItems(items)
+    setRetryCheckup(true)
+  }
+
+  // Daily check-up / wrong-question practice: plain LessonScreen session with
+  // the snapshot queue (no lesson entry, XP only, no chest).
+  if (retryItems && retryItems.length > 0) {
+    return (
+      <LessonScreen
+        lessonId={retryItems[0]?.lessonId ?? ''}
+        retryItems={retryItems}
+        checkup={retryCheckup}
+        onExit={() => { setRetryItems(null); setRetryCheckup(false) }}
+      />
     )
   }
 
@@ -163,13 +198,17 @@ export default function App() {
     onStartLesson={(id) => setActiveBattle({ lessonId: id, epoch: 0 })}
     onOpenBook={(id) => setReviewBook(id)}
     onOpenActivity={(id) => setActiveActivity(id)}
+    onStartCheckup={startCheckup}
+    onStartSprint={() => setSprintOpen(true)}
   />
 )}
       {tab === 'shop' && <ShopScreen />}
       {tab === 'leagues' && <LeaguesScreen />}
       {tab === 'quests' && <QuestsScreen />}
       {tab === 'arcade' && <ArcadeScreen />}
-      {tab === 'profile' && <ProfileScreen onOpenFriends={() => setShowFriends(true)} />}
+      {tab === 'profile' && (
+        <ProfileScreen onOpenFriends={() => setShowFriends(true)} onStartCheckup={startCheckup} />
+      )}
         </motion.main>
         </AnimatePresence>
         <BottomNav tab={tab} onTab={setTab} />
