@@ -324,7 +324,7 @@ Documents copy - never on main. Sources of truth:
   + failure screenshot `live-slideshow-walk-failed.png`) — kept permanently as
   debug aid. Assertions unchanged.
 
-- [ ] 151. **Slideshow overshoot deadlock (real bug, reproduced live 4×/8 runs
+- [x] 151. **Slideshow overshoot deadlock (real bug, reproduced live 4×/8 runs
   pre-fix):** a click landing on the EXITING button during an AnimatePresence
   `mode="wait"` transition double-advances `idx` past `deck.length - 1`; the
   strict `idx === deck.length - 1` check then never fires → "Let's go! 🚀"
@@ -359,7 +359,31 @@ Documents copy - never on main. Sources of truth:
       verify-live 23/23 + vgam 78/78 (independent subagent runs); 2 subagents
       PASS the live render check (13 units, 0 page/console errors, slideshow
       markers present).
-  - NOTE: `scripts/_slide_probe.mjs` kept (verbose slideshow-walk diagnostic).
+  - [x] 151d. **UX deadlock — no way out of the intro deck (user report
+    2026-09-27):** the deck is a full-screen overlay with only Back/Next, so a
+    kid mid-lesson could never get back to the map — every exit path (Flee,
+    tab bar) sits underneath it, and a gated slide blocks Next for up to 9s.
+    `LessonSlideshow` now takes an optional `onExit`; both callers
+    (`BattleScreen`, `LessonScreen`) pass their existing exit handler, and the
+    deck renders an always-enabled ✕ (`data-testid="slide-close"`,
+    `aria-label="Exit to path"`, top-right of the card) that runs `sfx.tap()` +
+    `stopSpeaking()` before `onExit()` so TTS never bleeds into the roadmap.
+    - Done (2026-09-27): commit `b84a36d` pushed to main → `node scripts/deploy.mjs`
+      published `assets/index-3eEvrp9N.js`; live HTML references the new bundle.
+    - Gates: precommit hook (tsc + shrink + dup-title) OK; vitest 1782/1782
+      (93 files — two full-parallelism runs logged a
+      `[vitest-worker]: Timeout calling "onTaskUpdate"` infra flake with all
+      1782 tests passing; `npx vitest run --maxWorkers=2` → 0 errors); local
+      playwright-cli click-through: ✕ on slide 0 → URL back to
+      `/momomath-year2/` with the full 13-unit roadmap rendered.
+    - Live evidence: new `scripts/_exit_probe.mjs` 2/2 — ✕ present + enabled on
+      slide 0 AND mid-deck, click → slideshow gone, no `HP` chrome, roadmap
+      ("Daily goal") back, no gate overlay, re-entry works, 0 page/console
+      errors. Harness coverage added: verify-live `slideshow exit ✕ returns to
+      the roadmap` (live **24/24**) + vgam `slideshow exposes an exit ✕ from
+      slide 0` (live **79/79**).
+  - NOTE: `scripts/_slide_probe.mjs` + `scripts/_exit_probe.mjs` kept (verbose
+    slideshow-walk / exit-✕ diagnostics).
 
 - [x] 141. **Friend system fix (user "also fix the friend system" 2026-09-27):** guest
   playerIds are raw display names (`name:sarah ali`) but every year2 API whitelists

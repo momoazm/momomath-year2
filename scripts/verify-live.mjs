@@ -349,6 +349,33 @@ async function main() {
   })
   await page.waitForTimeout(1200)
   await shot(page, '02-battle-open')
+  // --- PLAN 151d: the ✕ must always get the player back to the path ---
+  // Click it on slide 0: slideshow AND battle must unmount (App clears
+  // activeBattle), leaving the roadmap. Then reopen the node so the full walk
+  // below still runs.
+  const closeClick = await page.evaluate(() => {
+    const b = document.querySelector('[data-testid="slide-close"]')
+    if (!b) return { present: false, label: null }
+    b.click()
+    return { present: true, label: b.getAttribute('aria-label') }
+  })
+  await page.waitForTimeout(1200)
+  await shot(page, '02b-slideshow-exit')
+  const afterExit = await page.evaluate(() => ({
+    slideshow: !!document.querySelector('[data-testid="lesson-slideshow"]'),
+    hp: /\d+\/\d+ HP/.test(document.body.innerText),
+    roadmap: /Daily goal/i.test(document.body.innerText),
+  }))
+  ok('slideshow exit ✕ returns to the roadmap', closeClick.present &&
+    !afterExit.slideshow && !afterExit.hp && afterExit.roadmap,
+    JSON.stringify({ ...closeClick, ...afterExit }))
+  // Reopen the node so the slideshow walk + battle below still run.
+  await page.evaluate(() => {
+    const b = Array.from(document.querySelectorAll('button[title]'))
+      .find((x) => /Count Everything/.test(x.title || '') && !x.disabled)
+    b?.click()
+  })
+  await page.waitForTimeout(1200)
   // PLAN 95: walk the Sonic slideshow (asserting the anti-skip gate) to Q1
   const flow = await advanceSlideshow(page)
   const chrome = await page.evaluate(() => {

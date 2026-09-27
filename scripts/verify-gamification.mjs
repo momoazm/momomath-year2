@@ -249,6 +249,15 @@ async function main() {
     return !!b && b.disabled
   })
   await page.evaluate(() => { window.__FAST_SLIDES = true })
+  // PLAN 151d: every slideshow must offer a way out — the ✕ close button is
+  // there from slide 0. Presence only here (the click-through is asserted in
+  // verify-live.mjs) so this walk still reaches the mission slide.
+  const closeBtn = await page.evaluate(() => {
+    const b = document.querySelector('[data-testid="slide-close"]')
+    return b ? { present: true, label: b.getAttribute('aria-label') } : { present: false, label: null }
+  })
+  ok('slideshow exposes an exit ✕ from slide 0', closeBtn.present && /exit/i.test(closeBtn.label || ''),
+    JSON.stringify(closeBtn))
   const sawSlideshow = slideshowShown
   let sawMissionSlide = false
   // Detect the mission slide by its Let's go button TEXT (immune to the
