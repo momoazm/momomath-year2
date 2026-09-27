@@ -352,8 +352,13 @@ Documents copy - never on main. Sources of truth:
     every edit with the UTF-8-safe editor; byte-level node check now 0
     suspicious sequences (PLAN.md's 5 sequences are pre-existing in HEAD, not
     from this session); re-gates re-run green after the repair.
-  - [ ] 151c. Ship: commit → push → `node scripts/deploy.mjs` → live verify
+  - [x] 151c. Ship: commit → push → `node scripts/deploy.mjs` → live verify
     (verify-live ×2 + vgam + markers) → PLAN tick — on explicit user approval.
+    - Done (2026-09-27): commit `ce8ef3a` pushed to main; deploy VERIFIED
+      (`index-mdo_8Rc0.js` live + in-sync, stale-cache check 200); live
+      verify-live 23/23 + vgam 78/78 (independent subagent runs); 2 subagents
+      PASS the live render check (13 units, 0 page/console errors, slideshow
+      markers present).
   - NOTE: `scripts/_slide_probe.mjs` kept (verbose slideshow-walk diagnostic).
 
 - [x] 141. **Friend system fix (user "also fix the friend system" 2026-09-27):** guest
@@ -497,8 +502,25 @@ tiers, odds, copy counts, store fields, or data files change.
     voice list); match re-pick 6 tests live in `tests/content/matchLayout.test.ts`
     (same file as the layout tests — no new file needed); chest timing checks in
     `tests/chestCards.test.ts`; no chest-economy assertion was changed.
-- [ ] 156. Ship per repo AGENTS.md + vault deploy rules: gates -> commit ->
+- [x] 156. Ship per repo AGENTS.md + vault deploy rules: gates -> commit ->
   `npm run verify` (predeploy) -> push `main` when asked -> `node
   scripts/deploy.mjs` -> live asset/hash check -> real-browser render verify of
   home + chest reveal + one match lesson (two independent subagents with
   evidence) -> PLAN ticks. Provenance note: zero new cross-project deps.
+  - Done (2026-09-27): commits `b50e9de` (+ `1557c60` chore) pushed; deploy
+    VERIFIED live in-sync `index-mdo_8Rc0.js`; live verify-live 23/23 + vgam
+    78/78; subagent #1: live markers (chest-lid/chest-open-beam/matched-tap-to-
+    change/ar-EG/Let's-go all found at byte offsets), seeded headless render
+    (13 units, 105 nodes, 0 errors), and a live chest-ceremony probe
+    (closed -> popping -> sprinkling with lid+beam mounted) + screenshots
+    `p30v-home/chest/chest-burst/chest-reveal.png`; subagent #2: diff audit
+    (no `rollChest`/economy line touched, 4-kick + aria intact, no deletions,
+    max per-file deletion 31%), independent suite runs, and screenshot reviews
+    (`live-03-chest-closed` kick state, `live-04-chest-reveal` RARE + one card
+    + star line).
+  - Caveats (truthful): `data-opening="bursting"` (420-500ms window) was not
+    directly sampled live (burst-only nodes were mounted throughout); no live
+    trace exercised a match re-pick click sequence (unit activity had none this
+    run) - covered by pure-helper tests + bundle marker; Arabic script TTS
+    verified by unit tests/code (live narrator check covers de-DE).
+  - Provenance: zero new cross-project files/deps (native code only).
