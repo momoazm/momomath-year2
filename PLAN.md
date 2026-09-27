@@ -297,7 +297,7 @@ Documents copy - never on main. Sources of truth:
 - [x] 140. **Recorded exclusions (do not port):** `api/year2/followup.ts` + `year2-api.test.ts` (needs backend); LM-tracker UI extras (mastery sparklines, Path coach nudge, confidence pills) unless user asks; session-auth commit 7fb4eb9 (needs /api/session); Documents content-QA tests superseded by `questionSweep` (`noDuplicateQuestions`, `dupStats`, `everyLesson`).
   - Done: exclusions recorded above; nothing from this list was ported.
 
-- [ ] 141. **Friend system fix (user "also fix the friend system" 2026-09-27):** guest
+- [x] 141. **Friend system fix (user "also fix the friend system" 2026-09-27):** guest
   playerIds are raw display names (`name:sarah ali`) but every year2 API whitelists
   `^[\w:-]+$` — spaces/apostrophes/accents/emoji in a kid name → 400 on
   `/friends/code`, `/friends/join`, `/friends/list` AND leaderboard PUT, so codes
@@ -318,6 +318,19 @@ Documents copy - never on main. Sources of truth:
   - [x] 141d. Ship: frontend rides step 139 deploy (server half cut — see 141b; if the
     stale-tab hardening is ever wanted, it must be done in a momolearn-ai session).
   - Done: guest-id slug frontend shipped in 07dbbed + deploy; live 23/23 + 77/77 green.
-  - [ ] 141e. Known limitations NOT fixed here (confirm with user if wanted): guest
-    rename changes the id and orphans friendships; two guests with the same name
-    share one identity; blob read-your-write lag shows a new friend for a few seconds.
+  - [x] 141e. Friend identity hardening — the three limitations above (guest rename
+    changes the id and orphans friendships; two guests with the same name share one
+    identity; blob read-your-write lag shows a new friend for a few seconds), FIXED
+    client-side per user approval "Fix all three" 2026-09-27:
+  - [x] 141e-i. Persisted frozen `guestId` in the store (v15 migrate: existing saves
+    keep their current name-derived id -> zero server-data orphaning; fresh installs
+    get a random `guest:xxxx` id); Friends/Profile/Leagues read it instead of
+    re-deriving from the display name -> rename-safe + no same-name collisions.
+  - [x] 141e-ii. Optimistic `pending` friend row after a successful join
+    (`keepPendingFriends`) until the next /friends/list fetch confirms it (hides
+    blob read-your-write lag; "· just added" badge clears on confirm).
+  - [x] 141e-iii. Tests + gates + commit + deploy + live verify.
+    - Done: 1761 tests / 93 files, tsc + precommit OK; local+live verify-live 23/23
+    + vgam 78/78 (incl. v15 guestId backfill assertion); manifest + sw 200; served
+    bundle markers `guest:` + `just added`; UI QA at 390px (empty/loading/
+    celebration/pending/confirmed all clean); commit b6d496e.
