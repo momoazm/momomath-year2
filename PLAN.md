@@ -297,6 +297,65 @@ Documents copy - never on main. Sources of truth:
 - [x] 140. **Recorded exclusions (do not port):** `api/year2/followup.ts` + `year2-api.test.ts` (needs backend); LM-tracker UI extras (mastery sparklines, Path coach nudge, confidence pills) unless user asks; session-auth commit 7fb4eb9 (needs /api/session); Documents content-QA tests superseded by `questionSweep` (`noDuplicateQuestions`, `dupStats`, `everyLesson`).
   - Done: exclusions recorded above; nothing from this list was ported.
 
+- [x] 149. **Re-verify (user: "re-verify Phase 28 is truly complete" 2026-09-27):**
+  independent re-run of every gate + 2 verification subagents against steps
+  130–141.
+  - Artifact audit: every ported file/hook present (adaptive 18 files + 10
+    adaptive tests + docs/adaptive-spec.md, PWA files + sw registration,
+    checkup/followup/recap/sprint, store v15 + v14/v15 migrations, cloudsave
+    mergeAdaptive + activityDays, vgam checks 16/17/18, friend guestId +
+    keepPendingFriends); exclusions (api/year2/followup, year2-api tests,
+    session-auth, LM-tracker UI) absent — subagent code audit PASS (file:line
+    evidence); subagent live render PASS 6/6 (bundle index-j3oqpNFL.js,
+    manifest+sw 200, markers "Flashcard Sprint"/"guest:"/"just added"/"STAR UP!"/
+    "Try a similar one" all present, real rendered path + arcade screens).
+  - Gates: tsc 0; vitest 1761/1761 (93 files); precommit OK; local verify-live
+    23/23 + vgam 78/78; live vgam 78/78; live verify-live 23/23 — AFTER the
+    two harness fixes in 150. Pre-fix live verify-live flaked 4 runs (nav
+    context crash ×1, slideshow-walk deadlock ×3) → root-caused in 151.
+  - Verdict: Phase 28 as shipped (07dbbed/b6d496e) is COMPLETE; the re-verify
+    surfaced one harness bug + one real product bug → 150/151.
+
+- [x] 150. **verify-live harness hardening:** (a) the `?library` navigation race —
+  polling `page.evaluate` could land mid-navigation → "Execution context was
+  destroyed" crash (live-only, slower nav); fixed with `.catch(() => false)` in
+  the poll loop + `waitForLoadState('load')` before the next evaluate.
+  (b) `advanceSlideshow` instrumented (per-iteration button/slide state logging
+  + failure screenshot `live-slideshow-walk-failed.png`) — kept permanently as
+  debug aid. Assertions unchanged.
+
+- [ ] 151. **Slideshow overshoot deadlock (real bug, reproduced live 4×/8 runs
+  pre-fix):** a click landing on the EXITING button during an AnimatePresence
+  `mode="wait"` transition double-advances `idx` past `deck.length - 1`; the
+  strict `idx === deck.length - 1` check then never fires → "Let's go! 🚀"
+  never renders, every further click re-arms the 4s gate (`useLayoutEffect`
+  on `idx`) → slideshow permanently stuck with the battle underneath
+  unclickable (kid must hard-reload; also silently skips anti-skip gates).
+  Evidence: `v28_vl_live8.log` (mission slide cycling 🔒 Wait 4s ↔ Next ➡ for
+  16 clicks, never Let's go) + `screenshot_loop_output/live-slideshow-walk-failed.png`
+  + fail traces in `v28_vl_live{2,4,5}.log`.
+  - [x] 151a. Fix: pure `nextSlideIndex`/`prevSlideIndex`/`isLastSlide` clamps
+    in `src/engine/slideshow.ts` (PLAN 149 docstrings); `LessonSlideshow.tsx`
+    uses them (clamped setIdx both directions, `isLast >=`, live `canNextRef`
+    so stale exiting-button handlers can't bypass the current slide's gate,
+    `prev` clamped at 0 against `deck[-1]`); +3 regression tests in
+    `tests/slideshow.test.ts`.
+  - [x] 151b. Gates after fix: tsc 0; vitest 1764/1764 (+3); precommit OK;
+    local verify-live 23/23 + vgam 78/78 ×2 on `index-DPCvhyZj.js`; code-review
+    subagent APPROVE (non-blocking follow-up: `BookScreen.tsx` uses the same
+    strict-eq last-page/last-question pattern but has no exit-animation window
+    → not exploitable there; clamp later if ever animated).
+  - [x] 151b-ii. **Encoding incident (same turn, caught before ship):** a
+    PowerShell comment rename (`Get-Content -Raw | Set-Content -Encoding UTF8`,
+    PS 5.1 ANSI default) double-encoded UTF-8 in the 3 edited source files —
+    subagent caught it; repaired via `git checkout` of the 3 files + re-applying
+    every edit with the UTF-8-safe editor; byte-level node check now 0
+    suspicious sequences (PLAN.md's 5 sequences are pre-existing in HEAD, not
+    from this session); re-gates re-run green after the repair.
+  - [ ] 151c. Ship: commit → push → `node scripts/deploy.mjs` → live verify
+    (verify-live ×2 + vgam + markers) → PLAN tick — on explicit user approval.
+  - NOTE: `scripts/_slide_probe.mjs` kept (verbose slideshow-walk diagnostic).
+
 - [x] 141. **Friend system fix (user "also fix the friend system" 2026-09-27):** guest
   playerIds are raw display names (`name:sarah ali`) but every year2 API whitelists
   `^[\w:-]+$` — spaces/apostrophes/accents/emoji in a kid name → 400 on
@@ -334,3 +393,112 @@ Documents copy - never on main. Sources of truth:
     + vgam 78/78 (incl. v15 guestId backfill assertion); manifest + sw 200; served
     bundle markers `guest:` + `just added`; UI QA at 390px (empty/loading/
     celebration/pending/confirmed all clean); commit b6d496e.
+
+
+## Phase 29 — Arcade Flashcard Sprint + Year-2 syllabus grounding (user 2026-09-27)
+
+- [ ] 142. Arcade entry: Flashcard Sprint tile in the Retro Arcade (ArcadeScreen card
+  styled like the other games, English badge, Best = player.sprintBest; opens
+  SprintScreen overlay from the arcade tab; PathScreen banner stays as-is).
+  Local screenshot check at 390px.
+- [ ] 143. Syllabus extraction from real books: build `src/content/syllabus/*.ts`
+  per subject (math, english, science, german, arabic, religion, social) with a
+  canonical Year-2 vocabulary/topic list AND provenance (book/curriculum title +
+  publisher) in each file header. Sources (real books / official curricula):
+  math+english+science = Cambridge Primary (Stage 2 / Year 2, Cambridge Univ.
+  Press) + DfE KS1 programmes of study (common exception words, Year 2 spelling
+  list, KS1 science NC); german = Felix & Franzi (Goethe-Institut) + Goethe A1
+  Wortliste + German children's first-words books; arabic = Arabic first-words /
+  Alif-Baa-style beginner lists + KS1-level modern-standard vocabulary; religion
+  = Year-2 Islamic-studies readers (ahlak/ibadat vocabulary); social = KS1 PSHE
+  community/family vocabulary. Extract via web research (firecrawl) of the
+  published word lists / progression docs — do NOT copy book text wholesale.
+- [ ] 144. Audit script `scripts/audit-syllabus.mjs`: walk every lesson in
+  CURRICULA (all 7 subjects), collect learner-facing vocabulary (mcq prompts +
+  choices, match pairs, order items, word banks, hints), flag words NOT present
+  in that subject's syllabus list (normalized: casefold, strip punctuation/
+  plural-s), tiered by severity (word length + absence). Emit per-subject/
+  per-unit counts + JSON report.
+- [ ] 145. Fix flagged hard words: replace vocabulary beyond Year-2 level in
+  content files (esp. german) with syllabus-aligned words; keep structure, ids
+  and tests green (registry tests must still pass unchanged where possible —
+  only wording changes, no lesson/unit added or removed).
+- [ ] 146. Regression guard: new `tests/syllabusRegistry.test.ts` asserting every
+  learner-facing vocab word per subject is in the syllabus allowlist (with small
+  tolerance set for function words/names/numbers) — future content must stay
+  Year-2.
+- [ ] 147. Gates + ship: tsc clean, full vitest, precommit; local verify-live +
+  vgam; commit -> push main -> `node scripts/deploy.mjs`; live verify-live +
+  vgam + manifest/sw 200 + bundle markers (arcade sprint tile + syllabus).
+- [ ] 148. Final UI pass (390px): arcade tile + one fixed lesson per flagged
+  subject screenshotted and reviewed; PLAN ticks + docs commit + summary.
+
+## Phase 30 — Chest-opening ceremony, bilingual voices, match re-pick (user 2026-09-27)
+
+Scope: pure presentation/UX in `ChestReveal.tsx` / `tts.ts` / match UI. The phase-28
+claim ("rollChest random card+rarity is intended") stays untouched: no card ids,
+tiers, odds, copy counts, store fields, or data files change.
+
+- [x] 152. Real chest OPENING animation (random card + rarity unchanged).
+  `rollChest` / `upgradesAt` / pack tables untouched. On the final kick the lid
+  (gift top) splits and flies up while the settled-tier glow bursts, then the
+  granted card springs out of the burst; per-kick shake + tier badge + kick
+  pips keep working; `aria-label` ("Tap to kick your chest" -> "Chest opened"),
+  kick copy, `data-testid`s and verify selectors (`verify-live.mjs` chest
+  flow) unchanged. Reduced-motion users fall back to the existing instant
+  reveal (framer-motion `useReducedMotion`).
+  - Done: `CHEST_OPENING_MS` + pure `chestOpeningPhase()` exported (ChestReveal
+    `popping -> bursting -> sprinkling` at 420/500ms + card spring at 900ms);
+    revealed chest renders trophy base + flying gift lid + tier beam
+    (`data-testid` chest-visual/chest-lid/chest-open-beam/chest-loot, plus
+    `data-opening` phase attr for e2e); reduced-motion collapses the
+    ceremony to the instant reveal; the 4-kick flow, tier badge, kick pips,
+    "Tap to open!"/"Kick! (N left)" copy and `aria-label` are untouched.
+- [x] 153. Better narrating voice + bilingual speaking. Keep the
+  single-subject default (`ttsLangFor`) as the base locale. Segment any
+  utterance by detected script (Arabic runs -> `ar-EG`; Latin/de runs -> current
+  locale; digits/emoji/punctuation inherit the neighboring run) and speak the
+  runs back-to-back in one queued chain with a run-token guard so a new call
+  cancels a stale chain. Voice picker ranks voices per run: exact-lang >
+  prefix-match > default; local over network, child/kid/female names up,
+  robot/eSpeak/low-quality names down. `speakAsSonic` keeps its fast/bright
+  character inside each run. No new deps; browser TTS only.
+  - Done: `segmentByScript()` (pure: Latin/Arabic runs; digits/emoji/punctuation
+    inherit neighbors; punctuation-only emits nothing) + `rankVoices()` (pure
+    scorer: exact lang +40 / prefix +20 / local +10 / kid-female-natural +6 /
+    Google +3 / robot-eSpeak-compact -12 / default +2) + per-lang voice cache
+    + `speakChain` token guard in `speak()` / `speakAsSonic()`; `speakSlow`
+    inherits through `speak()`. Per-run `u.onstart` cancels a superseded chain.
+- [x] 154. Matching lets kids unmatch and re-pick. Tapping a matched left or
+  right row removes only that pair (assignment clears, pending preserved);
+  tapping a different free left while its right is taken "steals" that right
+  (old pair clears, new pair forms); tapping the pending left again clears
+  the pending choice. Works in both `QuestionView` match and `LessonScreen`
+  `MatchView` (+ shared helper + tests); grading reads the final assignment,
+  Attack stays gated until every pair is assigned. IDs, pair counts, and
+  existing submit payload keys unchanged.
+  - Done: pure `matchPickLeft()` / `matchPickRight()` in `content/matchLayout.ts`
+    (+6 unit tests) drive both boards; matched rows stay clickable and their
+    new `aria-label`s say "matched, tap to change"; a free right tap with no
+    pending is a no-op; steals re-grade the NEW pairing (a wrong steal still
+    counts a match error, so brute-forcing stays penalised); Attack gating
+    (`matched.size === pairs.length`) unchanged.
+  - Done (harness): `verify-gamification.mjs` unit-activity match driver now
+    only clicks FREE rows (emerald rows are re-pickable now — clicking a
+    matched row would reopen it and never finish the board).
+- [x] 155. Tests + gates. Extend `tests/ttsLang.test.ts` (script-segment cases
+  en-ar-de, digit/emoji inheritance, punctuation-skipping, cancel-token,
+  ranked-voice preference incl. local-over-network and no-default-English-for-Arabic,
+  no-throw with empty voice list); new `tests/matchRematch.test.ts`
+  (unmatch-single, steal-reassign, pending-clear, all-done gating stays);
+  chest mechanic tests unchanged + new reveal-timing-constant checks only.
+  `tsc` + full `vitest` + `precommit` green; no deletions.
+  - Done: ttsLang 14 tests (incl. one-utterance-per-run chain assertion + empty
+    voice list); match re-pick 6 tests live in `tests/content/matchLayout.test.ts`
+    (same file as the layout tests — no new file needed); chest timing checks in
+    `tests/chestCards.test.ts`; no chest-economy assertion was changed.
+- [ ] 156. Ship per repo AGENTS.md + vault deploy rules: gates -> commit ->
+  `npm run verify` (predeploy) -> push `main` when asked -> `node
+  scripts/deploy.mjs` -> live asset/hash check -> real-browser render verify of
+  home + chest reveal + one match lesson (two independent subagents with
+  evidence) -> PLAN ticks. Provenance note: zero new cross-project deps.

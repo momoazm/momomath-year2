@@ -1,0 +1,26 @@
+feat: Phase 30 chest-opening ceremony, bilingual TTS, match re-pick (PLAN 152-155)
+
+152 chest opening animation (rarity/copies untouched): exported CHEST_OPENING_MS +
+pure chestOpeningPhase(); revealed chest = trophy base + flying gift lid + tier
+beam, loot springs out ~0.9s after the final kick; reduced-motion keeps the
+instant reveal; aria-label/copy/selectors unchanged (new data-testids:
+chest-visual/chest-lid/chest-open-beam/chest-loot + data-opening phase).
+
+153 bilingual narrating voice: segmentByScript() splits Latin vs Arabic runs
+(digits/emoji/punctuation inherit neighbors, punctuation-only emits nothing);
+rankVoices() scores exact-lang > prefix > default, local > network, kid/female/
+natural up, robot/eSpeak/compact down; per-lang voice cache + speakChain token
+guard; speak()/speakAsSonic() queue one utterance per run (ar-EG for Arabic,
+subject locale otherwise) and cancel stale chains via per-run onstart.
+
+154 match re-pick: pure matchPickLeft()/matchPickRight() (content/matchLayout)
+drive both boards - tap a matched row to reopen it, re-tap the pending left to
+clear, tap a free left while its right is taken to steal it; wrong NEW pairings
+still count match errors; Attack gating unchanged; matched rows get
+"matched, tap to change" aria labels. verify-gamification match driver now only
+clicks FREE rows (re-pickable rows would otherwise loop).
+
+155 tests: ttsLang 14 (segments/ranking/queue, empty voices), match re-pick 6,
+chest ceremony timing checks; no chest-economy assertion changed. tsc 0,
+vitest 1782/1782 (93 files), precommit OK; local verify-live 23/23 + vgam 78/78
+on index-mdo_8Rc0.js.

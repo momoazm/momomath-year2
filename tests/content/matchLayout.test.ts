@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { layoutMatchColumns } from '../../src/content/matchLayout'
+import { layoutMatchColumns, matchPickLeft, matchPickRight } from '../../src/content/matchLayout'
 
 const PAIRS4 = [
   { left: 'A', right: 'a' },
@@ -67,5 +67,37 @@ describe('layoutMatchColumns', () => {
     expect(lefts).toEqual(['L1', 'L2'])
     expect(rights[0]).not.toBe('R1')
     expect(rights[1]).not.toBe('R2')
+  })
+})
+
+describe('matchPickLeft / matchPickRight re-pick rules (PLAN 154)', () => {
+  it('re-tapping the pending left clears pending without touching pairs', () => {
+    expect(matchPickLeft({ A: 'a' }, 'B', 'B')).toEqual({ next: { A: 'a' }, clearPending: true, sfx: 'tap' })
+  })
+
+  it('tapping a matched left reopens only that pair and keeps it pending', () => {
+    expect(matchPickLeft({ A: 'a', B: 'b' }, null, 'A')).toEqual({ next: { B: 'b' }, clearPending: false, sfx: 'tap' })
+  })
+
+  it('tapping a taken right with another pending steals it and clears the old pair', () => {
+    expect(matchPickRight({ A: 'a', B: 'b' }, 'C', 'a')).toEqual({ next: { B: 'b', C: 'a' }, clearPending: true, sfx: 'correct' })
+  })
+
+  it('tapping the same pair twice removes only that pair', () => {
+    const afterRight = matchPickRight({}, 'A', 'a')
+    expect(afterRight.next).toEqual({ A: 'a' })
+    const afterReopen = matchPickRight({ A: 'a' }, 'A', 'a')
+    expect(afterReopen.next).toEqual({})
+    expect(afterReopen.clearPending).toBe(false)
+  })
+
+  it('tapping a free right with no pending is a no-op', () => {
+    expect(matchPickRight({ A: 'a' }, null, 'b')).toEqual({ next: null, clearPending: false, sfx: 'tap' })
+  })
+
+  it('keeps every assignment single-pair: steals never duplicate a right', () => {
+    const move = matchPickRight({ A: 'a', B: 'b', C: 'c' }, 'D', 'b')
+    expect(move.next).toEqual({ A: 'a', C: 'c', D: 'b' })
+    expect(Object.values(move.next ?? {})).toHaveLength(new Set(Object.values(move.next ?? {})).size)
   })
 })

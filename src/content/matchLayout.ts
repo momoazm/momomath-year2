@@ -7,6 +7,57 @@ export interface MatchColumnLayout {
   rights: string[]
 }
 
+/** Pure match re-pick helpers shared by LessonScreen + QuestionView (PLAN 154/155).
+ *  Keys are opaque row ids (`left|right` in LessonScreen, numeric pair index in
+ *  battle); the map stays a plain object so React state shape is unchanged. */
+
+export interface MatchMove {
+  /** assignment after the tap (undefined = no-op, e.g. tapped without pending) */
+  next: Record<string, string> | null
+  /** whether pending clears after this tap */
+  clearPending: boolean
+  /** sfx intent: 'tap' acknowledge, 'correct' new pairing formed */
+  sfx: 'tap' | 'correct'
+}
+
+/** Tap handling for a LEFT row. Matched rows reopen; re-tapping pending clears. */
+export function matchPickLeft(
+  matched: Readonly<Record<string, string>>,
+  pending: string | null,
+  key: string,
+): MatchMove {
+  if (pending === key) return { next: { ...matched }, clearPending: true, sfx: 'tap' }
+  if (matched[key] !== undefined) {
+    const next = { ...matched }
+    delete next[key]
+    return { next, clearPending: false, sfx: 'tap' }
+  }
+  return { next: { ...matched }, clearPending: false, sfx: 'tap' }
+}
+
+/** Tap handling for a RIGHT row. Taken rows steal: old holder releases first. */
+export function matchPickRight(
+  matched: Readonly<Record<string, string>>,
+  pending: string | null,
+  key: string,
+): MatchMove {
+  const holder = Object.keys(matched).find((left) => matched[left] === key)
+  if (holder !== undefined) {
+    if (pending !== null && holder !== pending) {
+      const next = { ...matched }
+      delete next[holder]
+      next[pending] = key
+      return { next, clearPending: true, sfx: 'correct' }
+    }
+    const next = { ...matched }
+    delete next[holder]
+    return { next, clearPending: false, sfx: 'tap' }
+  }
+  if (pending === null) return { next: null, clearPending: false, sfx: 'tap' }
+  return { next: { ...matched, [pending]: key }, clearPending: true, sfx: 'correct' }
+}
+
+
 /**
  * Two-column layout for a `match` question.
  *

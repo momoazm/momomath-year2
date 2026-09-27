@@ -577,7 +577,10 @@ async function main() {
         // enabled submit (Attack!) closes type-number / tap-count / order / tiles
         const submit = live.find((b) => b.classList.contains('btn-green'))
         if (submit) { submit.click(); return 'submit' }
-        // match: pair the 👆-selected left with the first free right
+        // match: pair the 👆-selected left with the first FREE right.
+        // PLAN 154 lets matched rows be re-picked, so the driver must never
+        // click an already-matched row (emerald) — otherwise it would reopen
+        // and re-pair the same row forever.
         const mg = Array.from(root.querySelectorAll('div')).find(
           (d) => d.classList.contains('gap-3') &&
             d.querySelectorAll(':scope > div').length === 2 &&
@@ -585,11 +588,14 @@ async function main() {
         )
         if (mg) {
           const [lc, rc] = mg.querySelectorAll(':scope > div')
-          const left = Array.from(lc.querySelectorAll('button')).filter(on)
-          const right = Array.from(rc.querySelectorAll('button')).filter(on)
-          const picked = left.find((b) => /👆/.test(txt(b)))
-          if (picked && right.length) { right[0].click(); return 'match-right' }
-          if (!picked && left.length) { left[0].click(); return 'match-left' }
+          const leftBtns = Array.from(lc.querySelectorAll('button')).filter(on)
+          const rightBtns = Array.from(rc.querySelectorAll('button')).filter(on)
+          const isFree = (b) => /border-slate-200/.test(b.className)
+          const picked = leftBtns.find((b) => /👆/.test(txt(b)))
+          const freeRight = rightBtns.find(isFree)
+          if (picked && freeRight) { freeRight.click(); return 'match-right' }
+          const freeLeft = leftBtns.find(isFree)
+          if (freeLeft) { freeLeft.click(); return 'match-left' }
           return 'match-idle'
         }
         // mcq / truefalse grade on tap

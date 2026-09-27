@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import type { Question, VisualSpec } from '../content/types'
 import { correctAnswerText } from '../engine/questionText'
 import { gradeSpeak } from '../engine/speakGrade'
+import { matchPickLeft, matchPickRight } from '../content/matchLayout'
 import { speakFor } from '../engine/tts'
 import { usePlayer } from '../engine/store'
 import { AudioBar } from './AudioBar'
@@ -75,6 +76,38 @@ export function QuestionView({ q, disabled, onSubmit }: Props) {
   const [matchLeft, setMatchLeft] = useState<number | null>(null)
   const [matchMap, setMatchMap] = useState<Record<number, number>>({})
   const [speaking, setSpeaking] = useState(false)
+
+  /** Shared PLAN 154 re-pick step for the battle match board. */
+  const battleMatchTap = (side: 'left' | 'right', leftIdx: number, rightIdx: number) => {
+    if (q.kind !== 'match') return
+    const asText: Record<string, string> = {}
+    for (const [l, r] of Object.entries(matchMap)) {
+      const lText = q.pairs[Number(l)]?.left
+      const rText = q.pairs[r]?.right
+      if (lText !== undefined && rText !== undefined) asText[lText] = rText
+    }
+    const pendingText = matchLeft === null ? null : (q.pairs[matchLeft]?.left ?? null)
+    const move =
+      side === 'left'
+        ? matchPickLeft(asText, pendingText, q.pairs[leftIdx]?.left ?? String(leftIdx))
+        : matchPickRight(asText, pendingText, q.pairs[rightIdx]?.right ?? String(rightIdx))
+    if (move.next === null) return
+    const next: Record<number, number> = {}
+    for (const [l, r] of Object.entries(move.next)) {
+      const li = q.pairs.findIndex((x) => x.left === l)
+      const ri = q.pairs.findIndex((x) => x.right === r)
+      if (li >= 0 && ri >= 0) next[li] = ri
+    }
+    setMatchMap(next)
+    if (side === 'left') {
+      setMatchLeft(move.clearPending ? null : leftIdx)
+    } else if (move.clearPending) {
+      setMatchLeft(null)
+    } else if (pendingText === null) {
+      const fallen = Object.entries(matchMap).find(([, v]) => v === rightIdx)?.[0]
+      if (fallen !== undefined) setMatchLeft(Number(fallen))
+    }
+  }
 
   const mcqChoices = q.kind === 'mcq' ? q.choices : []
   const orderShuffled = useMemo(
@@ -204,40 +237,46 @@ export function QuestionView({ q, disabled, onSubmit }: Props) {
         {q.audioText && <AudioBar audioText={q.audioText} />}
         <div className="mt-2 grid grid-cols-2 gap-3">
           <div className="space-y-2">
-            {q.pairs.map((p, i) => (
-              <button
-                key={i}
-                disabled={disabled || matchMap[i] !== undefined}
-                onClick={() => setMatchLeft(i)}
-                className={`w-full rounded-xl border-2 px-2 py-2 text-sm font-extrabold ${
-                  matchMap[i] !== undefined
-                    ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
-                    : matchLeft === i
-                      ? 'border-speed-blue bg-speed-bluelight'
-                      : 'border-slate-200 bg-white'
-                }`}
-              >
-                {p.left} {matchLeft === i ? '👆' : ''}
-              </button>
-            ))}
+            {q.pairs.map((p, i) => {
+              const isMatched = matchMap[i] !== undefined
+              const isPending = matchLeft === i
+              return (
+                <button
+                  key={i}
+                  disabled={disabled}
+                  onClick={() => battleMatchTap('left', i, -1)}
+                  className={`w-full rounded-xl border-2 px-2 py-2 text-sm font-extrabold ${
+                    isMatched
+                      ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
+                      : isPending
+                        ? 'border-speed-blue bg-speed-bluelight'
+                        : 'border-slate-200 bg-white'
+                  }`}
+                  aria-label={isMatched ? `${p.left} matched, tap to change` : `${p.left}${isPending ? ', selected' : ''}`}
+                >
+                  {p.left} {isPending ? '👆' : ''}
+                </button>
+              )
+            })}
           </div>
           <div className="space-y-2">
-            {rightShuffled.map((pi) => (
-              <button
-                key={pi}
-                disabled={disabled || Object.values(matchMap).includes(pi)}
-                onClick={() => {
-                  if (matchLeft === null) return
-                  setMatchMap((m) => ({ ...m, [matchLeft]: pi }))
-                  setMatchLeft(null)
-                }}
-                className={`w-full rounded-xl border-2 px-2 py-2 text-sm font-extrabold ${
-                  Object.values(matchMap).includes(pi) ? 'border-emerald-300 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-white'
-                }`}
-              >
-                {q.pairs[pi].right}
-              </button>
-            ))}
+            {rightShuffled.map((pi) => {
+              const takenBy = Object.entries(matchMap).find(([, v]) => v === pi)?.[0]
+              const taken = takenBy !== undefined
+              return (
+                <button
+                  key={pi}
+                  disabled={disabled}
+                  onClick={() => battleMatchTap('right', -1, pi)}
+                  className={`w-full rounded-xl border-2 px-2 py-2 text-sm font-extrabold ${
+                    taken ? 'border-emerald-300 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-white'
+                  }`}
+                  aria-label={taken ? `${q.pairs[pi].right} matched, tap to change` : q.pairs[pi].right}
+                >
+                  {q.pairs[pi].right}
+                </button>
+              )
+            })}
           </div>
         </div>
         <button

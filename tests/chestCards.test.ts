@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { existsSync } from 'node:fs'
+import { chestOpeningPhase, CHEST_OPENING_MS } from '../src/components/ui/ChestReveal'
 import { mulberry32 } from '../src/content/rng'
 import { CARDS, ALL_CARDS, ARCADE_CARDS, PACK_SIZE, START_TABLES, TIER_ORDER, rollChest, rollStartTier, upgradeStep, STAR_THRESHOLDS, LOCKED_PITY } from '../src/engine/cards'
 
@@ -162,6 +163,25 @@ describe('new card drops uniform plus locked pity', () => {
     }
     expect(sawUpgrade).toBeGreaterThan(0)
     expect(sawUpgrade).toBeLessThan(5000)
+  })
+})
+
+describe('chest opening ceremony timing (PLAN 152)', () => {
+  it('keeps an unrevealed chest closed at every timestamp', () => {
+    expect(chestOpeningPhase(false, 0)).toBe('closed')
+    expect(chestOpeningPhase(false, 100000)).toBe('closed')
+  })
+
+  it('walks popping -> bursting -> sprinkling on the exported marks', () => {
+    expect(CHEST_OPENING_MS.LID_FLY).toBe(420)
+    expect(CHEST_OPENING_MS.BURST_PEAK).toBe(500)
+    expect(CHEST_OPENING_MS.CARD_SPRING).toBe(900)
+    expect(CHEST_OPENING_MS.SETTLE).toBe(1150)
+    expect(chestOpeningPhase(true, 0)).toBe('popping')
+    expect(chestOpeningPhase(true, CHEST_OPENING_MS.LID_FLY - 1)).toBe('popping')
+    expect(chestOpeningPhase(true, CHEST_OPENING_MS.LID_FLY)).toBe('bursting')
+    expect(chestOpeningPhase(true, CHEST_OPENING_MS.BURST_PEAK)).toBe('sprinkling')
+    expect(chestOpeningPhase(true, CHEST_OPENING_MS.CARD_SPRING)).toBe('sprinkling')
   })
 })
 

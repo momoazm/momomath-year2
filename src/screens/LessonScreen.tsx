@@ -16,7 +16,7 @@ import { LessonSlideshow } from '../components/lesson/LessonSlideshow'
 import { ChestReveal } from '../components/ui/ChestReveal'
 import { sfx } from '../engine/sfx'
 import { hashString, mulberry32, shuffle } from '../content/rng'
-import { layoutMatchColumns } from '../content/matchLayout'
+import { layoutMatchColumns, matchPickLeft, matchPickRight } from '../content/matchLayout'
 import type {
   LetterTilesQuestion,
   MatchQuestion,
@@ -739,12 +739,36 @@ export function LessonScreen({ lessonId, onExit, retryItems, checkup }: {
               sfx.tap(String(i)); setTapped((s) => { const n = new Set(s); n.has(i) ? n.delete(i) : n.add(i); return n })
             }} /> :
             q.kind === 'match' ? <MatchView q={q} pendingLeft={pendingLeft} matched={matched} onPick={(side, key) => {
-              if (side === 'left') { setPendingLeft(key); sfx.tap(key) } else if (pendingLeft) {
-                const ok = q.pairs.find((p) => p.left === pendingLeft)?.right === key
-                if (ok) { sfx.correct(); setMatched((m) => new Set(m).add(pendingLeft + '|' + key)) }
-                else { sfx.wrong(); setMatchErrors((e) => e + 1) }
-                setPendingLeft(null)
+              // PLAN 154: shared pure re-pick rules (open a matched row, clear a
+              // pending re-tap, steal a taken right). Grading still counts each
+              // NEW pairing against the correct answer; stealing is a UI
+              // correction, but a wrong pairing it forms is still an error.
+              const byLeft: Record<string, string> = {}
+              for (const m of matched) { const [l, r] = m.split('|'); if (l && r) byLeft[l] = r }
+              const holderBefore = Object.keys(byLeft).find((l) => byLeft[l] === key)
+              const move = side === 'left'
+                ? matchPickLeft(byLeft, pendingLeft, key)
+                : matchPickRight(byLeft, pendingLeft, key)
+              if (move.next === null) return
+              const keep = new Set<string>()
+              for (const [l, r] of Object.entries(move.next)) keep.add(l + '|' + r)
+              setMatched(keep)
+              if (side === 'left') {
+                setPendingLeft(move.clearPending ? null : key)
+                sfx.tap(key)
+                return
               }
+              // Right tap: a brand-new pairing was formed → judge it.
+              const formedNewPair = pendingLeft !== null && holderBefore !== pendingLeft && move.next[pendingLeft] === key
+              if (formedNewPair) {
+                const ok = q.pairs.find((p) => p.left === pendingLeft)?.right === key
+                if (ok) sfx.correct()
+                else { sfx.wrong(); setMatchErrors((e) => e + 1) }
+              } else {
+                sfx.tap(key)
+              }
+              if (move.clearPending) setPendingLeft(null)
+              else if (pendingLeft === null && holderBefore !== undefined) setPendingLeft(holderBefore)
             }} /> :
             q.kind === 'letter-tiles' ? (
               <LetterTilesView q={q} picks={tilePicks} onToggleTile={(i) => {
@@ -1090,20 +1114,28 @@ function MatchView({ q, pendingLeft, matched, onPick }: {
       {q.audioText && <AudioBar audioText={q.audioText} />}
       <div className="grid grid-cols-2 gap-3 px-1">
         <div className="flex flex-col gap-2">
-          {lefts.map((l) => (
-            <button key={l} onClick={() => onPick('left', l)} disabled={[...matched].some((m) => m.split('|')[0] === l)}
-              className={`choice-btn text-center ${pendingLeft === l ? 'selected' : ''} ${[...matched].some((m) => m.split('|')[0] === l) ? 'correct' : ''}`}>
-              {l}
-            </button>
-          ))}
+          {lefts.map((l) => {
+            const isMatched = [...matched].some((m) => m.split('|')[0] === l)
+            return (
+              <button key={l} onClick={() => onPick('left', l)}
+                className={`choice-btn text-center ${pendingLeft === l ? 'selected' : ''} ${isMatched ? 'correct' : ''}`}
+                aria-label={isMatched ? `${l} matched, tap to change` : `${l}${pendingLeft === l ? ', selected' : ''}`}>
+                {l}
+              </button>
+            )
+          })}
         </div>
         <div className="flex flex-col gap-2">
-          {rights.map((r) => (
-            <button key={r} onClick={() => onPick('right', r)}
-              className={`choice-btn text-center ${[...matched].some((m) => m.split('|')[1] === r) ? 'correct' : ''}`}>
-              {r}
-            </button>
-          ))}
+          {rights.map((r) => {
+            const isMatched = [...matched].some((m) => m.split('|')[1] === r)
+            return (
+              <button key={r} onClick={() => onPick('right', r)}
+                className={`choice-btn text-center ${isMatched ? 'correct' : ''}`}
+                aria-label={isMatched ? `${r} matched, tap to change` : r}>
+                {r}
+              </button>
+            )
+          })}
         </div>
       </div>
     </div>

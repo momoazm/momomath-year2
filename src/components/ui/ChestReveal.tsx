@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { useEffect, useRef, useState } from 'react'
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import confetti from 'canvas-confetti'
 import {
   CARD_BY_ID,
@@ -22,6 +22,32 @@ const TIER_META: Record<ChestTier, { color: string; label: string; glow: string 
 }
 const TIER_RANK: ChestTier[] = ['common', 'rare', 'epic', 'legendary', 'exclusive']
 const tierIdx = (t: ChestTier) => TIER_RANK.indexOf(t)
+
+/**
+ * Opening-ceremony timing (PLAN 152). Kept in one place so tests pin the beat
+ * without racing real timers: linger on the tapped chest, then lid flies,
+ * burst peaks, card springs out ~0.9s after the final kick.
+ */
+export const CHEST_OPENING_MS = {
+  LID_FLY: 420,
+  BURST_PEAK: 500,
+  CARD_SPRING: 900,
+  SETTLE: 1150,
+} as const
+
+export type ChestOpeningPhase = 'closed' | 'popping' | 'bursting' | 'sprinkling'
+
+/**
+ * Pure map from revealed-state to the opening ceremony phase (PLAN 152).
+ * Unrevealed always stays 'closed'; revealed walks popping → bursting →
+ * sprinkling at the LID_FLY / BURST_PEAK / CARD_SPRING marks.
+ */
+export function chestOpeningPhase(revealed: boolean, msSinceReveal: number): ChestOpeningPhase {
+  if (!revealed) return 'closed'
+  if (msSinceReveal < CHEST_OPENING_MS.LID_FLY) return 'popping'
+  if (msSinceReveal < CHEST_OPENING_MS.BURST_PEAK) return 'bursting'
+  return 'sprinkling'
+}
 
 /**
  * Shared 4-kick chest reveal ritual used by LessonScreen (done) and
@@ -50,6 +76,12 @@ export function ChestReveal({
   const [flashTier, setFlashTier] = useState<ChestTier | null>(null)
   const [floater, setFloater] = useState<{ id: number; tier: ChestTier } | null>(null)
   const [shaking, setShaking] = useState(false)
+  const reduceMotion = useReducedMotion()
+  // PLAN 152 opening ceremony: the closed chest visually opens (lid flies,
+  // tier burst, card springs out) before the loot text settles. Timers reuse
+  // the rolled result only — rarity/copy tables untouched.
+  const [openingPhase, setOpeningPhase] = useState<ChestOpeningPhase>('closed')
+  const openStartedAt = useRef(0)
   const cardStars = usePlayer((s) => s.cardStars)
 
   // PLAN 123: the grant lands BEFORE this reveal renders (Lesson + Battle both
@@ -66,7 +98,27 @@ export function ChestReveal({
     return () => clearTimeout(t)
   }, [revealed, gainedStars])
 
-  const showChest = !!chestResult && !isRedo
+  // PLAN 152: reuse the rolled chest timers; the visual opening ceremony runs
+  // on wall-clock marks while grants/pack tables stay exactly as rolled.
+  const showChestRoll = !!chestResult && !isRedo
+  useEffect(() => {
+    if (!revealed || !showChestRoll || reduceMotion) {
+      if (!revealed) setOpeningPhase('closed')
+      return
+    }
+    openStartedAt.current = Date.now()
+    setOpeningPhase('popping')
+    const timers = [
+      window.setTimeout(() => setOpeningPhase('bursting'), CHEST_OPENING_MS.LID_FLY),
+      window.setTimeout(() => setOpeningPhase('sprinkling'), CHEST_OPENING_MS.BURST_PEAK),
+    ]
+    return () => { timers.forEach((t) => window.clearTimeout(t)) }
+  }, [revealed, showChestRoll, reduceMotion])
+  // Keep the pure map export wired to the same timing constants the effect uses.
+  void openStartedAt
+  void chestOpeningPhase
+
+  const showChest = showChestRoll
 
   function onChestKick() {
     if (revealed) return
@@ -181,6 +233,8 @@ export function ChestReveal({
             disabled={revealed}
             className={`relative text-[110px] leading-none ${revealed ? '' : 'cursor-pointer'}`}
             aria-label={revealed ? 'Chest opened' : 'Tap to kick your chest'}
+            data-testid="chest-visual"
+            data-opening={openingPhase}
           >
             <motion.div
               key={'kick-' + kickPulse}
@@ -206,7 +260,44 @@ export function ChestReveal({
                   background: `radial-gradient(circle, ${TIER_META[currentTier].glow}, transparent 70%)`,
                 }}
               >
-                {revealed ? '🎉' : '🎁'}
+                {revealed ? (
+                  <span className="relative inline-block">
+                    <AnimatePresence>
+                      {openingPhase === 'bursting' || openingPhase === 'sprinkling' ? (
+                        <motion.span
+                          key={'beam-' + currentTier}
+                          data-testid="chest-open-beam"
+                          initial={{ opacity: 0, scaleY: 0.2 }}
+                          animate={{ opacity: 1, scaleY: openingPhase === 'sprinkling' ? 1.25 : 1 }}
+                          exit={{ opacity: 0 }}
+                          transition={{ duration: 0.35, ease: 'easeOut' }}
+                          className="pointer-events-none absolute -top-14 left-1/2 block h-24 w-20 origin-bottom -translate-x-1/2 rounded-t-full"
+                          style={{ background: `linear-gradient(to top, ${TIER_META[currentTier].color}, transparent)` }}
+                        />
+                      ) : null}
+                    </AnimatePresence>
+                    <AnimatePresence>
+                      {(openingPhase === 'bursting' || openingPhase === 'sprinkling') && !reduceMotion ? (
+                        <motion.span
+                          key={'lid-' + currentTier}
+                          data-testid="chest-lid"
+                          role="presentation"
+                          initial={{ y: 0, rotate: 0, opacity: 1 }}
+                          animate={{ y: -72, rotate: -24, opacity: 0 }}
+                          exit={{ opacity: 0 }}
+                          transition={{ duration: CHEST_OPENING_MS.LID_FLY / 1000, ease: 'easeOut' }}
+                          className="pointer-events-none absolute -top-8 left-1/2 block -translate-x-1/2 select-none text-[72px] leading-none"
+                          aria-hidden="true"
+                        >
+                          🎁
+                        </motion.span>
+                      ) : null}
+                    </AnimatePresence>
+                    <span className="relative inline-block" data-testid="chest-base" aria-hidden="true">
+                      🏆
+                    </span>
+                  </span>
+                ) : '🎁'}
               </div>
             </motion.div>
           </motion.button>
@@ -285,9 +376,14 @@ export function ChestReveal({
 
       {revealed && chestResult && (
         <motion.div
-          initial={{ scale: 0, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ type: 'spring', stiffness: 260, damping: 16 }}
+          initial={{ scale: 0.6, opacity: 0, y: reduceMotion ? 0 : 44 }}
+          animate={{ scale: 1, opacity: 1, y: 0 }}
+          transition={
+            reduceMotion
+              ? { duration: 0.01 }
+              : { delay: CHEST_OPENING_MS.CARD_SPRING / 1000, type: 'spring', stiffness: 260, damping: 16 }
+          }
+          data-testid="chest-loot"
           className="mt-6 text-center"
         >
           <p className="font-display text-3xl font-extrabold text-orange-500">+{chestResult.gems} 💎</p>
