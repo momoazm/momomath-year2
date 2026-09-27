@@ -292,8 +292,10 @@ Documents copy - never on main. Sources of truth:
 - [x] 137. **WS16 Flashcard Sprint:** port `src/engine/sprint.ts` + `src/screens/SprintScreen.tsx`; App route + entry point; quest `sprint1` + achievement (additive `gamification.ts`); port `tests/sprint.test.ts`.
 - [x] 138. **Quick wins:** (a) `unitActivity.ts` run dedupe key drops `lesson.id` (same question from two lessons can repeat in ONE activity run) + test; (b) verify-gamification checks for Phase 27: START badge on next lesson, german lesson narrator lang=de-DE, chest "STAR UP!" chip in reveal; (c) `prefers-reduced-motion` support (MotionConfig/useReducedMotion); (d) optional: code-split the 933 KB bundle.
   - Done: (a) key = `questionKey(q)` only + test in `tests/unitActivity.test.ts`; (b) vgam checks 16/17/18 + v14 migration assertions (+ speech-synthesis lang recorder); (c) `<MotionConfig reducedMotion="user">` in `src/main.tsx`; (d) SKIPPED as optional - single-bundle keeps the PWA sw.js precache simple (splitting adds chunk-precache risk for a Phase-28 speed-run; revisit on user request).
-- [ ] 139. **Gates + ship:** tsc / full vitest / `npm run verify` -> local `verify-live` + `verify-gamification` (URL arg) -> commit -> push -> `node scripts/deploy.mjs` -> live verify incl. `manifest.webmanifest` + `sw.js` 200 AND `Flashcard Sprint` present in the served bundle -> PLAN tick + docs commit.
-- [ ] 140. **Recorded exclusions (do not port):** `api/year2/followup.ts` + `year2-api.test.ts` (needs backend); LM-tracker UI extras (mastery sparklines, Path coach nudge, confidence pills) unless user asks; session-auth commit 7fb4eb9 (needs /api/session); Documents content-QA tests superseded by `questionSweep` (`noDuplicateQuestions`, `dupStats`, `everyLesson`).
+- [x] 139. **Gates + ship:** tsc / full vitest / `npm run verify` -> local `verify-live` + `verify-gamification` (URL arg) -> commit -> push -> `node scripts/deploy.mjs` -> live verify incl. `manifest.webmanifest` + `sw.js` 200 AND `Flashcard Sprint` present in the served bundle -> PLAN tick + docs commit.
+  - Done: gates green (tsc clean, vitest 1751/93 files, precommit OK); local verify-live 23/23 + vgam 77/77 (port 3201); commit 07dbbed pushed to main; deploy VERIFIED (live assets/index-DRbAjLFN.js); live verify-live 23/23 + vgam 77/77; manifest.webmanifest + sw.js 200; 'Flashcard Sprint' present in served bundle.
+- [x] 140. **Recorded exclusions (do not port):** `api/year2/followup.ts` + `year2-api.test.ts` (needs backend); LM-tracker UI extras (mastery sparklines, Path coach nudge, confidence pills) unless user asks; session-auth commit 7fb4eb9 (needs /api/session); Documents content-QA tests superseded by `questionSweep` (`noDuplicateQuestions`, `dupStats`, `everyLesson`).
+  - Done: exclusions recorded above; nothing from this list was ported.
 
 - [ ] 141. **Friend system fix (user "also fix the friend system" 2026-09-27):** guest
   playerIds are raw display names (`name:sarah ali`) but every year2 API whitelists
@@ -313,8 +315,9 @@ Documents copy - never on main. Sources of truth:
   - [x] 141c. Server tests (`scripts/test-friends.mjs` extension +
     `scripts/test-leaderboard.mjs`) — CUT with 141b (they tested the reverted server
     code). Client coverage lives in `tests/playerId.test.ts` (141a), full suite 1599.
-  - [ ] 141d. Ship: frontend rides step 139 deploy (server half cut — see 141b; if the
+  - [x] 141d. Ship: frontend rides step 139 deploy (server half cut — see 141b; if the
     stale-tab hardening is ever wanted, it must be done in a momolearn-ai session).
+  - Done: guest-id slug frontend shipped in 07dbbed + deploy; live 23/23 + 77/77 green.
   - [ ] 141e. Known limitations NOT fixed here (confirm with user if wanted): guest
     rename changes the id and orphans friendships; two guests with the same name
     share one identity; blob read-your-write lag shows a new friend for a few seconds.
