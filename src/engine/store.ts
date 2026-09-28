@@ -50,6 +50,44 @@ export interface LessonProgress {
   completions: number
 }
 
+/** PLAN Phase 31 step 158 — which school year the player is in. Year 2 is
+ *  the shipped year; 1/3/4 arrive with the multi-year sections. */
+export type YearLevel = 1 | 2 | 3 | 4
+
+/** Per-year bucket (PLAN Phase 31): lesson progress, roadmap position
+ *  (active subject) and best scores must never leak between years. XP,
+ *  streak, coins, cards, chests, quests and collection stay top-level/shared.
+ *  The top-level copies of these four fields are the ACTIVE year's working
+ *  set; `paths` is the persisted source of truth (current fields = paths[2]). */
+export interface YearPath {
+  lessonProgress: Record<string, LessonProgress>
+  subject: Subject
+  arcadeScores: Record<string, number>
+  sprintBest: number
+}
+
+/** Fresh-install year defaults (exported for tests): Year 2, locked trio. */
+export function freshYearSlice(
+  subject: Subject,
+  extrasOn = false,
+): Pick<PlayerState, 'yearLevel' | 'extrasUnlocked' | 'paths'> {
+  return {
+    yearLevel: 2,
+    extrasUnlocked: extrasOn,
+    paths: { 2: { lessonProgress: {}, subject, arcadeScores: {}, sprintBest: 0 } },
+  }
+}
+
+function yearBucket(s: PlayerState): YearPath {
+  return {
+    lessonProgress: s.lessonProgress,
+    subject: s.subject,
+    arcadeScores: s.arcadeScores,
+    sprintBest: s.sprintBest,
+  }
+}
+
+
 export interface LeagueHistoryEntry {
   weekKey: string
   league: LeagueName
@@ -67,6 +105,15 @@ interface PlayerState {
   guestId: string
   mascot: MascotId
   subject: Subject
+  /** Active school year (PLAN Phase 31 158). Existing saves migrate to 2;
+   *  new signups pick in the WelcomeGate year step (159). */
+  yearLevel: YearLevel
+  /** Arabic/Religion/Social unlocked with the universal code (PLAN 31 step
+   *  161). Grandfathered true by migration when any trio flag is already on. */
+  extrasUnlocked: boolean
+  /** Per-year buckets — persisted source of truth for the four per-year
+   *  fields above; the top-level copies are the active year's live view. */
+  paths: Partial<Record<YearLevel, YearPath>>
   /** Optional DLC-style extras. German / Arabic / Religion / Social never
    *  appear unless the player opts in (Profile "Extra adventures") or opens
    *  ?subject=<extra>. Local-only — not in the cloudsave field whitelist
@@ -198,6 +245,9 @@ interface PlayerState {
   setName: (n: string) => void
   setMascot: (m: MascotId) => void
   setSubject: (s: Subject) => void
+  /** Switch school year (PLAN 31 158): saves the current bucket into
+   *  paths[old], loads paths[new] (fresh empty bucket if first visit). */
+  setYearLevel: (y: YearLevel) => void
   setGermanEnabled: (v: boolean) => void
   setArabicEnabled: (v: boolean) => void
   setReligionEnabled: (v: boolean) => void
@@ -615,11 +665,42 @@ function initialExtraEnabled(key: ExtraKey, subject: ExtraSubject): boolean {
 
 export const usePlayer = create<PlayerState>()(
   persist(
-    (set, get) => ({
+    (setRaw, get) => {
+      /** PLAN 31/158 — every mutation funnels through here so
+       *  paths[yearLevel] mirrors the top-level per-year fields BEFORE the
+       *  persist middleware writes. Keeps all existing direct field access
+       *  (lessonProgress/subject/arcadeScores/sprintBest) working unchanged. */
+      const set = ((
+        partial: Parameters<typeof setRaw>[0],
+        replace?: false,
+      ) =>
+        setRaw((state) => {
+          const merged = typeof partial === 'function' ? partial(state) : partial
+          if (!merged) return state
+          const year = merged.yearLevel ?? state.yearLevel
+          const paths: Partial<Record<YearLevel, YearPath>> = {
+            ...state.paths,
+            ...merged.paths,
+            [year]: {
+              lessonProgress: merged.lessonProgress ?? state.lessonProgress,
+              subject: merged.subject ?? state.subject,
+              arcadeScores: merged.arcadeScores ?? state.arcadeScores,
+              sprintBest: merged.sprintBest ?? state.sprintBest,
+            },
+          }
+          return { ...merged, paths }
+        }, replace)) as typeof setRaw
+      return {
       name: 'Champion',
       guestId: newGuestId(),
       mascot: 'sonic' as MascotId,
       subject: initialSubjectFromUrl(),
+      ...freshYearSlice(
+        initialSubjectFromUrl(),
+        initialExtraEnabled('arabicEnabled', 'arabic') ||
+          initialExtraEnabled('religionEnabled', 'religion') ||
+          initialExtraEnabled('socialEnabled', 'social'),
+      ),
       germanEnabled: initialExtraEnabled('germanEnabled', 'german'),
       arabicEnabled: initialExtraEnabled('arabicEnabled', 'arabic'),
       religionEnabled: initialExtraEnabled('religionEnabled', 'religion'),
@@ -841,6 +922,31 @@ export const usePlayer = create<PlayerState>()(
         else if (s === 'social') set({ subject: s, socialEnabled: true })
         else set({ subject: s })
       },
+      setYearLevel: (y) =>
+        set((state) => {
+          if (y === state.yearLevel) return {}
+          // Save the outgoing year's bucket, then load the target year's
+          // view into the top-level per-year fields (fresh bucket if the
+          // player has never visited that year yet).
+          const paths: Partial<Record<YearLevel, YearPath>> = {
+            ...state.paths,
+            [state.yearLevel]: yearBucket(state),
+          }
+          const target: YearPath = paths[y] ?? {
+            lessonProgress: {},
+            subject: 'math',
+            arcadeScores: {},
+            sprintBest: 0,
+          }
+          return {
+            yearLevel: y,
+            lessonProgress: target.lessonProgress,
+            subject: target.subject,
+            arcadeScores: target.arcadeScores,
+            sprintBest: target.sprintBest,
+            paths,
+          }
+        }),
       setGermanEnabled: (v) =>
         set((state) => {
           // Turning the extra off while viewing it falls back to Maths so the
@@ -1336,10 +1442,11 @@ export const usePlayer = create<PlayerState>()(
           return promoteLeaderWeek(s) ? s : state
         }),
       dismissLeagueSettle: () => set({ lastLeagueSettle: null }),
-    }),
+      }
+    },
     {
       name: 'momomath-year2-player-v2',
-      version: 15,
+      version: 16,
       migrate: migratePersisted,
     },
   ),
@@ -1486,6 +1593,33 @@ export function migratePersisted(persisted: unknown, version: number): PlayerSta
           if (typeof p.guestId !== 'string' || !p.guestId.trim()) {
             p.guestId = guestIdFromName(typeof p.name === 'string' && p.name.trim() ? p.name : 'Champion')
           }
+        }
+        if (version < 16) {
+          // v16: multi-year sections (PLAN Phase 31 step 158). Every existing
+          // save defaults to Year 2; its current lesson progress / roadmap
+          // position / best scores relocate into paths[2]. The trio lock is
+          // GRANDFATHERED on: a save that already has any arabic/religion/
+          // social *Enabled flag keeps those subjects with zero interaction.
+          const years: number[] = [1, 2, 3, 4]
+          p.yearLevel = years.includes(p.yearLevel) ? p.yearLevel : 2
+          p.extrasUnlocked =
+            p.extrasUnlocked === true ||
+            p.arabicEnabled === true ||
+            p.religionEnabled === true ||
+            p.socialEnabled === true
+          const subjects: Subject[] = ['math', 'english', 'science', 'german', 'arabic', 'religion', 'social']
+          const paths = p.paths && typeof p.paths === 'object' ? p.paths : {}
+          if (!paths[2]) {
+            paths[2] = {
+              lessonProgress:
+                p.lessonProgress && typeof p.lessonProgress === 'object' ? p.lessonProgress : {},
+              subject: subjects.includes(p.subject) ? p.subject : 'math',
+              arcadeScores:
+                p.arcadeScores && typeof p.arcadeScores === 'object' ? p.arcadeScores : {},
+              sprintBest: typeof p.sprintBest === 'number' ? p.sprintBest : 0,
+            }
+          }
+          p.paths = paths
         }
         return p
 }

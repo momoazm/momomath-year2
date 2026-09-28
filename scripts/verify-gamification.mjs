@@ -155,9 +155,14 @@ async function main() {
   await page.goto(url, { waitUntil: 'domcontentloaded' })
   await page.waitForTimeout(900)
 
-  // --- 1. migration ran: v7 -> v15, arcade counters + WS12-16 fields backfilled ---
+  // --- 1. migration ran: v7 -> v16, arcade counters + WS12-16 fields backfilled ---
   const persisted = await page.evaluate((k) => JSON.parse(localStorage.getItem(k)), PLAYER_KEY)
-  ok('persist migrated to v15', persisted.version === 15, `version=${persisted.version}`)
+  ok('persist migrated to v16', persisted.version === 16, `version=${persisted.version}`)
+  ok(
+    'v16 year system backfilled (Year 2 + paths bucket)',
+    persisted.state.yearLevel === 2 && !!persisted.state.paths?.['2'],
+    `yearLevel=${persisted.state.yearLevel} paths2=${!!persisted.state.paths?.['2']}`,
+  )
   const st = persisted.state
   ok(
     'v10 arcade counters backfilled to 0',
