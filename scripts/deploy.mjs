@@ -1,6 +1,10 @@
 // Momo Year 2 Cambridge - one-shot deploy with retry-until-clean verification.
-// Usage: node scripts/deploy.mjs
-// Steps: build (with base flag) -> publish gh-pages -> verify live bundle matches dist.
+// Usage: node scripts/deploy.mjs [--allow-no-snapshot]
+// Steps: ARCHIVE LIVE SITE LOCALLY -> build -> publish gh-pages -> verify live
+// bundle matches dist. The archive step is mandatory (user rule 2026-09-28):
+// the previous site is stored locally in ~/site_snapshots/<repo>/ (rolling
+// window, newest 2) so a bad deploy is one command away:
+//   node scripts/site_snapshot.mjs restore --publish
 // Exits 0 only when the live site is verified in sync. Retries transient failures.
 
 import { execSync, spawnSync } from 'node:child_process'
@@ -11,6 +15,7 @@ const ROOT = new URL('..', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '
 const BASE = '/momomath-year2/'
 const LIVE_URL = 'https://momoazm.github.io/momomath-year2/'
 const MUST_CONTAIN = ['apps.googleusercontent.com', 'Momo Year 2 Cambridge']
+const ALLOW_NO_SNAPSHOT = process.argv.includes('--allow-no-snapshot')
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 const log = (...a) => console.log(`[${new Date().toISOString().slice(11, 19)}]`, ...a)
@@ -51,6 +56,25 @@ async function liveBundleContains(asset, needle) {
   const res = await fetch(`${LIVE_URL}${asset}?cb=${Date.now()}`)
   const js = await res.text()
   return js.includes(needle)
+}
+
+// 0. Archive the site that is LIVE right now, BEFORE the build overwrites
+// dist/ and before anything is published. Mandatory (user rule 2026-09-28):
+// a deploy without a local copy of the previous site is a deploy you cannot
+// undo. Stored in ~/site_snapshots/momomath-year2/, rolling window of 2.
+log('archiving the currently live site (pre-deploy snapshot)...')
+{
+  const r = spawnSync(process.execPath,
+    ['scripts/site_snapshot.mjs', 'save', '--reason', 'pre-deploy'],
+    { cwd: ROOT, stdio: 'inherit' })
+  if (r.status !== 0) {
+    if (!ALLOW_NO_SNAPSHOT) {
+      console.error('FATAL: pre-deploy snapshot failed — NOTHING was published.')
+      console.error('  Only for a first-ever deploy with nothing to archive: --allow-no-snapshot')
+      process.exit(1)
+    }
+    log('WARNING: snapshot failed but --allow-no-snapshot was passed — deploying without a backup')
+  }
 }
 
 // 1. Build
@@ -125,6 +149,8 @@ if (!inSync) {
 }
 
 log(`VERIFIED: ${LIVE_URL} is live, in sync, and contains all required markers.`)
+log('undo this deploy with: node scripts/site_snapshot.mjs list')
+log('                       node scripts/site_snapshot.mjs restore --name <archive> --publish')
 
 // 4. Stale-cache safety check: a previously published asset must still
 // resolve on live (old cached HTML keeps working instead of blanking).

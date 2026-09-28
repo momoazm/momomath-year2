@@ -382,8 +382,14 @@ Documents copy - never on main. Sources of truth:
       errors. Harness coverage added: verify-live `slideshow exit ✕ returns to
       the roadmap` (live **24/24**) + vgam `slideshow exposes an exit ✕ from
       slide 0` (live **79/79**).
-  - NOTE: `scripts/_slide_probe.mjs` + `scripts/_exit_probe.mjs` kept (verbose
-    slideshow-walk / exit-✕ diagnostics).
+    - Save-state invariant (`scripts/_exit_state_probe.mjs`, live): seeding
+      xpTotal 340 / todayXp 10 / gems 120 / empty lessonProgress, opening u1,
+      advancing one slide, then ✕ → `no-progress-on-exit=true` (xpTotal, todayXp,
+      gems unchanged, `lessonProgress.u1l1` still null, roadmap back, 0 errors) —
+      exiting is a clean abort, never a silent completion.
+  - NOTE: `scripts/_slide_probe.mjs`, `scripts/_exit_probe.mjs` +
+    `scripts/_exit_state_probe.mjs` kept (verbose slideshow-walk / exit-✕ UX /
+    exit save-state diagnostics).
 
 - [x] 141. **Friend system fix (user "also fix the friend system" 2026-09-27):** guest
   playerIds are raw display names (`name:sarah ali`) but every year2 API whitelists
@@ -547,4 +553,38 @@ tiers, odds, copy counts, store fields, or data files change.
     trace exercised a match re-pick click sequence (unit activity had none this
     run) - covered by pure-helper tests + bundle marker; Arabic script TTS
     verified by unit tests/code (live narrator check covers de-DE).
+- [x] 157. Mandatory pre-deploy local snapshot + one-command rollback (user rule
+  2026-09-28), propagated to every agent rules file.
+  - New `scripts/site_snapshot.mjs`: `save` archives the currently LIVE site to
+    `C:\Users\momo\site_snapshots\momomath-year2\<UTCstamp>_<commit>_<asset>\`
+    with a `meta.json` (source, commit, files, bytes); source order = local
+    `dist/` when its hashed bundle matches the live asset (fast, offline) ->
+    deployed `gh-pages` tree via `git fetch` + worktree (full tree, includes
+    lazily-loaded card art an HTTP crawl would miss) -> HTTP crawl of the live
+    site -> local `dist/` as last resort. Fail-closed: incomplete capture
+    (missing refs) or unreadable sources = NO archive = exit 1.
+    `list` / `restore [--name X] [--clean] [--publish]` / `prune`; rolling
+    window keeps the newest 2 (`SNAPSHOT_KEEP`), oldest pruned after each save;
+    `restore` merges into `dist/` (stale-cached HTML keeps working) and
+    `--publish` re-ships gh-pages then waits until live serves the archived
+    bundle.
+  - `scripts/deploy.mjs` step 0 runs `site_snapshot.mjs save --reason pre-deploy`
+    BEFORE the build; non-zero exit = FATAL, nothing published.
+    `--allow-no-snapshot` exists only for a first-ever deploy. package.json
+    scripts added: `snapshot`, `snapshots`, `rollback`.
+  - Live evidence (2026-09-28, manual): `save` -> 158 files / 15.3 MB, asset
+    `assets/index-3eEvrp9N.js`; forced gh-pages fallback (`DIST_DIR` bogus) ->
+    same 158 files; `SNAPSHOT_KEEP=1 save` -> pruned the 2 older archives
+    (window enforced); `restore --clean` into a scratch dir -> 158 files back
+    (index.html asset matches, `cards/` 100 webp, `sw.js` + `manifest.webmanifest`
+    present), repo `dist/` untouched.
+  - Rules propagated (7 files): repo `AGENTS.md`, `C:\Users\momo\AGENTS.md`,
+    `.clinerules`, `.config\opencode\AGENTS.md`, `.codex\AGENTS.md` (hardlink ->
+    `Downloads\claude code\Global Codex AGENTS.md`), vault
+    `Downloads\claude code\AGENTS.md`, `~\.claude\CLAUDE.md`.
+  - Caveats (truthful): `restore --publish` was NOT run against live (it would
+    republish the current site) — its publish path reuses deploy.mjs's
+    verified gh-pages + wait-for-clean logic but is untested end-to-end;
+    subagent verification blocked (`Unauthorized`), manual verification only.
+
   - Provenance: zero new cross-project files/deps (native code only).

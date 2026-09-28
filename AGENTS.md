@@ -14,6 +14,16 @@ Vite + React + TS + Tailwind, zustand persist store, vitest. Deploys to GitHub P
 - ALWAYS commit before (or with) a deploy — never leave live code uncommitted. Order: finish work → gates green → `git add` + commit → `node scripts/deploy.mjs`. If you already deployed uncommitted work, commit immediately after and note it in `PLAN.md`.
 - Push `main` when the user asks; the gh-pages publish alone does NOT sync source.
 
+## Pre-deploy local archive + one-command rollback (standing, user-mandated 2026-09-28)
+
+**Every deploy must first store the currently-live website locally, so a bad deploy is instantly reversible.** `node scripts/deploy.mjs` enforces this (step 0, fails the deploy if the archive can't be taken):
+
+1. Before build/publish, `scripts/site_snapshot.mjs save` copies the whole current site (`index.html` + every referenced asset/manifest/PWA icon) into `C:\Users\momo\site_snapshots\momomath-year2\<stamp>_<commit>_<asset>\` with a `meta.json` (what was live, which commit, byte count). Outside the repo, so it survives rebuilds/branch switches and is never committed.
+2. **Rolling window:** only the newest **2** archives are kept (`SNAPSHOT_KEEP`); the oldest is deleted as each new one is taken — the previous site is always on disk, disk never grows unbounded.
+3. Roll back with `node scripts/site_snapshot.mjs list` → `node scripts/site_snapshot.mjs restore --name <archive> --publish` (refills `dist/`, republishes gh-pages, waits until live matches the archived asset). Merge, not wipe — existing hashed assets stay so cached old HTML never 404s; add `--clean` for an exact-copy restore.
+4. Escape hatch `--allow-no-snapshot` exists ONLY for a first-ever deploy with nothing to archive. Never use it to dodge a failing snapshot — fix the archive and report it.
+5. Note the archive name (or that a rollback was performed) in `PLAN.md`.
+
 ## No momolearn.space content / no-merge rule (standing, user-mandated 2026-09-25)
 
 - NEVER take anything from the momolearn.space project (repo `momoazm/momolearn-ai`, local folders `C:\Users\momo\momolearn-ai` and `C:\Users\momo\Documents\Default Project`) into THIS repo: no code, no lesson/story/text content, no data files, no images/SVG/webp assets, no CSS, no copy strings. Zero copying, in either direction.
