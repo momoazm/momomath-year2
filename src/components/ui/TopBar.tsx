@@ -1,4 +1,5 @@
 import { usePlayer } from '../../engine/store'
+import { trioVisible } from '../../engine/unlock'
 import { LEAGUE_META, displayStreak, isStreakActive } from '../../engine/gamification'
 import { ENERGY_IS_UNLIMITED } from '../../engine/store'
 import { AuthBadge } from './AuthBadge'
@@ -49,12 +50,16 @@ function SubjectSwitch() {
   const arabicEnabled = usePlayer((s) => s.arabicEnabled)
   const religionEnabled = usePlayer((s) => s.religionEnabled)
   const socialEnabled = usePlayer((s) => s.socialEnabled)
+  // PLAN 162 — the hidden trio only exists in Year 2 and needs the universal
+  // unlock (or its own grandfathered flag); German is untouched.
+  const yearLevel = usePlayer((s) => s.yearLevel)
+  const extrasUnlocked = usePlayer((s) => s.extrasUnlocked)
   const visible = [
     ...CORE_SUBJECTS,
     ...(germanEnabled ? [GERMAN_EXTRA] : []),
-    ...(arabicEnabled ? [ARABIC_EXTRA] : []),
-    ...(religionEnabled ? [RELIGION_EXTRA] : []),
-    ...(socialEnabled ? [SOCIAL_EXTRA] : []),
+    ...(arabicEnabled && trioVisible(yearLevel, extrasUnlocked, arabicEnabled) ? [ARABIC_EXTRA] : []),
+    ...(religionEnabled && trioVisible(yearLevel, extrasUnlocked, religionEnabled) ? [RELIGION_EXTRA] : []),
+    ...(socialEnabled && trioVisible(yearLevel, extrasUnlocked, socialEnabled) ? [SOCIAL_EXTRA] : []),
   ]
   return (
     <div className="flex items-center gap-0.5 rounded-full border border-white bg-white/90 p-0.5 shadow-sm" title="Switch subject">

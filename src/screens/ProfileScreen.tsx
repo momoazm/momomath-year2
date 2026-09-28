@@ -3,7 +3,7 @@ import confetti from 'canvas-confetti'
 import { ACHIEVEMENTS, LEAGUES, LEAGUE_META, ARCADE_GAMES, displayStreak, isStreakActive } from '../engine/gamification'
 import { usePlayer } from '../engine/store'
 import type { YearLevel } from '../engine/store'
-import { validate as validateUnlockCode } from '../engine/unlock'
+import { validate as validateUnlockCode, trioVisible } from '../engine/unlock'
 import { MASCOTS, Mascot } from '../components/mascots/Mascots'
 import { GoogleSignInInline } from '../components/ui/AuthBadge'
 import { signOutGoogle, useAuth } from '../engine/auth'
@@ -449,7 +449,10 @@ export function ProfileScreen({ onOpenFriends, onStartCheckup }: {
       </section>
 
       {/* optional extra: Arabic (Egyptian Tawassol Grade 2, full year T1+T2).
-          Same opt-in DLC model as German. Lesson keys are `a*`. */}
+          Same opt-in DLC model as German. Lesson keys are `a*`.
+          PLAN 162 — trio renders only when (extrasUnlocked || own flag) AND
+          yearLevel === 2; grandfathered saves keep seeing them untouched. */}
+      {trioVisible(s.yearLevel, s.extrasUnlocked, s.arabicEnabled) && (
       <section className="card-white mt-4 border-l-4 border-l-[#c09300]">
         <p className="font-display text-sm font-bold uppercase tracking-wide text-slate-400">
           Extra adventures · optional
@@ -493,9 +496,11 @@ export function ProfileScreen({ onOpenFriends, onStartCheckup }: {
           <p className="mt-2 text-xs font-bold text-emerald-600">🇪🇬 العربية is on — switch anytime in the top bar!</p>
         )}
       </section>
+      )}
 
       {/* optional extra: Islamic religion (Egyptian govt Grade 2, T1+T2).
-          Same opt-in DLC model. Lesson keys are `r*`. */}
+          Same opt-in DLC model. Lesson keys are `r*`. PLAN 162 gate. */}
+      {trioVisible(s.yearLevel, s.extrasUnlocked, s.religionEnabled) && (
       <section className="card-white mt-4 border-l-4 border-l-[#0d7a5f]">
         <p className="font-display text-sm font-bold uppercase tracking-wide text-slate-400">
           Extra adventures · optional
@@ -539,9 +544,11 @@ export function ProfileScreen({ onOpenFriends, onStartCheckup }: {
           <p className="mt-2 text-xs font-bold text-emerald-600">🕌 الدين is on — switch anytime in the top bar!</p>
         )}
       </section>
+      )}
 
       {/* optional extra: Social studies (Discover-based Egypt Grade 2).
-          Same opt-in DLC model. Lesson keys are `d*`. */}
+          Same opt-in DLC model. Lesson keys are `d*`. PLAN 162 gate. */}
+      {trioVisible(s.yearLevel, s.extrasUnlocked, s.socialEnabled) && (
       <section className="card-white mt-4 border-l-4 border-l-[#b3541e]">
         <p className="font-display text-sm font-bold uppercase tracking-wide text-slate-400">
           Extra adventures · optional
@@ -585,6 +592,7 @@ export function ProfileScreen({ onOpenFriends, onStartCheckup }: {
           <p className="mt-2 text-xs font-bold text-emerald-600">🗺️ دراسات is on — switch anytime in the top bar!</p>
         )}
       </section>
+      )}
 
       {/* account */}
       <section className="card-white mt-4">

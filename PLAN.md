@@ -705,10 +705,16 @@ User decisions (clarifying Q&A, 2026-09-28):
     unlocks, Year-1 hides the box entirely (0 nodes), magic link unlocks +
     toast + param cleared, bad link locked + silent, 0 errors; gates: tsc
     clean, vitest 1806/1806 (97), verify-live 25/25, vgam 80/80, precommit OK.
-- [ ] 162. Trio visibility: arabic / religion / social render in Profile and
-  subject lists ONLY when (extrasUnlocked || own *Enabled) AND yearLevel === 2;
-  core three always visible; german untouched (free, Y2-only). Existing users
-  with trio flags on see them with zero interaction (grandfathered).
+- [x] 162. Done — pure gate `trioVisible(yearLevel, extrasUnlocked,
+  ownEnabled)` in `src/engine/unlock.ts`; Profile trio cards + TopBar trio
+  pills both route through it (german untouched, its Y2-only hiding rides in
+  163); `tests/trioVisibility.test.ts` 3 tests (truth table + fresh-install
+  render; zustand v5 SSR renders initial state only, so the branch matrix was
+  verified e2e instead); probe162 matrix: Y2 locked = box+0 cards+0 pills,
+  Y2 unlocked = done+3 cards+0 pills, opted-in = arabic pill+german pill,
+  Y1 = 0 cards+0 pills (flags on) + german pill still 1 + box gone, 0 errors;
+  gates: tsc clean, vitest 1809/1809 (98), verify-live 25/25, vgam 80/80,
+  precommit OK.
 - [ ] 163. Year-aware registry: CURRICULA becomes Record<year, Record<subject,
   Curriculum>>; new years carry math/english/science only; PathScreen, battle,
   checkup, weekly recap, arcade banks (arcadeMath/arcadeScience/arcadeWords) and

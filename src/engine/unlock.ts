@@ -26,3 +26,19 @@ export function readUnlockParam(search: string): boolean {
     return false
   }
 }
+
+/**
+ * PLAN 162 — hidden-trio (Arabic / Religion / Social) visibility rule.
+ *
+ * The trio renders only when the profile is in Year 2 AND either the
+ * universal unlock is active or the subject's own opt-in flag is already on
+ * (grandfathered saves). German is untouched by this rule; the core three
+ * are always visible.
+ */
+export function trioVisible(
+  yearLevel: number,
+  extrasUnlocked: boolean,
+  ownEnabled: boolean,
+): boolean {
+  return yearLevel === 2 && (extrasUnlocked || ownEnabled)
+}
