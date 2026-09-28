@@ -578,6 +578,11 @@ tiers, odds, copy counts, store fields, or data files change.
     (window enforced); `restore --clean` into a scratch dir -> 158 files back
     (index.html asset matches, `cards/` 100 webp, `sw.js` + `manifest.webmanifest`
     present), repo `dist/` untouched.
+  - Fail-closed live test: `SNAPSHOT_DIR` pointed at a nonexistent drive ->
+    `deploy.mjs` printed `FATAL: no snapshot taken - refusing to deploy blind`
+    + `FATAL: pre-deploy snapshot failed - NOTHING was published.` and exited 1
+    before the build (build/publish never ran). Fixed `save()` so the initial
+    `mkdir` is inside the try (commit `080ca92`).
   - Rules propagated (7 files): repo `AGENTS.md`, `C:\Users\momo\AGENTS.md`,
     `.clinerules`, `.config\opencode\AGENTS.md`, `.codex\AGENTS.md` (hardlink ->
     `Downloads\claude code\Global Codex AGENTS.md`), vault
