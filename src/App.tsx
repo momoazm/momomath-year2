@@ -18,6 +18,7 @@ import { FriendsScreen } from './screens/FriendsScreen'
 import { SprintScreen } from './screens/SprintScreen'
 import { getCurriculum } from './content/registry'
 import { usePlayer } from './engine/store'
+import { applyDocumentTitle } from './engine/branding'
 import type { RetryItem } from './engine/adaptive'
 import { BOOKS_BY_ID } from './content/english/books'
 import { WelcomeGate } from './components/ui/WelcomeGate'
@@ -44,6 +45,7 @@ export default function App() {
   /** WS16 - Flashcard Sprint overlay (standalone full-screen round). */
   const [sprintOpen, setSprintOpen] = useState(false)
   const subject = usePlayer((s) => s.subject)
+  const yearLevel = usePlayer((s) => s.yearLevel)
   const [reviewBook, setReviewBook] = useState<string | null>(
     () => new URLSearchParams(window.location.search).get('book'),
   )
@@ -51,6 +53,11 @@ export default function App() {
   useEffect(() => {
     startCloudSync()
   }, [])
+
+  // PLAN 160 — the tab title follows the active year (166 extends branding).
+  useEffect(() => {
+    applyDocumentTitle(yearLevel)
+  }, [yearLevel])
 
   if (new URLSearchParams(window.location.search).has('gallery')) {
     return <MascotGallery />

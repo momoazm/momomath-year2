@@ -925,12 +925,18 @@ export const usePlayer = create<PlayerState>()(
       setYearLevel: (y) =>
         set((state) => {
           if (y === state.yearLevel) return {}
+          // PLAN 160: a year switch re-rolls the day/week-scoped counters so
+          // the daily quests and weekly recap regenerate against the active
+          // year's content (no-op when the day/week is already current).
+          const base: PlayerState = { ...state }
+          rollDay(base)
+          rollWeek(base)
           // Save the outgoing year's bucket, then load the target year's
           // view into the top-level per-year fields (fresh bucket if the
           // player has never visited that year yet).
           const paths: Partial<Record<YearLevel, YearPath>> = {
-            ...state.paths,
-            [state.yearLevel]: yearBucket(state),
+            ...base.paths,
+            [base.yearLevel]: yearBucket(base),
           }
           const target: YearPath = paths[y] ?? {
             lessonProgress: {},
@@ -939,6 +945,7 @@ export const usePlayer = create<PlayerState>()(
             sprintBest: 0,
           }
           return {
+            ...base,
             yearLevel: y,
             lessonProgress: target.lessonProgress,
             subject: target.subject,

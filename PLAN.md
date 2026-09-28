@@ -675,9 +675,20 @@ User decisions (clarifying Q&A, 2026-09-28):
     80/80 local, snap/visual-shots gate=4, BOMs stripped); full-flow browser
     probe: Year 1 -> name -> character persists yearLevel 1 + paths[1,2],
     onboarded, 0 pageerrors; vitest 1797/1797, tsc/precommit clean.
-- [ ] 160. Profile year chip: shows "Year N", tap -> switcher with confirm
+- [x] 160. Profile year chip: shows "Year N", tap -> switcher with confirm
   ("Your Year N progress is kept"); switching regenerates daily quests / recap
   against the active year's content; document.title updates with it.
+  - Done: chip (data-testid=year-chip) + inline switcher (year-opt-1..4) with
+    confirm row (exact copy "Your Year N progress is kept.", cancel keeps the
+    year); setYearLevel now re-rolls day + league-week counters (daily quests /
+    weekly recap regenerate; read-guards untouched); src/engine/branding.ts
+    documentTitleFor/applyDocumentTitle wired to an App effect on yearLevel
+    (Year-2 string byte-identical to index.html <title>); tests/yearSwitch
+    .test.ts 5 tests (title strings, day roll, week roll + settle parking,
+    no-op switch, chip markup render); e2e probe: chip Year 2 -> confirm ->
+    Year 1, document.title -> "Momo Year 1 Cambridge ...", paths[1,2] saved,
+    cancel path safe, 0 errors; gates: tsc clean, vitest 1802/1802 (96),
+    verify-live 25/25, vgam 80/80, precommit OK.
 - [ ] 161. Unlock engine: `src/engine/unlock.ts` exporting
   EXTRAS_UNLOCK_CODE = 'Farousy' + validate(); Profile "Have a code?" input
   (only when yearLevel === 2) sets extrasUnlocked on success; `?unlock=Farousy`

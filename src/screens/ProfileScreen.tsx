@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ACHIEVEMENTS, LEAGUES, LEAGUE_META, ARCADE_GAMES, displayStreak, isStreakActive } from '../engine/gamification'
 import { usePlayer } from '../engine/store'
+import type { YearLevel } from '../engine/store'
 import { MASCOTS, Mascot } from '../components/mascots/Mascots'
 import { GoogleSignInInline } from '../components/ui/AuthBadge'
 import { signOutGoogle, useAuth } from '../engine/auth'
@@ -27,6 +28,9 @@ export function ProfileScreen({ onOpenFriends, onStartCheckup }: {
   const signGuestOut = useAuth((a) => a.signGuestOut)
   const [editing, setEditing] = useState(false)
   const [draftName, setDraftName] = useState(s.name)
+  // PLAN 160 — year chip + switcher with a confirm before the buckets swap.
+  const [yearOpen, setYearOpen] = useState(false)
+  const [pendingYear, setPendingYear] = useState<YearLevel | null>(null)
 
   // PLAN 106: show the referral code right on the Friends entry card so it is
   // visible alongside the friend system (cached + fetched, never blocking).
@@ -105,6 +109,76 @@ export function ProfileScreen({ onOpenFriends, onStartCheckup }: {
           ))}
         </div>
       </div>
+
+      {/* PLAN 160 — year chip: tap -> switcher, confirm before switching.
+          Per-year progress buckets are kept (store setYearLevel). */}
+      <div className="mt-3 flex justify-center">
+        <button
+          onClick={() => { sfx.tap(); setYearOpen((v) => !v); setPendingYear(null) }}
+          data-testid="year-chip"
+          aria-expanded={yearOpen}
+          className="rounded-full border-2 border-speed-blue bg-speed-bluelight px-4 py-1.5 font-display text-sm font-extrabold text-speed-blue transition-transform hover:scale-105"
+        >
+          📅 Year {s.yearLevel} {yearOpen ? '▴' : '▾'}
+        </button>
+      </div>
+      {yearOpen && (
+        <section className="card-white mt-2 w-full" data-testid="year-switcher">
+          <p className="font-display text-sm font-bold uppercase tracking-wide text-slate-400">Switch year</p>
+          <div className="mt-2 grid grid-cols-4 gap-2">
+            {([1, 2, 3, 4] as const).map((y) => (
+              <button
+                key={y}
+                data-testid={`year-opt-${y}`}
+                onClick={() => {
+                  sfx.tap()
+                  if (y === s.yearLevel) { setPendingYear(null); setYearOpen(false) }
+                  else setPendingYear(y)
+                }}
+                className={`rounded-xl border-2 py-2 font-display text-sm font-extrabold transition-colors ${
+                  s.yearLevel === y
+                    ? 'border-speed-blue bg-speed-bluelight text-speed-blue'
+                    : 'border-slate-100 text-slate-400 hover:border-slate-200'
+                }`}
+              >
+                Year {y}
+              </button>
+            ))}
+          </div>
+          {pendingYear !== null && (
+            <div className="mt-3 rounded-xl bg-slate-50 p-3 text-center" data-testid="year-confirm">
+              <p className="font-display text-sm font-extrabold text-slate-700">
+                Switch to Year {pendingYear}?
+              </p>
+              <p className="mt-0.5 text-xs font-semibold text-slate-400" data-testid="year-confirm-copy">
+                Your Year {s.yearLevel} progress is kept.
+              </p>
+              <div className="mt-2 flex justify-center gap-2">
+                <button
+                  data-testid="year-cancel"
+                  onClick={() => { sfx.tap(); setPendingYear(null) }}
+                  className="btn3d btn-grey !px-4 !py-1.5 !text-xs"
+                >
+                  Cancel
+                </button>
+                <button
+                  data-testid="year-confirm-switch"
+                  onClick={() => {
+                    if (pendingYear === null) return
+                    sfx.whoosh()
+                    s.setYearLevel(pendingYear)
+                    setPendingYear(null)
+                    setYearOpen(false)
+                  }}
+                  className="btn3d btn-blue !px-4 !py-1.5 !text-xs"
+                >
+                  Switch
+                </button>
+              </div>
+            </div>
+          )}
+        </section>
+      )}
 
       {/* stats grid */}
       <section className="card-white mt-6 grid grid-cols-2 gap-3 text-center sm:grid-cols-4">
