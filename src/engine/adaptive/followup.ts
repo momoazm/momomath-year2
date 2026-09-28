@@ -46,6 +46,8 @@ export interface FollowupClientOptions {
   fetcher?: typeof fetch
   /** Per-request timeout. */
   timeoutMs?: number
+  /** Active school year (PLAN 163) — scopes the local sibling re-roll. */
+  year?: number
 }
 
 const cache = new Map<string, FollowupResult>()
@@ -150,10 +152,11 @@ function sanitizeServerQuestion(raw: unknown, source: unknown): Question | null 
  *  when the lesson can't be found (curriculum changed between saves). */
 export function siblingFollowup(
   partial: Omit<FollowupRequest, 'cacheKey'>,
+  year: number = 2,
 ): FollowupResult | null {
   let lesson: LessonDef | null = null
   for (const subject of ALL_SUBJECTS) {
-    const entry = getCurriculum(subject).allLessons[partial.lessonId]
+    const entry = getCurriculum(subject, year).allLessons[partial.lessonId]
     if (entry) {
       lesson = entry.lesson
       break
@@ -226,7 +229,7 @@ export async function fetchFollowup(
       clearTimeout(timer)
     }
 
-    const fallback = siblingFollowup(partial)
+    const fallback = siblingFollowup(partial, opts.year)
     if (fallback) setCached(req.cacheKey, fallback)
     return fallback
   } catch {

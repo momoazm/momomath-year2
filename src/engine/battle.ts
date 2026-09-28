@@ -54,6 +54,8 @@ export interface BattleConfig {
   enemyName: string
   /** player.mascot id — selects buddy passive */
   mascotId: string
+  /** active school year (PLAN 163) — omitted by old callers/tests = Year 2 */
+  year?: number
 }
 
 export interface BattleFeedback {
@@ -88,8 +90,8 @@ const PLAYER_BASE_HP = 60
 const REFILL_BATCH = 5
 const QUESTIONS_PER_BOSS = QUESTIONS_PER_LESSON
 
-function findLesson(subject: Subject, lessonId: string) {
-  return getCurriculum(subject).allLessons[lessonId]?.lesson ?? null
+function findLesson(subject: Subject, lessonId: string, year?: number) {
+  return getCurriculum(subject, year).allLessons[lessonId]?.lesson ?? null
 }
 
 function enemyHpFor(kind: BattleKind, qCount: number): number {
@@ -147,7 +149,7 @@ export function createBattle(
   cfg: BattleConfig,
   seed: number,
 ): BattleState | null {
-  const found = findLesson(cfg.subject, cfg.lessonId)
+  const found = findLesson(cfg.subject, cfg.lessonId, cfg.year)
   if (!found) return null
   const n = questionCountFor(cfg.kind)
   const questions = found.generate(n, seed)
@@ -217,7 +219,7 @@ export function answerBattle(state: BattleState, wasCorrect: boolean, teachLine 
   else if (playerHp <= 0) status = 'lost'
   else if (state.index + 1 >= state.questions.length) {
     // HP decides: NEVER end on question count / accuracy — append a fresh batch.
-    const found = findLesson(state.cfg.subject, state.cfg.lessonId)
+    const found = findLesson(state.cfg.subject, state.cfg.lessonId, state.cfg.year)
     if (found) {
       const seed = ((state.index + 1) * 7919 + state.correct * 31 + state.wrong * 7 + 1) % 1_000_000_007
       // exclude everything already served this battle so the refill never

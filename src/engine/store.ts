@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { MascotId, Subject } from '../content/types'
+import { subjectInYear } from '../content/years'
 import {
   ACHIEVEMENTS,
   advanceLeague,
@@ -910,19 +911,23 @@ export const usePlayer = create<PlayerState>()(
       setName: (n) => set({ name: n.trim() || 'Champion' }),
       setMascot: (m) => set({ mascot: m }),
       setSubject: (s) => {
+        // PLAN 163 — subjects outside the active year are hidden everywhere;
+        // any stray call (deep link, stale bookmark) falls back to Maths
+        // instead of parking the roadmap on a subject the year doesn't teach.
+        const next: Subject = subjectInYear(s, get().yearLevel) ? s : 'math'
         if (typeof window !== 'undefined') {
           const url = new URL(window.location.href)
-          if (s !== 'math') url.searchParams.set('subject', s)
+          if (next !== 'math') url.searchParams.set('subject', next)
           else url.searchParams.delete('subject')
           window.history.replaceState(null, '', url)
         }
         // Deep-linking / picking an extra auto-enables it so a hidden pill
         // can never strand the player on an extra roadmap.
-        if (s === 'german') set({ subject: s, germanEnabled: true })
-        else if (s === 'arabic') set({ subject: s, arabicEnabled: true })
-        else if (s === 'religion') set({ subject: s, religionEnabled: true })
-        else if (s === 'social') set({ subject: s, socialEnabled: true })
-        else set({ subject: s })
+        if (next === 'german') set({ subject: next, germanEnabled: true })
+        else if (next === 'arabic') set({ subject: next, arabicEnabled: true })
+        else if (next === 'religion') set({ subject: next, religionEnabled: true })
+        else if (next === 'social') set({ subject: next, socialEnabled: true })
+        else set({ subject: next })
       },
       setYearLevel: (y) =>
         set((state) => {
@@ -950,7 +955,10 @@ export const usePlayer = create<PlayerState>()(
             ...base,
             yearLevel: y,
             lessonProgress: target.lessonProgress,
-            subject: target.subject,
+            // PLAN 163 — a bucket that somehow parked an out-of-year subject
+            // (old save, remote sync) falls back to Maths instead of loading
+            // a hidden roadmap the year doesn't teach.
+            subject: subjectInYear(target.subject, y) ? target.subject : 'math',
             arcadeScores: target.arcadeScores,
             sprintBest: target.sprintBest,
             paths,
@@ -1163,14 +1171,20 @@ export const usePlayer = create<PlayerState>()(
           if (typeof snap.name === 'string' && snap.name) next.name = snap.name
           if (snap.mascot) next.mascot = snap.mascot
           if (snap.subject) {
-            next.subject = snap.subject
-            // The *Enabled flags are local-only (not synced), so a remote
-            // subject that IS an extra must auto-enable its flag here —
-            // otherwise device B lands on the extra roadmap with no pill.
-            if (snap.subject === 'german') next.germanEnabled = true
-            else if (snap.subject === 'arabic') next.arabicEnabled = true
-            else if (snap.subject === 'religion') next.religionEnabled = true
-            else if (snap.subject === 'social') next.socialEnabled = true
+            // PLAN 163 — the cloud snapshot carries no year fields yet (they
+            // arrive in PLAN 165), so a remote subject from another year must
+            // not park this device's roadmap on a subject the active year
+            // doesn't teach (pills hide it; the label would lie). Keep local.
+            if (subjectInYear(snap.subject, state.yearLevel)) {
+              next.subject = snap.subject
+              // The *Enabled flags are local-only (not synced), so a remote
+              // subject that IS an extra must auto-enable its flag here —
+              // otherwise device B lands on the extra roadmap with no pill.
+              if (snap.subject === 'german') next.germanEnabled = true
+              else if (snap.subject === 'arabic') next.arabicEnabled = true
+              else if (snap.subject === 'religion') next.religionEnabled = true
+              else if (snap.subject === 'social') next.socialEnabled = true
+            }
           }
           if (typeof snap.dailyGoal === 'number') next.dailyGoal = snap.dailyGoal
           if (typeof snap.onboarded === 'boolean') next.onboarded = snap.onboarded

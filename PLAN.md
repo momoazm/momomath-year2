@@ -715,11 +715,40 @@ User decisions (clarifying Q&A, 2026-09-28):
   Y1 = 0 cards+0 pills (flags on) + german pill still 1 + box gone, 0 errors;
   gates: tsc clean, vitest 1809/1809 (98), verify-live 25/25, vgam 80/80,
   precommit OK.
-- [ ] 163. Year-aware registry: CURRICULA becomes Record<year, Record<subject,
+- [x] 163. Year-aware registry: CURRICULA becomes Record<year, Record<subject,
   Curriculum>>; new years carry math/english/science only; PathScreen, battle,
   checkup, weekly recap, arcade banks (arcadeMath/arcadeScience/arcadeWords) and
   Sprint bank read the active year; subject not in year => hidden, never a
   crash. Keep Year-2 structure byte-stable for the existing verify markers.
+  - Done: NEW src/content/years.ts (SUBJECTS_BY_YEAR / subjectsForYear /
+    subjectInYear; 1/3/4 = core three, 2 = all 7, unknown year = Year-2 set);
+    CURRICULA -> Record<number, YearCurriculum> (1/3/4 = CORE, 2 = YEAR_2 =
+    spread(CORE) + german/arabic/religion/social over the SAME unit/lesson
+    objects = byte-stable Year-2); getCurriculum(subject, year=2) falls back
+    to maths then Year 2; lessonEntry/buildCatalog/primaryCode/lessonCodes/
+    lessonForCode/findLessonTitle thread year. Readers pass the active year:
+    PathScreen, App unit activity, LessonScreen (+ primaryCode, followup
+    opts.year), BattleScreen -> BattleConfig.year (createBattle + HP refill),
+    buildCheckup (PathScreen/Profile callers), buildWeeklyRecap (extras
+    filtered out of subjects list), arcade makers makeMathQuestion/
+    rollWordQuestion/rollLabQuestion + PixelRun gate (year param plumbed; Y2
+    banks serve every year until per-year content lands in 167+/169),
+    buildSprintBank(undefined, year), adaptive checkup/followup/lessons.
+    Hiding: TopBar pills via subjectInYear (german now Y2-only too, trio via
+    trioVisible), Profile German card, ArcadeScreen tile filter,
+    store.setSubject falls back to maths for out-of-year picks; hardening
+    from subagent review: applySyncedSnapshot rejects a remote subject the
+    local year does not teach (snapshot has no year fields until 165) and
+    setYearLevel guards a poisoned bucket subject. tests/yearsRegistry.test.ts
+    12 tests (shape/fallback/visibility/setSubject + sync/year-switch
+    guards); registry tests re-pointed to CURRICULA[2]; audit-syllabus walks
+    CURRICULA[2] (exit 0 clean). probe163 matrix: Y2 german-parked = 7 pills
+    + german/trio cards + paths[2].subject=german, Y1 = 4 extra pills gone +
+    3 core pills + Profile cards/code box gone + roadmap renders maths +
+    title "Momo Year 1 Cambridge", back to Y2 restores subject german +
+    title, 0 page errors. Two subagents independently PASS (spec review +
+    gates). Gates: tsc clean, vitest 1821/1821 (99), verify-live 25/25,
+    vgam 80/80, precommit OK, audit exit 0.
 - [ ] 164. Per-year leagues: leaderboard submit id = `y{N}:<playerId>` for
   N!=2 (Year 2 / legacy stays unprefixed); client filters fetched entries by
   active year and strips prefixes for display; friends list stays global.

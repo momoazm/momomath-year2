@@ -12,25 +12,47 @@ export interface Curriculum {
   allLessons: Record<string, { unit: UnitDef; lesson: LessonDef }>
 }
 
-export const CURRICULA: Record<Subject, Curriculum> = {
+/** One year's subject map. Maths is mandatory (the never-crash fallback);
+ *  every other subject exists only when that year teaches it. */
+export type YearCurriculum = { math: Curriculum } & Partial<
+  Record<Exclude<Subject, 'math'>, Curriculum>
+>
+
+const CORE: YearCurriculum = {
   math: { units: MATH_UNITS, allLessons: MATH_LESSONS },
   english: { units: ENGLISH_UNITS, allLessons: ENGLISH_ALL_LESSONS },
   science: { units: SCIENCE_UNITS, allLessons: SCIENCE_ALL_LESSONS },
-  // Optional DLC-style extras: only reachable when the player opts in
-  // (store.germanEnabled / store.arabicEnabled / store.religionEnabled /
-  // store.socialEnabled). Core flows never depend on them.
+}
+
+/** Year 2 = the full set. Optional DLC-style extras: only reachable when the
+ *  player opts in (store.germanEnabled / arabicEnabled / religionEnabled /
+ *  socialEnabled) — and only in Year 2 (PLAN 163). Core flows never depend
+ *  on them. */
+const YEAR_2: YearCurriculum = {
+  ...CORE,
   german: { units: GERMAN_UNITS, allLessons: GERMAN_ALL_LESSONS },
   arabic: { units: ARABIC_UNITS, allLessons: ARABIC_ALL_LESSONS },
   religion: { units: RELIGION_UNITS, allLessons: RELIGION_ALL_LESSONS },
   social: { units: SOCIAL_UNITS, allLessons: SOCIAL_ALL_LESSONS },
 }
 
-export function getCurriculum(subject: Subject): Curriculum {
-  // Belt & braces: never crash the boot path on a corrupt/partial save —
-  // fall back to Maths so the player always sees a working path.
-  return CURRICULA[subject] ?? CURRICULA.math
+/** PLAN 163 — year-keyed registry. Year 2 carries every subject; the new
+ *  years (1 / 3 / 4) carry the core three only, sharing the Year-2 content
+ *  objects until their own content lands (Y1 maths = PLAN 167). */
+export const CURRICULA: Record<number, YearCurriculum> = {
+  1: CORE,
+  2: YEAR_2,
+  3: CORE,
+  4: CORE,
 }
 
-export function lessonEntry(subject: Subject, lessonId: string) {
-  return CURRICULA[subject].allLessons[lessonId]
+export function getCurriculum(subject: Subject, year: number = 2): Curriculum {
+  const bySubject = CURRICULA[year] ?? CURRICULA[2]
+  // Belt & braces: never crash the boot path on a corrupt/partial save or a
+  // subject outside the active year — fall back to Maths (always present).
+  return bySubject[subject] ?? bySubject.math
+}
+
+export function lessonEntry(subject: Subject, lessonId: string, year: number = 2) {
+  return getCurriculum(subject, year).allLessons[lessonId]
 }

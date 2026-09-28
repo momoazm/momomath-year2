@@ -7,8 +7,8 @@ import type { CurriculumEntry } from './recommender'
 import type { Subject } from '../../content/types'
 
 /** Build the flat ordered catalog of (objectiveCode, lessonId) pairs. */
-export function buildCatalog(subject: Subject): CurriculumEntry[] {
-  const c = getCurriculum(subject)
+export function buildCatalog(subject: Subject, year: number = 2): CurriculumEntry[] {
+  const c = getCurriculum(subject, year)
   const out: CurriculumEntry[] = []
   for (const u of c.units) {
     for (let i = 0; i < u.lessons.length; i++) {
@@ -28,16 +28,16 @@ export function buildCatalog(subject: Subject): CurriculumEntry[] {
 }
 
 /** A lesson's "primary" objective code — the first one in its list. */
-export function primaryCode(lessonId: string, subject: Subject): string | null {
-  const c = getCurriculum(subject)
+export function primaryCode(lessonId: string, subject: Subject, year: number = 2): string | null {
+  const c = getCurriculum(subject, year)
   const entry = c.allLessons[lessonId]
   if (!entry) return null
   return entry.lesson.objectiveCodes[0] ?? null
 }
 
 /** All objective codes a lesson touches. */
-export function lessonCodes(lessonId: string, subject: Subject): string[] {
-  const c = getCurriculum(subject)
+export function lessonCodes(lessonId: string, subject: Subject, year: number = 2): string[] {
+  const c = getCurriculum(subject, year)
   const entry = c.allLessons[lessonId]
   return entry ? [...entry.lesson.objectiveCodes] : []
 }

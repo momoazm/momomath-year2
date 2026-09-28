@@ -14,6 +14,7 @@ import { buildCheckup, dueSkillCodes } from '../engine/adaptive'
 import type { RetryItem } from '../engine/adaptive'
 import { buildMonthGrid, buildWeeklyRecap } from '../engine/recap'
 import type { MascotId } from '../content/types'
+import { subjectInYear } from '../content/years'
 import { ALL_CARDS, STAR_THRESHOLDS, toStar } from '../engine/cards'
 
 const CODE_CACHE_KEY = 'momomath-year2-friendcode'
@@ -66,10 +67,11 @@ export function ProfileScreen({ onOpenFriends, onStartCheckup }: {
     const session = buildCheckup({
       snap: s.adaptive.snapshot,
       attempts: s.adaptive.attempts,
+      year: s.yearLevel,
     })
     if (session.items.length === 0) return null
     return { count: due.length, items: session.items }
-  }, [s.adaptive.snapshot, s.adaptive.attempts])
+  }, [s.adaptive.snapshot, s.adaptive.attempts, s.yearLevel])
 
   // WS15 (PLAN 136) — practice calendar (this month) + weekly recap. Pure
   // local math (deterministic, no AI): tiny inputs (≤60 day strings,
@@ -82,6 +84,7 @@ export function ProfileScreen({ onOpenFriends, onStartCheckup }: {
     cardsWonWeekKey: s.cardsWonWeekKey,
     activityDays: s.activityDays,
     attempts: s.adaptive.attempts,
+    year: s.yearLevel,
   })
 
   // PLAN 161 — manual extras unlock (universal code; Year 2 only UI).
@@ -403,7 +406,10 @@ export function ProfileScreen({ onOpenFriends, onStartCheckup }: {
 
       {/* optional extras: Deutsch + Arabic (Egyptian Tawassol Grade 2).
           Opt-in DLC — never forced, never in the core toggle until enabled.
-          Shared XP/gems/league economy when on. */}
+          Shared XP/gems/league economy when on.
+          PLAN 163 — the German card renders only in Year 2 (subjectInYear);
+          other years teach maths/english/science only. */}
+      {subjectInYear('german', s.yearLevel) && (
       <section className="card-white mt-4 border-l-4 border-l-[#00a651]">
         <p className="font-display text-sm font-bold uppercase tracking-wide text-slate-400">
           Extra adventures · optional
@@ -447,6 +453,7 @@ export function ProfileScreen({ onOpenFriends, onStartCheckup }: {
           <p className="mt-2 text-xs font-bold text-emerald-600">🇩🇪 Deutsch is on — switch anytime in the top bar!</p>
         )}
       </section>
+      )}
 
       {/* optional extra: Arabic (Egyptian Tawassol Grade 2, full year T1+T2).
           Same opt-in DLC model as German. Lesson keys are `a*`.

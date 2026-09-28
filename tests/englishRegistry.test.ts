@@ -10,7 +10,7 @@ describe('subject registry', () => {
     for (const s of subjects) {
       expect(getCurriculum(s).units.length).toBeGreaterThan(0)
     }
-    expect(getCurriculum('math')).toBe(CURRICULA.math)
+    expect(getCurriculum('math')).toBe(CURRICULA[2].math)
   })
 
   it('keeps lesson id namespaces disjoint across subjects', () => {

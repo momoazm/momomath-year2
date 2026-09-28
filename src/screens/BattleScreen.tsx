@@ -37,6 +37,7 @@ export function BattleScreen({
   onVictoryContinue: () => void
 }) {
   const subject = usePlayer((s) => s.subject)
+  const yearLevel = usePlayer((s) => s.yearLevel)
   const mascot = usePlayer((s) => s.mascot)
   const player = usePlayer()
   const completeLesson = usePlayer((s) => s.completeLesson)
@@ -54,7 +55,7 @@ export function BattleScreen({
   const rewardedRef = useRef(false)
 
   const kind = battleKindFor(lessonId)
-  const entry = useMemo(() => getCurriculum(subject).allLessons[lessonId], [subject, lessonId])
+  const entry = useMemo(() => getCurriculum(subject, yearLevel).allLessons[lessonId], [subject, yearLevel, lessonId])
 
   useEffect(() => {
     if (!entry) return
@@ -65,11 +66,12 @@ export function BattleScreen({
         lessonId,
         enemyName: enemyNameFor(kind, lessonId),
         mascotId: mascot,
+        year: yearLevel,
       },
       seedRef.current,
     )
     setBattle(st)
-  }, [entry, kind, subject, lessonId, mascot])
+  }, [entry, kind, subject, lessonId, mascot, yearLevel])
 
   // auto-play audio prompts once per question
   const q = battle && battle.status === 'active' && !showIntro && guideDone ? battle.questions[battle.index] : undefined

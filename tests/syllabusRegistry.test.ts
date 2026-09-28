@@ -12,7 +12,7 @@ const TOKENS = /\p{L}[\p{L}\p{M}'’-]*/gu
  *  failure. Uses the same seeds + bucketing as scripts/audit-syllabus.mjs. */
 describe('PLAN 146 — syllabus registry regression guard', () => {
   it('every curriculum subject has syllabus + tolerance entries', () => {
-    const subjects = Object.keys(CURRICULA).sort()
+    const subjects = Object.keys(CURRICULA[2]).sort()
     expect(subjects).toEqual(Object.keys(SYLLABUS).sort())
     for (const s of subjects as Subject[]) {
       expect(SYLLABUS[s].length).toBeGreaterThan(40)
@@ -21,11 +21,11 @@ describe('PLAN 146 — syllabus registry regression guard', () => {
     }
   })
 
-  for (const subject of Object.keys(CURRICULA).sort() as Subject[]) {
+  for (const subject of Object.keys(CURRICULA[2]).sort() as Subject[]) {
     it(`${subject}: every bank word is Year-2 level (no HARD flags)`, () => {
       const matcher = buildMatcher(subject)
       const hard: string[] = []
-      const lessons = eachGeneratedQuestion(CURRICULA, subject, (lesson, q) => {
+      const lessons = eachGeneratedQuestion(CURRICULA[2], subject, (lesson, q) => {
         const { bank } = bucketQuestion(q)
         for (const phrase of bank) {
           for (const tok of String(phrase).match(TOKENS) ?? []) {

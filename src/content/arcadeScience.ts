@@ -51,7 +51,10 @@ export const LAB_BLITZ_BANK: LabBlitzEntry[] = [
   { emoji: '🦷', q: 'Which of these is an input? (inputs of a torch)', answer: 'Electricity', wrong: ['Light', 'Heat', 'Sound'] },
 ]
 
-export function rollLabQuestion(rand: () => number = Math.random) {
+/** PLAN 163 — `year` = active school year (bank swap per year comes later;
+ *  the Year-2 lab bank serves every year for now). */
+export function rollLabQuestion(rand: () => number = Math.random, year: number = 2) {
+  void year
   const e = LAB_BLITZ_BANK[Math.floor(rand() * LAB_BLITZ_BANK.length)]
   const options = [e.answer, ...e.wrong].sort(() => rand() - 0.5)
   return { emoji: e.emoji, text: e.q, answer: e.answer, options }

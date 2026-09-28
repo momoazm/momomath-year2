@@ -25,7 +25,8 @@ import {
  */
 export function SprintScreen({ onExit }: { onExit: () => void }) {
   const player = usePlayer()
-  const bank = useMemo(() => buildSprintBank(), [])
+  // PLAN 163 — the sprint bank reads the active year's English curriculum.
+  const bank = useMemo(() => buildSprintBank(undefined, player.yearLevel), [player.yearLevel])
 
   const [phase, setPhase] = useState<'intro' | 'playing' | 'done'>('intro')
   const [deck, setDeck] = useState<SprintCard[]>([])

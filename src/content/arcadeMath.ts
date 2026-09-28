@@ -2,8 +2,11 @@
  *  (Boss Rush + Pixel Run gates). Year-2 level: +, -, × with 4 options. */
 export type ArcadeQ = { text: string; answer: string; options: string[] }
 
-/** Arithmetic question for Boss Rush / Pixel Run (year-2 level). */
-export function makeMathQuestion(rand: () => number = Math.random): ArcadeQ {
+/** Arithmetic question for Boss Rush / Pixel Run (year-2 level).
+ *  PLAN 163 — `year` is the active school year: the Y2 ranges apply for now
+ *  and per-year profiles branch here when their content lands (Y1 = 167). */
+export function makeMathQuestion(rand: () => number = Math.random, year: number = 2): ArcadeQ {
+  void year
   const ops = ['+', '-', '×'] as const
   const op = ops[Math.floor(rand() * ops.length)]
   let a: number, b: number, answer: number

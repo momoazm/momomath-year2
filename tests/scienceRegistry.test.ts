@@ -25,8 +25,8 @@ describe('science track registry (issue: science not visible)', () => {
   })
 
   it('is wired into the registry so PathScreen/TopBar can route to it', () => {
-    expect(CURRICULA.science.units).toBe(SCIENCE_UNITS)
-    expect(CURRICULA.science.allLessons).toBe(SCIENCE_ALL_LESSONS)
+    expect(CURRICULA[2].science!.units).toBe(SCIENCE_UNITS)
+    expect(CURRICULA[2].science!.allLessons).toBe(SCIENCE_ALL_LESSONS)
     const c = getCurriculum('science')
     expect(c.units).toHaveLength(6)
     expect(Object.keys(c.allLessons).length).toBeGreaterThanOrEqual(30)

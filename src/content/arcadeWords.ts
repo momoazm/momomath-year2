@@ -50,8 +50,11 @@ export const WORD_RESCUE_BANK: WordRescueEntry[] = [
   { emoji: '⭐', answer: 'twinkle', wrong: ['twinkl', 'twincl', 'twinkal'] },
 ]
 
-/** Pick a random entry plus a shuffled 4-option list. */
-export function rollWordQuestion(rand: () => number = Math.random) {
+/** Pick a random entry plus a shuffled 4-option list.
+ *  PLAN 163 — `year` = active school year (bank swap per year comes later;
+ *  the Year-2 word bank serves every year for now). */
+export function rollWordQuestion(rand: () => number = Math.random, year: number = 2) {
+  void year
   const e = WORD_RESCUE_BANK[Math.floor(rand() * WORD_RESCUE_BANK.length)]
   const options = [e.answer, ...e.wrong].sort(() => rand() - 0.5)
   return { emoji: e.emoji, text: `${e.emoji}  Which is spelled right?`, answer: e.answer, options }

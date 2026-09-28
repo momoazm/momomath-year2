@@ -37,13 +37,13 @@ export const ALL_SUBJECTS: Subject[] = [
 ]
 
 /** Find a lesson's human title across every subject (attempts span subjects). */
-export function findLessonTitle(lessonId: string): {
+export function findLessonTitle(lessonId: string, year: number = 2): {
   title: string
   unitTitle: string
   subject: Subject
 } | null {
   for (const subject of ALL_SUBJECTS) {
-    const entry = getCurriculum(subject).allLessons[lessonId]
+    const entry = getCurriculum(subject, year).allLessons[lessonId]
     if (entry) {
       return { title: entry.lesson.title, unitTitle: entry.unit.title, subject }
     }
@@ -52,12 +52,12 @@ export function findLessonTitle(lessonId: string): {
 }
 
 /** Map an objective code to its lesson (first catalog hit across subjects). */
-export function lessonForCode(code: string): {
+export function lessonForCode(code: string, year: number = 2): {
   lessonId: string
   title: string
 } | null {
   for (const subject of ALL_SUBJECTS) {
-    const hit = buildCatalog(subject).find((e) => e.code === code)
+    const hit = buildCatalog(subject, year).find((e) => e.code === code)
     if (hit) return { lessonId: hit.lessonId, title: hit.title }
   }
   return null
@@ -134,6 +134,8 @@ export interface SummariseLessonsInput {
   now?: number
   /** max lessons returned (default 4) */
   limit?: number
+  /** active school year (PLAN 163) — titles resolve inside it */
+  year?: number
 }
 
 function pct(x: number): string {
@@ -196,7 +198,7 @@ export function lessonsToRepeat(input: SummariseLessonsInput): LessonRepeatInfo[
     }
     if (reasons.length === 0) continue
 
-    const found = findLessonTitle(lessonId)
+    const found = findLessonTitle(lessonId, input.year)
     // Worst first: hardest accuracy, then overall accuracy, then mastery.
     const score =
       (hardestAccuracy ?? accuracy) * 0.5 + accuracy * 0.3 + avgMastery * 0.2

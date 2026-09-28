@@ -12,23 +12,26 @@ import { PixelBoss } from '../components/arcade/PixelBoss'
 
 type Q = ArcadeQ
 
-function makeQuestion(gameId: string, rand: () => number = Math.random): Q {
+function makeQuestion(gameId: string, rand: () => number = Math.random, year: number = 2): Q {
   if (gameId === 'word-rescue') {
-    const r = rollWordQuestion(rand)
+    const r = rollWordQuestion(rand, year)
     return { text: r.text, answer: r.answer, options: r.options }
   }
   if (gameId === 'lab-blitz') {
-    const r = rollLabQuestion(rand)
+    const r = rollLabQuestion(rand, year)
     return { text: `${r.emoji} ${r.text}`, answer: r.answer, options: r.options }
   }
-  return makeMathQuestion(rand)
+  return makeMathQuestion(rand, year)
 }
 
 const ROUND_SECONDS = 60
 
 export function ArcadeGame({ game, onExit }: { game: ArcadeGameDef; onExit: () => void }) {
+  // PLAN 163 — arcade questions read the active year (banks branch per year
+  // when their content lands; Y2 serves everyone today).
+  const yearLevel = usePlayer((s) => s.yearLevel)
   const [phase, setPhase] = useState<'ready' | 'play' | 'over'>('ready')
-  const [q, setQ] = useState<Q>(() => makeQuestion(game.id))
+  const [q, setQ] = useState<Q>(() => makeQuestion(game.id, Math.random, yearLevel))
   const [score, setScore] = useState(0)
   const [combo, setCombo] = useState(0)
   const [bossHp, setBossHp] = useState(3)
@@ -59,8 +62,8 @@ export function ArcadeGame({ game, onExit }: { game: ArcadeGameDef; onExit: () =
   }, [finalScore, game.id, isBoss, bossesDown])
 
   const nextQuestion = useCallback(() => {
-    setQ(makeQuestion(game.id))
-  }, [game.id])
+    setQ(makeQuestion(game.id, Math.random, yearLevel))
+  }, [game.id, yearLevel])
 
   useEffect(() => {
     if (phase !== 'play') return

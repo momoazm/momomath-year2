@@ -58,12 +58,16 @@ export function bucketQuestion(q: Question): { bank: string[]; text: string[] } 
  *  (AUDIT_SEEDS, 24 questions per seed — identical to the audit). Returns the
  *  lesson count. Generation failures are logged and skipped. */
 export function eachGeneratedQuestion(
-  curricula: Record<Subject, Curriculum>,
+  curricula: Partial<Record<Subject, Curriculum>>,
   subject: Subject,
   cb: (lesson: LessonDef, q: Question) => void,
 ): number {
+  // PLAN 163 — a subject outside the given year's map walks nothing (the
+  // caller supplies the year's own map, e.g. CURRICULA[2]).
+  const subjectMap = curricula[subject]
+  if (!subjectMap) return 0
   let lessons = 0
-  for (const entry of Object.values(curricula[subject].allLessons)) {
+  for (const entry of Object.values(subjectMap.allLessons)) {
     const lesson = entry.lesson
     lessons++
     for (const seed of AUDIT_SEEDS) {

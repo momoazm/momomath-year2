@@ -180,7 +180,7 @@ export default function App() {
 
   // 🎯 Unit fun-activity mini-game (PLAN 104): opens from the unit's 🎯 node
   if (activeActivity) {
-    const unit = getCurriculum(subject).units.find((u) => u.id === activeActivity)
+    const unit = getCurriculum(subject, yearLevel).units.find((u) => u.id === activeActivity)
     if (unit) {
       return (
         <UnitActivityScreen

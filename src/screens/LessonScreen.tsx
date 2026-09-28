@@ -185,10 +185,11 @@ export function LessonScreen({ lessonId, onExit, retryItems, checkup }: {
   checkup?: boolean
 }) {
   const subject = usePlayer((s) => s.subject)
+  const yearLevel = usePlayer((s) => s.yearLevel)
   // Retry mode never generates: entry is only needed for fresh lessons.
   const entry = retryItems?.length
     ? null
-    : (getCurriculum(subject).allLessons[lessonId] ?? null)
+    : (getCurriculum(subject, yearLevel).allLessons[lessonId] ?? null)
   const player = usePlayer()
   const [attempt, setAttempt] = useState(1)
   const [phase, setPhase] = useState<Phase>('intro')
@@ -242,7 +243,7 @@ export function LessonScreen({ lessonId, onExit, retryItems, checkup }: {
   // (PLAN Phase 28 step 132): response-time timer, mastery write-back, and
   // wrong-answer explanation are all driven from here.
   const adaptive = useAdaptiveLesson()
-  const lessonCode = useMemo(() => primaryCode(lessonId, subject) ?? 'unknown', [lessonId, subject])
+  const lessonCode = useMemo(() => primaryCode(lessonId, subject, yearLevel) ?? 'unknown', [lessonId, subject, yearLevel])
 
   // Fresh per-question timer for response-time tracking + explanation reset.
   useEffect(() => {
@@ -413,13 +414,16 @@ export function LessonScreen({ lessonId, onExit, retryItems, checkup }: {
         // no server required. The request id guards a late answer landing on
         // a later question.
         const myId = ++followupReqId.current
-        void fetchFollowup({
-          prompt: questionPrompt(q),
-          studentAnswer: studentAnswerString(),
-          correctAnswer: correctAnswerString(),
-          objectiveCode: origin.objectiveCode,
-          lessonId: origin.lessonId,
-        }).then((r) => {
+        void fetchFollowup(
+          {
+            prompt: questionPrompt(q),
+            studentAnswer: studentAnswerString(),
+            correctAnswer: correctAnswerString(),
+            objectiveCode: origin.objectiveCode,
+            lessonId: origin.lessonId,
+          },
+          { year: yearLevel },
+        ).then((r) => {
           if (r && followupReqId.current === myId) setFollowupQ(r.question)
         })
       }

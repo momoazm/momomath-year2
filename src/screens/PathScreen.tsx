@@ -56,7 +56,7 @@ export function PathScreen({
   const [lockedMsg, setLockedMsg] = useState<string | null>(null)
   const [trophy, setTrophy] = useState<{ unitId: string; label: string } | null>(null)
   const { units, lessonCount, subjectLabel } = useMemo(() => {
-    const c = getCurriculum(player.subject)
+    const c = getCurriculum(player.subject, player.yearLevel)
     return {
       units: c.units,
       lessonCount: Object.keys(c.allLessons).length,
@@ -75,7 +75,7 @@ export function PathScreen({
                     ? 'دراسات (extra)'
                     : 'Maths',
     }
-  }, [player.subject])
+  }, [player.subject, player.yearLevel])
 
   // pulse the NEXT LESSON TO BE DONE (PLAN 121): first unlocked lesson never
   // tried — the badge moves forward as soon as a lesson is started; when every
@@ -108,10 +108,11 @@ export function PathScreen({
     const session = buildCheckup({
       snap: player.adaptive.snapshot,
       attempts: player.adaptive.attempts,
+      year: player.yearLevel,
     })
     if (session.items.length === 0) return null
     return { count: due.length, items: session.items }
-  }, [player.adaptive.snapshot, player.adaptive.attempts])
+  }, [player.adaptive.snapshot, player.adaptive.attempts, player.yearLevel])
 
   return (
     <div className="mx-auto w-full max-w-xl px-4 pb-28 pt-4">

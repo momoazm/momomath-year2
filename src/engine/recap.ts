@@ -11,6 +11,7 @@
  */
 import { todayISO } from './gamification'
 import type { Subject } from '../content/types'
+import { subjectInYear } from '../content/years'
 import type { AttemptLogEntry } from './adaptive/types'
 
 /** Newest N days kept in the log (old days drop off the grid). */
@@ -66,6 +67,9 @@ export interface WeeklyRecapInput {
   cardsWonWeekKey: string
   activityDays: readonly string[]
   attempts: readonly AttemptLogEntry[]
+  /** Active school year (PLAN 163) — the subjects list only names subjects
+   *  the active year teaches (attempts are shared across years). */
+  year?: number
 }
 
 export interface WeeklyRecap {
@@ -127,7 +131,7 @@ export function buildWeeklyRecap(input: WeeklyRecapInput, now: number = Date.now
     attemptCount,
     correctCount,
     accuracyPct: attemptCount > 0 ? Math.round((correctCount / attemptCount) * 100) : null,
-    subjects: SUBJECT_ORDER.filter((x) => touched.has(x)),
+    subjects: SUBJECT_ORDER.filter((x) => touched.has(x) && subjectInYear(x, input.year ?? 2)),
     activeDays,
     windowStart: windowStartISO,
     windowEnd: today,

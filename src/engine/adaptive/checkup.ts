@@ -50,11 +50,12 @@ function questionForCode(
   code: string,
   skill: SkillState,
   seed: number,
+  year: number = 2,
 ): RetryItem | null {
-  const found = lessonForCode(code)
+  const found = lessonForCode(code, year)
   if (!found) return null
   for (const subject of ALL_SUBJECTS) {
-    const entry = getCurriculum(subject).allLessons[found.lessonId]
+    const entry = getCurriculum(subject, year).allLessons[found.lessonId]
     if (!entry) continue
     const lesson = entry.lesson
     const idx = lesson.objectiveCodes.indexOf(code)
@@ -82,6 +83,9 @@ export interface BuildCheckupInput {
   seed?: number
   /** round length — defaults to CHECKUP_SIZE */
   target?: number
+  /** active school year (PLAN 163) — due-skill questions resolve inside it;
+   *  codes whose lesson isn't taught that year are skipped, never crashed */
+  year?: number
 }
 
 export interface CheckupSession {
@@ -100,13 +104,14 @@ export function buildCheckup(input: BuildCheckupInput): CheckupSession {
   const now = input.now ?? Date.now()
   const seed = input.seed ?? Math.floor(now / 86_400_000)
   const target = input.target ?? CHECKUP_SIZE
+  const year = input.year ?? 2
 
   const dueCodes = dueSkillCodes(input.snap, now).slice(0, CHECKUP_DUE_MAX)
   const dueItems: RetryItem[] = []
   for (const code of dueCodes) {
     const skill = input.snap.skills[code]
     if (!skill) continue
-    const item = questionForCode(code, skill, seed)
+    const item = questionForCode(code, skill, seed, year)
     if (item) dueItems.push(item)
   }
 

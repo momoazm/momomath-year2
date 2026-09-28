@@ -228,6 +228,8 @@ export function PixelRun({ game, onExit }: { game: ArcadeGameDef; onExit: () => 
   const [rewards, setRewards] = useState({ xp: 0, gems: 0 })
   const [unlockedCard, setUnlockedCard] = useState<string | null>(null)
   const best = usePlayer((s) => s.arcadeScores[game.id] ?? 0)
+  // PLAN 163 — gate questions read the active year (bank ranges follow later).
+  const yearLevel = usePlayer((s) => s.yearLevel)
 
   const run = useRef<Run>(freshRun())
   const submitted = useRef(false)
@@ -364,7 +366,7 @@ export function PixelRun({ game, onExit }: { game: ArcadeGameDef; onExit: () => 
             if (pRight >= e.x) {
               // open the math gate — pause the world
               r.activeGate = e
-              setGateQ(makeMathQuestion())
+              setGateQ(makeMathQuestion(Math.random, yearLevel))
               break
             }
           }
@@ -392,7 +394,7 @@ export function PixelRun({ game, onExit }: { game: ArcadeGameDef; onExit: () => 
     }
     raf = requestAnimationFrame(step)
     return () => cancelAnimationFrame(raf)
-  }, [phase, gateQ, finish])
+  }, [phase, gateQ, finish, yearLevel])
 
   /* -------- gate answering: clear reward / clear drawback -------- */
   const answerGate = (opt: string) => {

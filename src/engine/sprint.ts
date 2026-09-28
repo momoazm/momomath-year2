@@ -74,8 +74,11 @@ export function collectUnitMcqs(unit: UnitDef, seeds: readonly number[] = SPRINT
 }
 
 /** Full english sprint bank — every unit's MCQs, globally deduped. */
-export function buildSprintBank(seeds: readonly number[] = SPRINT_BANK_SEEDS): SprintCard[] {
-  const c = getCurriculum('english')
+export function buildSprintBank(
+  seeds: readonly number[] = SPRINT_BANK_SEEDS,
+  year: number = 2,
+): SprintCard[] {
+  const c = getCurriculum('english', year)
   const out: SprintCard[] = []
   const seen = new Set<string>()
   for (const unit of c.units) {

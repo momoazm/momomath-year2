@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { ARCADE_GAMES } from '../engine/arcade'
+import { subjectInYear } from '../content/years'
 import { sfx } from '../engine/sfx'
 import { usePlayer } from '../engine/store'
 import { ArcadeGame } from './ArcadeGame'
@@ -16,6 +17,10 @@ const SUBJECT_BADGE: Record<'math' | 'english' | 'science', { icon: string; labe
 export function ArcadeScreen() {
   const arcadeScores = usePlayer((s) => s.arcadeScores)
   const sprintBest = usePlayer((s) => s.sprintBest)
+  // PLAN 163 — games whose subject the active year doesn't teach are hidden
+  // (all four are core-subject games today; the filter future-proofs extras).
+  const yearLevel = usePlayer((s) => s.yearLevel)
+  const games = ARCADE_GAMES.filter((g) => subjectInYear(g.subject, yearLevel))
   const [activeId, setActiveId] = useState<string | null>(null)
   const [sprintOpen, setSprintOpen] = useState(false)
 
@@ -23,7 +28,7 @@ export function ArcadeScreen() {
   //  (standalone full-screen round, same instance as the PathScreen banner).
   if (sprintOpen) return <SprintScreen onExit={() => setSprintOpen(false)} />
 
-  const active = ARCADE_GAMES.find((g) => g.id === activeId)
+  const active = games.find((g) => g.id === activeId)
   if (active) {
     if (active.id === 'pixel-run') return <PixelRun game={active} onExit={() => setActiveId(null)} />
     return <ArcadeGame game={active} onExit={() => setActiveId(null)} />
@@ -71,7 +76,7 @@ export function ArcadeScreen() {
             <p className="font-display font-extrabold text-speed-blue">{sprintBest || '—'}</p>
           </div>
         </motion.button>
-        {ARCADE_GAMES.map((g, i) => {
+        {games.map((g, i) => {
           const best = arcadeScores[g.id] ?? 0
           return (
             <motion.button

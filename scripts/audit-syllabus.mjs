@@ -59,7 +59,11 @@ const unitOf = (lessonId) => lessonId.replace(/l\d+.*$/, '')
 const report = {}
 let anyHard = false
 
-for (const subject of Object.keys(CURRICULA)) {
+// PLAN 163 — the registry is year-keyed; this audit walks Year 2 (the full
+// subject set). A --year flag for the other years arrives with PLAN 168.
+const YEAR2 = CURRICULA[2]
+
+for (const subject of Object.keys(YEAR2)) {
   const matcher = buildMatcher(subject)
   const lang = SUBJECT_LANG[subject]
   const hardBank = new Map() // word -> {count, where}
@@ -88,7 +92,7 @@ for (const subject of Object.keys(CURRICULA)) {
   }
 
   // shared walk (same seeds + bucketing as tests/syllabusRegistry.test.ts)
-  const lessons = eachGeneratedQuestion(CURRICULA, subject, (lesson, q) => {
+  const lessons = eachGeneratedQuestion(YEAR2, subject, (lesson, q) => {
     const { bank, text } = bucketQuestion(q)
     for (const phrase of bank) {
       for (const tok of String(phrase).match(/\p{L}[\p{L}\p{M}'’-]*/gu) ?? []) {
@@ -106,7 +110,7 @@ for (const subject of Object.keys(CURRICULA)) {
   })
 
   // lesson-level teaching text (once per lesson)
-  for (const entry2 of Object.values(CURRICULA[subject].allLessons)) {
+  for (const entry2 of Object.values(YEAR2[subject].allLessons)) {
     const lesson = entry2.lesson
     for (const phrase of [lesson.title, lesson.subtitle, ...(lesson.teach ?? []), lesson.intro?.body ?? '']) {
       for (const tok of String(phrase).match(/\p{L}[\p{L}\p{M}'’-]*/gu) ?? []) {
