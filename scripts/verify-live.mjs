@@ -4,7 +4,7 @@
 // Drives the REAL deployed site in a real browser (playwright):
 //   1. seeds a collection with known copy counts (star levels)
 //   2. Phase 7 gate: returning user → roadmap; sign-out → gate; no guest path;
-//      ?gate=2 forces the new-user name picker
+//      ?gate=2 forces the new-user year step, ?gate=3 the name step (PLAN 159)
 //   3. plays a full u1l1 BATTLE (wrong×9 to force question-bank refill, then
 //      correct answers to win; wrong answers must show 💡 hint)
 //   4. opens the chest and ASSERTS the reveal shows exactly ONE card with
@@ -275,7 +275,7 @@ async function main() {
   const gateBack = await page.getByText('Welcome to Momo Year 2 Cambridge!').isVisible().catch(() => false)
   ok('signing out returns the sign-in gate', gateBack, 'no user = welcome gate blocks the roadmap')
 
-  // --- Phase 7: ?gate=2 forces the NEW-USER name picker (QA) ---
+  // --- Phase 7: ?gate=2|3 force the NEW-USER picker steps (QA, PLAN 159) ---
   // The gate is a fixed overlay: the roadmap may still sit in the DOM beneath
   // it — assert the picker step is what the visitor actually sees.
   await page.evaluate(({ seed, auth }) => {
@@ -284,15 +284,21 @@ async function main() {
   }, { seed: SEED, auth: AUTH_SEED })
   await page.goto(`${URL_BASE}?gate=2&cb=${Date.now()}`, { waitUntil: 'domcontentloaded' })
   await page.waitForTimeout(1200)
+  await shot(page, '01c-gate-forced-year')
+  const yearPicker = await page.getByText('Step 2 - What year are you in?').isVisible().catch(() => false)
+  ok('?gate=2 forces the year step', yearPicker, `yearPicker=${yearPicker}`)
+
+  await page.goto(`${URL_BASE}?gate=3&cb=${Date.now()}`, { waitUntil: 'domcontentloaded' })
+  await page.waitForTimeout(1200)
   await shot(page, '01c-gate-forced-picker')
-  const picker = await page.getByText('Step 2 - Pick your player name').isVisible().catch(() => false)
+  const picker = await page.getByText('Step 3 - Pick your player name').isVisible().catch(() => false)
   const gateOverlay = await page.evaluate(() => {
     const el = document.querySelector('div.fixed.inset-0.z-50')
     if (!el) return false
     const r = el.getBoundingClientRect()
     return r.width >= window.innerWidth - 2 && r.height >= window.innerHeight - 2
   })
-  ok('?gate=2 forces new-user name picker over roadmap', picker && gateOverlay,
+  ok('?gate=3 forces new-user name picker over roadmap', picker && gateOverlay,
     `picker=${picker} overlay=${gateOverlay}`)
 
   // Restore the seeded session (no gate param) so battle/chest checks can proceed.

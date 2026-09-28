@@ -103,7 +103,7 @@ async function main() {
         await page.waitForTimeout(1200)
         // Path node opens BattleScreen directly (no LessonScreen intro).
         await resilientShot(page, 'shots/r1-lesson-intro.png')
-        const battle = await page.evaluate(() => /⚔ Battle/.test(document.body.innerText))
+        const battle = await page.evaluate(() => /âš” Battle/.test(document.body.innerText))
         if (battle) {
           await resilientShot(page, 'shots/r1-lesson-q.png')
           log('battle opened from START')
@@ -160,7 +160,7 @@ async function main() {
     const ctx2 = await browser.newContext({ viewport: { width: 430, height: 932 }, deviceScaleFactor: 2 })
     const p2 = await ctx2.newPage()
     p2.setDefaultTimeout(15000)
-    await p2.goto(BASE + '/?gate=3', { waitUntil: 'networkidle' })
+    await p2.goto(BASE + '/?gate=4', { waitUntil: 'networkidle' })
     await p2.waitForTimeout(1500)
     await resilientShot(p2, 'shots/r2-welcome-pick.png')
     log('welcome picker done')

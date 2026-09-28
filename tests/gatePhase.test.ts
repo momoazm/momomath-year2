@@ -97,19 +97,22 @@ describe('resolveGatePhase', () => {
     expect(resolveGatePhase(base({ hasUser: true, localOnboarded: false }))).toBe('picker')
   })
 
-  it('forces the picker for ?gate=2|3 regardless of session', () => {
+  it('forces the picker for ?gate=2|3|4 regardless of session', () => {
+    // 2 = year step (PLAN 159), 3 = name, 4 = character
     expect(resolveGatePhase(base({ qaForcedStep: 2 }))).toBe('picker')
-    expect(
-      resolveGatePhase(
-        base({
-          qaForcedStep: 3,
-          hasUser: true,
-          hasCredential: true,
-          syncStatus: 'synced',
-          remoteExists: true,
-          localOnboarded: true,
-        }),
-      ),
-    ).toBe('picker')
+    for (const step of [3, 4] as const) {
+      expect(
+        resolveGatePhase(
+          base({
+            qaForcedStep: step,
+            hasUser: true,
+            hasCredential: true,
+            syncStatus: 'synced',
+            remoteExists: true,
+            localOnboarded: true,
+          }),
+        ),
+      ).toBe('picker')
+    }
   })
 })

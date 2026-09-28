@@ -9,8 +9,9 @@ export interface GatePhaseInput {
   /** True once a pull for the current session returned a remote save. */
   remoteExists: boolean
   localOnboarded: boolean
-  /** `?gate=2` / `?gate=3` forces the picker for QA; 0 = no force. */
-  qaForcedStep: 0 | 2 | 3
+  /** `?gate=2|3|4` forces the picker for QA (2=year, 3=name, 4=character);
+   *  0 = no force. */
+  qaForcedStep: 0 | 2 | 3 | 4
 }
 
 /**
@@ -18,14 +19,14 @@ export interface GatePhaseInput {
  *
  * - `signin`  → show step 1 (Google sign-in)
  * - `loading` → signed in with a credential; wait for the initial pull
- * - `picker`  → new user (or QA force): steps 2 name + 3 character
+ * - `picker`  → new user (or QA force): steps 2 year + 3 name + 4 character
  * - `open`    → close the gate; roadmap is safe to show
  *
  * Settled non-success paths (`expired`/`error`) and credential-less QA
  * seeds resolve on local `onboarded` so users are never stranded.
  */
 export function resolveGatePhase(input: GatePhaseInput): GatePhase {
-  if (input.qaForcedStep === 2 || input.qaForcedStep === 3) return 'picker'
+  if (input.qaForcedStep >= 2 && input.qaForcedStep <= 4) return 'picker'
   if (!input.hasUser) return 'signin'
 
   if (input.hasCredential) {

@@ -55,7 +55,7 @@ if (all || shots.includes('gate3')) {
     localStorage.removeItem('momomath-year2-player-v2')
     localStorage.removeItem('momomath-year2-auth')
   })
-  await page.goto(BASE + '/?gate=3', { waitUntil: 'networkidle' })
+  await page.goto(BASE + '/?gate=4', { waitUntil: 'networkidle' })
   await page.waitForTimeout(1000)
   await page.screenshot({ path: OUT + '/gate3.png' })
   console.log('gate3 done')
@@ -65,7 +65,7 @@ if (all || shots.includes('lesson')) {
   await seedPlayer()
   await page.goto(BASE + '/', { waitUntil: 'networkidle' })
   await page.waitForTimeout(800)
-  const btn = page.locator('button[title]:not([disabled])').filter({ hasText: '⭐' }).first()
+  const btn = page.locator('button[title]:not([disabled])').filter({ hasText: 'â­' }).first()
   try {
     await btn.click({ timeout: 5000 })
   } catch {}

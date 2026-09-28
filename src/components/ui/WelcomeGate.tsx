@@ -7,6 +7,9 @@ import { resolveGatePhase } from '../../engine/gatePhase'
 import { MASCOTS, Mascot } from '../mascots/Mascots'
 import { sfx } from '../../engine/sfx'
 import type { MascotId } from '../../content/types'
+import type { YearLevel } from '../../engine/store'
+
+const YEARS: readonly YearLevel[] = [1, 2, 3, 4]
 
 const NAME_CHIPS = ['Speedster', 'Racer', 'Champion', 'Genius', 'Rocket', 'Star']
 const CHARACTERS: { id: MascotId; label: string }[] = [
@@ -31,10 +34,11 @@ export function WelcomeGate() {
   const setName = usePlayer((s) => s.setName)
   const setMascot = usePlayer((s) => s.setMascot)
   const setOnboarded = usePlayer((s) => s.setOnboarded)
+  const setYearLevel = usePlayer((s) => s.setYearLevel)
   const syncStatus = useSyncStatus((s) => s.status)
   const remoteSeen = useSyncStatus((s) => s.remoteSeen)
   const qaRaw = Number(new URLSearchParams(window.location.search).get('gate') ?? 0)
-  const qaForcedStep: 0 | 2 | 3 = qaRaw === 2 || qaRaw === 3 ? qaRaw : 0
+  const qaForcedStep: 0 | 2 | 3 | 4 = (qaRaw >= 2 && qaRaw <= 4 ? qaRaw : 0) as 0 | 2 | 3 | 4
 
   const phase = resolveGatePhase({
     hasUser: !!user,
@@ -45,9 +49,10 @@ export function WelcomeGate() {
     qaForcedStep,
   })
 
-  const [step, setStep] = useState<2 | 3>(qaForcedStep || 2)
+  const [step, setStep] = useState<2 | 3 | 4>(qaForcedStep || 2)
   const [draft, setDraft] = useState('')
   const [picked, setPicked] = useState<MascotId>('sonic')
+  const [pickedYear, setPickedYear] = useState<YearLevel | null>(null)
   const [failed, setFailed] = useState(false)
   const btnRef = useRef<HTMLDivElement>(null)
 
@@ -91,7 +96,7 @@ export function WelcomeGate() {
 
   /* Closes only when resolveGatePhase says the session is settled and
      onboarded — never on user presence alone (that skipped the picker
-     and the remote-save wait). `?gate=2|3` forces the picker for QA. */
+     and the remote-save wait). `?gate=2|3|4` forces the picker for QA. */
   if (phase === 'open' && !qaRaw) return null
 
   const finish = () => {
@@ -105,7 +110,7 @@ export function WelcomeGate() {
   const activeDot = phase === 'signin' ? 1 : phase === 'picker' ? step : 0
   const stepDots = (
     <div className="mb-4 flex justify-center gap-2">
-      {[1, 2, 3].map((n) => (
+      {[1, 2, 3, 4].map((n) => (
         <span
           key={n}
           className={`h-2.5 w-8 rounded-full ${n === activeDot ? 'bg-speed-blue' : n < activeDot ? 'bg-emerald-400' : 'bg-slate-200'}`}
@@ -180,10 +185,46 @@ export function WelcomeGate() {
             {step === 2 && (
               <>
                 <div className="mx-auto h-24 w-24 gpu animate-float-y">
+                  <Mascot id="silver" expression="happy" />
+                </div>
+                <h2 className="mt-2 font-display text-xl font-extrabold text-speed-blue">
+                  Step 2 - What year are you in?
+                </h2>
+                <p className="mt-1 font-body text-sm font-bold text-slate-400">
+                  Pick your school year — you can change it later in your profile.
+                </p>
+                <div className="mt-4 grid grid-cols-2 gap-2">
+                  {YEARS.map((y) => (
+                    <button
+                      key={y}
+                      onClick={() => { sfx.tap(); setPickedYear(y) }}
+                      className={`rounded-2xl border-2 px-4 py-3 font-display text-lg font-extrabold transition-colors ${
+                        pickedYear === y
+                          ? 'border-speed-blue bg-speed-bluelight text-speed-blue'
+                          : 'border-slate-100 text-slate-400 hover:border-slate-200'
+                      }`}
+                    >
+                      Year {y}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  onClick={() => { sfx.tap(); if (pickedYear) setYearLevel(pickedYear); setStep(3) }}
+                  disabled={!pickedYear}
+                  className={`btn3d mt-5 w-full ${pickedYear ? 'btn-blue' : 'btn-grey'}`}
+                >
+                  Next: pick your name
+                </button>
+              </>
+            )}
+
+            {step === 3 && (
+              <>
+                <div className="mx-auto h-24 w-24 gpu animate-float-y">
                   <Mascot id="tails" expression="excited" />
                 </div>
                 <h2 className="mt-2 font-display text-xl font-extrabold text-speed-blue">
-                  Step 2 - Pick your player name
+                  Step 3 - Pick your player name
                 </h2>
                 <p className="mt-1 font-body text-sm font-bold text-slate-400">
                   This is the name everyone sees on the leaderboard.
@@ -192,7 +233,7 @@ export function WelcomeGate() {
                   value={draft}
                   maxLength={16}
                   onChange={(e) => setDraft(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && draft.trim() && (sfx.tap(), setStep(3))}
+                  onKeyDown={(e) => e.key === 'Enter' && draft.trim() && (sfx.tap(), setStep(4))}
                   placeholder="Type your name"
                   className="mt-4 w-full rounded-xl border-2 border-slate-200 px-4 py-3 text-center font-display text-lg font-extrabold outline-none focus:border-speed-blue"
                 />
@@ -210,7 +251,7 @@ export function WelcomeGate() {
                   ))}
                 </div>
                 <button
-                  onClick={() => { sfx.tap(); setStep(3) }}
+                  onClick={() => { sfx.tap(); setStep(4) }}
                   disabled={!draft.trim()}
                   className={`btn3d mt-5 w-full ${draft.trim() ? 'btn-blue' : 'btn-grey'}`}
                 >
@@ -219,10 +260,10 @@ export function WelcomeGate() {
               </>
             )}
 
-            {step === 3 && (
+            {step === 4 && (
               <>
                 <h2 className="mt-2 font-display text-xl font-extrabold text-speed-blue">
-                  Step 3 - Choose your character
+                  Step 4 - Choose your character
                 </h2>
                 <p className="mt-1 font-body text-sm font-bold text-slate-400">
                   Tap a character to play as {draft || 'them'}!

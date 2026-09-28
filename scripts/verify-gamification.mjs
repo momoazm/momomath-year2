@@ -1,10 +1,10 @@
-﻿// Live smoke test for the subject-roadmap + arcade-exclusives release.
+// Live smoke test for the subject-roadmap + arcade-exclusives release.
 // Usage: node scripts/verify-gamification.mjs [url]
 // Exit 0 only when every check passes.
 //
 // Covers (PLAN.md steps 15 + 35):
 //   1. v7 seed -> v11 persist migration (arcade counters + extra-subject flags backfill)
-//   2. Phase 7 auth: seeded user opens roadmap (no gate); ?gate=3 forces picker;
+//   2. Phase 7 auth: seeded user opens roadmap (no gate); ?gate=4 forces picker (2=year, 3=name, 4=character);
 //      clearing user returns the sign-in gate; no guest path
 //   3. subject switching renders unit roadmaps for english/science (no "coming soon")
 //   4. roadmap lesson node → BattleScreen smoke: chrome, wrong answer shows 💡 hint, flee
@@ -133,11 +133,11 @@ async function main() {
   ok('returning user opens roadmap (no gate)', !returningGate, `gateVisible=${returningGate}`)
   ok('guest path removed from gate', !guestOnGate, `guestVisible=${guestOnGate}`)
 
-  // --- Phase 7: ?gate=3 forces the NEW-USER character picker ---
-  await page.goto(`${URL_BASE}?gate=3&cb=${Date.now()}`, { waitUntil: 'domcontentloaded' })
+  // --- Phase 7: ?gate=4 forces the NEW-USER character picker ---
+  await page.goto(`${URL_BASE}?gate=4&cb=${Date.now()}`, { waitUntil: 'domcontentloaded' })
   await page.waitForTimeout(900)
-  const picker3 = await page.getByText('Step 3 - Choose your character').isVisible().catch(() => false)
-  ok('?gate=3 forces character picker', picker3, `picker=${picker3}`)
+  const picker3 = await page.getByText('Step 4 - Choose your character').isVisible().catch(() => false)
+  ok('?gate=4 forces character picker', picker3, `picker=${picker3}`)
 
   // --- Phase 7: clearing the user returns the sign-in gate ---
   await page.evaluate(() => {

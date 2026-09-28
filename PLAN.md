@@ -648,7 +648,7 @@ User decisions (clarifying Q&A, 2026-09-28):
   unprefixed legacy id = Year 2 = zero data migration). Server `year` field is
   only REPORTED to momolearn-ai (other repo is read-only).
 
-- [ ] 158. Year system core (store v15 -> v16): add `yearLevel` (1|2|3|4;
+- [x] 158. Year system core (store v15 -> v16): add `yearLevel` (1|2|3|4;
   migration defaults every existing save to 2), `extrasUnlocked` (migration ->
   true if any of arabic/religion/social *Enabled is on right now), and move
   lesson progress / roadmap position / best scores under `paths: {[year]: ...}`
@@ -656,10 +656,25 @@ User decisions (clarifying Q&A, 2026-09-28):
   quests stay top-level and shared. New content ids get a year prefix
   (y1u1l1...); existing ids are implicitly Year 2 - no collisions. Full v15
   fixture migration test + fresh-install default test.
-- [ ] 159. WelcomeGate year step: new first step inside the picker phase
+  - Done: persist version 16; wrapped the store set() so paths[yearLevel] mirrors
+    lessonProgress/subject/arcadeScores/sprintBest on every mutation (zero
+    churn for the 38 existing refs); setYearLevel saves+swaps buckets with
+    lazy empty defaults; migration relocates current fields to paths[2], sets
+    yearLevel=2, grandfather-extras = any trio *Enabled; fresh install via
+    freshYearSlice(). tests/yearSystem.test.ts 6 tests; vgam marker bumped to
+    v16 (+1 year-system check = 80/80); vitest 1797/1797, tsc/precommit clean,
+    local verify-live 24/24.
+- [x] 159. WelcomeGate year step: new first step inside the picker phase
   ("What year are you in?" - Year 1/2/3/4 chips) before name/character; dots
   become 4; only runs when !onboarded, so signed/existing users never see it;
   `?gate` QA force param extended for the new step.
+  - Done: picker steps renumbered year=2/name=3/character=4 with 4 dots; year
+    chips gate the Next button -> setYearLevel; gatePhase qaForcedStep widened
+    to 0|2|3|4 (?gate=2|3|4) + test force case covers 4; QA scripts renumbered
+    (verify-live Phase 7 gains a ?gate=2 year check = 25/25 local, vgam gate=4
+    80/80 local, snap/visual-shots gate=4, BOMs stripped); full-flow browser
+    probe: Year 1 -> name -> character persists yearLevel 1 + paths[1,2],
+    onboarded, 0 pageerrors; vitest 1797/1797, tsc/precommit clean.
 - [ ] 160. Profile year chip: shows "Year N", tap -> switcher with confirm
   ("Your Year N progress is kept"); switching regenerates daily quests / recap
   against the active year's content; document.title updates with it.
