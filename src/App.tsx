@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
+import confetti from 'canvas-confetti'
 import { startCloudSync } from './engine/cloudsave'
+import { readUnlockParam } from './engine/unlock'
 import { AnimatePresence, motion } from 'framer-motion'
 import { TopBar } from './components/ui/TopBar'
 import { BottomNav, type Tab } from './components/ui/BottomNav'
@@ -46,6 +48,8 @@ export default function App() {
   const [sprintOpen, setSprintOpen] = useState(false)
   const subject = usePlayer((s) => s.subject)
   const yearLevel = usePlayer((s) => s.yearLevel)
+  /** PLAN 161 — transient banner after a ?unlock= magic-link apply. */
+  const [unlockToast, setUnlockToast] = useState<string | null>(null)
   const [reviewBook, setReviewBook] = useState<string | null>(
     () => new URLSearchParams(window.location.search).get('book'),
   )
@@ -58,6 +62,24 @@ export default function App() {
   useEffect(() => {
     applyDocumentTitle(yearLevel)
   }, [yearLevel])
+
+  // PLAN 161 — ?unlock= magic link: validate, persist, celebrate, clear the
+  // param. Invalid or already-unlocked links are silently cleared.
+  useEffect(() => {
+    const search = window.location.search
+    if (!search.includes('unlock')) return
+    const ok = readUnlockParam(search)
+    const params = new URLSearchParams(search)
+    params.delete('unlock')
+    const qs = params.toString()
+    window.history.replaceState(null, '', `${window.location.pathname}${qs ? `?${qs}` : ''}${window.location.hash}`)
+    if (!ok || usePlayer.getState().extrasUnlocked) return
+    usePlayer.getState().setExtrasUnlocked(true)
+    setUnlockToast('🎉 Extra subjects unlocked!')
+    confetti({ particleCount: 120, spread: 75, origin: { y: 0.6 }, disableForReducedMotion: true })
+    const t = window.setTimeout(() => setUnlockToast(null), 4000)
+    return () => window.clearTimeout(t)
+  }, [])
 
   if (new URLSearchParams(window.location.search).has('gallery')) {
     return <MascotGallery />
@@ -218,6 +240,18 @@ export default function App() {
       )}
         </motion.main>
         </AnimatePresence>
+        {unlockToast && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="fixed bottom-24 left-1/2 z-50 -translate-x-1/2"
+            data-testid="unlock-toast"
+          >
+            <div className="rounded-xl bg-slate-800/90 px-4 py-2 text-sm font-bold text-white backdrop-blur">
+              {unlockToast}
+            </div>
+          </motion.div>
+        )}
         <BottomNav tab={tab} onTab={setTab} />
       </div>
     </div>

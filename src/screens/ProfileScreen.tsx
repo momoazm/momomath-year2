@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
+import confetti from 'canvas-confetti'
 import { ACHIEVEMENTS, LEAGUES, LEAGUE_META, ARCADE_GAMES, displayStreak, isStreakActive } from '../engine/gamification'
 import { usePlayer } from '../engine/store'
 import type { YearLevel } from '../engine/store'
+import { validate as validateUnlockCode } from '../engine/unlock'
 import { MASCOTS, Mascot } from '../components/mascots/Mascots'
 import { GoogleSignInInline } from '../components/ui/AuthBadge'
 import { signOutGoogle, useAuth } from '../engine/auth'
@@ -31,6 +33,9 @@ export function ProfileScreen({ onOpenFriends, onStartCheckup }: {
   // PLAN 160 — year chip + switcher with a confirm before the buckets swap.
   const [yearOpen, setYearOpen] = useState(false)
   const [pendingYear, setPendingYear] = useState<YearLevel | null>(null)
+  // PLAN 161 — extras unlock code box (rendered only when yearLevel === 2).
+  const [unlockCode, setUnlockCode] = useState('')
+  const [unlockError, setUnlockError] = useState<string | null>(null)
 
   // PLAN 106: show the referral code right on the Friends entry card so it is
   // visible alongside the friend system (cached + fetched, never blocking).
@@ -78,6 +83,20 @@ export function ProfileScreen({ onOpenFriends, onStartCheckup }: {
     activityDays: s.activityDays,
     attempts: s.adaptive.attempts,
   })
+
+  // PLAN 161 — manual extras unlock (universal code; Year 2 only UI).
+  const submitUnlock = () => {
+    if (validateUnlockCode(unlockCode)) {
+      s.setExtrasUnlocked(true)
+      setUnlockCode('')
+      setUnlockError(null)
+      sfx.complete()
+      confetti({ particleCount: 120, spread: 75, origin: { y: 0.6 }, disableForReducedMotion: true })
+    } else {
+      sfx.wrong()
+      setUnlockError("That code didn't work — check with a grown-up.")
+    }
+  }
 
   return (
     <div className="mx-auto w-full max-w-xl px-4 pb-28 pt-4">
@@ -338,6 +357,49 @@ export function ProfileScreen({ onOpenFriends, onStartCheckup }: {
           ))}
         </div>
       </section>
+
+      {/* PLAN 161 — extras unlock code box: rendered ONLY when yearLevel === 2
+          (the trio is Year-2-only until unlocked; other years never see it). */}
+      {s.yearLevel === 2 &&
+        (s.extrasUnlocked ? (
+          <section className="card-white mt-4" data-testid="unlock-done">
+            <p className="font-display text-sm font-bold uppercase tracking-wide text-emerald-600">
+              ✅ Extra subjects unlocked
+            </p>
+            <p className="mt-1 text-xs font-semibold text-slate-500">
+              Arabic, Religion and Social Studies are ready to turn on below.
+            </p>
+          </section>
+        ) : (
+          <section className="card-white mt-4" data-testid="unlock-code-box">
+            <p className="font-display text-sm font-bold uppercase tracking-wide text-slate-400">Have a code?</p>
+            <p className="mt-1 text-xs font-semibold text-slate-500">
+              Got a grown-up code? Enter it to unlock extra subjects.
+            </p>
+            <div className="mt-2 flex gap-2">
+              <input
+                value={unlockCode}
+                onChange={(e) => { setUnlockCode(e.target.value); setUnlockError(null) }}
+                onKeyDown={(e) => e.key === 'Enter' && submitUnlock()}
+                placeholder="Enter code"
+                data-testid="unlock-code-input"
+                className="min-w-0 flex-1 rounded-xl border-2 border-slate-200 px-3 py-2 font-display text-sm font-bold outline-none focus:border-speed-blue"
+              />
+              <button
+                onClick={submitUnlock}
+                data-testid="unlock-code-submit"
+                className="btn3d btn-blue shrink-0 !px-4 !py-2 !text-sm"
+              >
+                Unlock
+              </button>
+            </div>
+            {unlockError && (
+              <p className="mt-2 text-xs font-bold text-rose-500" data-testid="unlock-code-error">
+                {unlockError}
+              </p>
+            )}
+          </section>
+        ))}
 
       {/* optional extras: Deutsch + Arabic (Egyptian Tawassol Grade 2).
           Opt-in DLC — never forced, never in the core toggle until enabled.

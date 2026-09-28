@@ -248,6 +248,8 @@ interface PlayerState {
   /** Switch school year (PLAN 31 158): saves the current bucket into
    *  paths[old], loads paths[new] (fresh empty bucket if first visit). */
   setYearLevel: (y: YearLevel) => void
+  /** PLAN 161 — flips the universal extras unlock (shared across years). */
+  setExtrasUnlocked: (v: boolean) => void
   setGermanEnabled: (v: boolean) => void
   setArabicEnabled: (v: boolean) => void
   setReligionEnabled: (v: boolean) => void
@@ -954,6 +956,7 @@ export const usePlayer = create<PlayerState>()(
             paths,
           }
         }),
+      setExtrasUnlocked: (v) => set({ extrasUnlocked: v }),
       setGermanEnabled: (v) =>
         set((state) => {
           // Turning the extra off while viewing it falls back to Maths so the

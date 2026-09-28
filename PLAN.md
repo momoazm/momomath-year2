@@ -689,11 +689,22 @@ User decisions (clarifying Q&A, 2026-09-28):
     Year 1, document.title -> "Momo Year 1 Cambridge ...", paths[1,2] saved,
     cancel path safe, 0 errors; gates: tsc clean, vitest 1802/1802 (96),
     verify-live 25/25, vgam 80/80, precommit OK.
-- [ ] 161. Unlock engine: `src/engine/unlock.ts` exporting
+- [x] 161. Unlock engine: `src/engine/unlock.ts` exporting
   EXTRAS_UNLOCK_CODE = 'Farousy' + validate(); Profile "Have a code?" input
   (only when yearLevel === 2) sets extrasUnlocked on success; `?unlock=Farousy`
   deep-link auto-applies (validated, persisted, confetti/toast) then clears the
   param.
+  - Done: unlock.ts (validate trimmed/case-insensitive + readUnlockParam);
+    store setExtrasUnlocked action (shared, not per-year); Profile "Have a
+    code?" box data-testid=unlock-code-box (input/submit/error) rendered ONLY
+    when yearLevel===2, switches to unlock-done state on success (sfx +
+    confetti); App mount effect validates ?unlock=, persists via
+    setExtrasUnlocked, confetti + unlock-toast banner, then history.replaceState
+    clears the param (invalid/already-unlocked = silent clear); tests/unlock
+    .test.ts 4 tests; e2e probe: wrong code errors + stays locked, Farousy
+    unlocks, Year-1 hides the box entirely (0 nodes), magic link unlocks +
+    toast + param cleared, bad link locked + silent, 0 errors; gates: tsc
+    clean, vitest 1806/1806 (97), verify-live 25/25, vgam 80/80, precommit OK.
 - [ ] 162. Trio visibility: arabic / religion / social render in Profile and
   subject lists ONLY when (extrasUnlocked || own *Enabled) AND yearLevel === 2;
   core three always visible; german untouched (free, Y2-only). Existing users
