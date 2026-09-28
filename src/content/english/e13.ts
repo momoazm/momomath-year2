@@ -247,7 +247,7 @@ const gReportOrder: Gen = (rand) => {
   const kits = [
     ['All About Bees', 'Bees are busy little insects.', 'They visit hundreds of flowers daily.', 'Bees are super helpers!'],
     ['My Pet Rabbit', 'Rabbits make lovely quiet pets.', 'Nibbles munches hay and crunchy carrots.', 'Every home needs a hoppy friend!'],
-    ['Volatile Volcanoes', 'A volcano is a mountain that erupts.', 'Red-hot lava oozes down its sides.', 'Volcanoes absolutely rock!'],
+    ['Mighty Volcanoes', 'A volcano is a mountain that erupts.', 'Red-hot lava oozes down its sides.', 'Volcanoes absolutely rock!'],
     ['Brilliant Boats', 'Boats float and carry people.', 'Sails catch the wind to push along.', 'Boats are brilliant machines!'],
     ['Super Spiders', 'Spiders are not insects.', 'They spin silky webs to trap flies.', 'Spiders are brilliant hunters!'],
     ['Great Gardens', 'Plants need light and water to grow.', 'Bees help flowers to make seeds.', 'Gardens are full of busy life!'],

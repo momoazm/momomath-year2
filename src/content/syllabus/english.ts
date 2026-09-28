@@ -51,10 +51,24 @@ export const ENGLISH_TOLERANCE: readonly string[] = [
   'rouge', 'metal', 'eggman', 'momo', 'felix', 'franzi',
   // the six real books read in class (classic tales / graded readers)
   'billy', 'goats', 'gruff', 'goldilocks', 'bears', 'pigs', 'wolf', 'red',
-  'riding', 'hood', 'tortoise', 'hare', 'ant', 'grasshopper',
+  'riding', 'hood', 'tortoise', 'hare', 'ant', 'grasshopper', 'beanstalk',
   // decodable phonics words (Cambridge Primary English Stage 2 phonics)
   'sat', 'pin', 'cat', 'dog', 'hop', 'big', 'sit', 'log', 'tap', 'fin', 'rag',
   'mud', 'bug', 'web', 'hen', 'jet', 'kit', 'lip', 'mop', 'nut', 'peg', 'rug',
   'tip', 'van', 'yak', 'zip', 'bag', 'bed', 'cup', 'dig', 'fox', 'got', 'hug',
   'ink', 'jam', 'leg', 'map', 'net', 'owl', 'pen', 'rug', 'sun', 'top', 'win',
+  // first names that appear inside sentences / error-hunt items (PLAN 145)
+  'ben', 'sam', 'mia', 'nina',
+  // INTENTIONAL fake words + deliberate misspellings: the prefix-suffix
+  // lessons' 'wrong' distractor arrays and the spelling-discrimination mcqs
+  // (e03 DIS_RE_FILLS / ENDING_FILLS, e04 plurals + because-spelling) — these
+  // are chosen to BE wrong; never teach them as real words. (PLAN 145)
+  'misagree', 'reagree', 'unagree', 'outagree', 'disagreesy', 'disagreey',
+  'distell', 'untell', 'mistell', 'pretelly', 'outtell', 'relike', 'unliking',
+  'mislikey', 'prelike', 'outlike', 'disheat', 'unheat', 'misheat', 'outheat',
+  'reheatty', 'reobey', 'unobey', 'misobey', 'preobey', 'outobey', 'disdo',
+  'misdo', 'undisdo', 'disdoing', 'redoesy', 'playen', 'playingful',
+  'playerly', 'helperly', 'watchly', 'walksy', 'walken', 'personses',
+  'personsies', 'mouseling', 'mouselets', 'hariness', 'bacause', 'beacuse',
+  'becuase', 'becouse', 'aganist',
 ]

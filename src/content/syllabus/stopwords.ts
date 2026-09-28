@@ -16,6 +16,10 @@ export const EN_STOP = new Set([
   'some', 'such', 'only', 'own', 'same', 'also', 'as', 'at', 'by', 'from',
   'up', 'down', 'out', 'off', 'on', 'in', 'to', 'of', 'for', 'with', 'let',
   's', 't', 're', 've', 'll', 'd', 'm',
+  // indefinite pronouns / reflexives (PLAN 145)
+  'something', 'anything', 'everything', 'nothing', 'someone', 'anyone',
+  'everyone', 'nobody', 'somebody', 'anybody', 'everybody', 'myself',
+  'yourself', 'himself', 'herself', 'itself', 'ourselves', 'themselves',
 ])
 
 export const DE_STOP = new Set([
@@ -32,6 +36,8 @@ export const DE_STOP = new Set([
   'waren', 'viel', 'mehr', 'hier', 'da', 'dort', 'jetzt', 'dann', 'so',
   'immer', 'nie', 'oft', 'schon', 'mal', 'wieder', 'bis', 'seit', 'ohne',
   'doch', 'mal', 'uns', 'dir', 'one',
+  // common conjugated forms of sein/mögen (PLAN 145)
+  'ist', 'mag',
 ])
 
 export const AR_STOP = new Set([
@@ -39,5 +45,8 @@ export const AR_STOP = new Set([
   'أن', 'إن', 'كان', 'كانت', 'يكون', 'لا', 'ما', 'الذي', 'التي', 'الذين',
   'ثم', 'أو', 'بل', 'قد', 'كل', 'بعد', 'قبل', 'بين', 'عند', 'حتى', 'إذا',
   'لأن', 'كما', 'غير', 'حيث', 'أثناء', 'منذ', 'لدى', 'أمام', 'وراء',
+  // kid-sentence glue + question words (PLAN 145)
+  'فيها', 'أين', 'متى', 'هل', 'بما', 'أي', 'أنا', 'أنت', 'هو', 'هي',
+  'هنا', 'هناك', 'أيضا', 'فقط', 'لكن', 'بعض', 'نفس',
   'nga', 'y',
 ])

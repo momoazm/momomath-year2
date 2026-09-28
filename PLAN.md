@@ -432,7 +432,7 @@ Documents copy - never on main. Sources of truth:
 
 ## Phase 29 — Arcade Flashcard Sprint + Year-2 syllabus grounding (user 2026-09-27)
 
-- [ ] 142. Arcade entry: Flashcard Sprint tile in the Retro Arcade (ArcadeScreen card
+- [x] 142. Arcade entry: Flashcard Sprint tile in the Retro Arcade (ArcadeScreen card
   styled like the other games, English badge, Best = player.sprintBest; opens
   SprintScreen overlay from the arcade tab; PathScreen banner stays as-is).
   Local screenshot check at 390px.
@@ -591,5 +591,116 @@ tiers, odds, copy counts, store fields, or data files change.
     republish the current site) — its publish path reuses deploy.mjs's
     verified gh-pages + wait-for-clean logic but is untested end-to-end;
     subagent verification blocked (`Unauthorized`), manual verification only.
+
+  - Provenance: zero new cross-project files/deps (native code only).
+## Phase 31 - Multi-year sections + code-gated socials (user 2026-09-28)
+
+Precondition (user decision): finish PLAN 145-148 FIRST, then start this phase.
+Released all-at-once: one ship at the end (step 170).
+
+User decisions (clarifying Q&A, 2026-09-28):
+- Year picker = new WelcomeGate step for NEW signups only (before name/
+  character); existing saves default to Year 2 via store migration - it never
+  re-pops anywhere, ever.
+- Year changeable later via a Profile year chip (confirm dialog); per-year
+  progress buckets are kept when switching.
+- New years teach math + english + science ONLY (for now). German stays a free
+  Year-2-only opt-in. Subject label stays "Social Studies" (no rename).
+- Arabic/Religion/Social = COMPLETELY HIDDEN until unlocked. One universal code
+  "Farousy": manual entry box in Profile rendered ONLY when yearLevel === 2,
+  plus magic link ?unlock=Farousy that pre-applies it. Existing users are
+  grandfathered (migration sets extrasUnlocked=true when any trio *Enabled flag
+  is currently on).
+- Progress split: XP / streak / coins / cards / chests / quests / collection =
+  ONE shared profile; lesson progress, roadmap position and best scores
+  (sprint + arcade) = PER YEAR.
+- Books: Cambridge Primary Stage 1/3/4 + UK Year-1 / KS2 DfE programmes of
+  study, same provenance methodology as Year 2 (web-researched published lists,
+  never wholesale book text).
+- Pilot order: Year 1 maths -> Y1 english -> Y1 science -> Y3 (all 3) -> Y4 (all 3).
+- Per-year leagues CLIENT-SIDE via leaderboard id namespace (y3:<id>, ...;
+  unprefixed legacy id = Year 2 = zero data migration). Server `year` field is
+  only REPORTED to momolearn-ai (other repo is read-only).
+
+- [ ] 158. Year system core (store v15 -> v16): add `yearLevel` (1|2|3|4;
+  migration defaults every existing save to 2), `extrasUnlocked` (migration ->
+  true if any of arabic/religion/social *Enabled is on right now), and move
+  lesson progress / roadmap position / best scores under `paths: {[year]: ...}`
+  (current fields relocate to paths[2]); xp, streak, coins, cards, chests,
+  quests stay top-level and shared. New content ids get a year prefix
+  (y1u1l1...); existing ids are implicitly Year 2 - no collisions. Full v15
+  fixture migration test + fresh-install default test.
+- [ ] 159. WelcomeGate year step: new first step inside the picker phase
+  ("What year are you in?" - Year 1/2/3/4 chips) before name/character; dots
+  become 4; only runs when !onboarded, so signed/existing users never see it;
+  `?gate` QA force param extended for the new step.
+- [ ] 160. Profile year chip: shows "Year N", tap -> switcher with confirm
+  ("Your Year N progress is kept"); switching regenerates daily quests / recap
+  against the active year's content; document.title updates with it.
+- [ ] 161. Unlock engine: `src/engine/unlock.ts` exporting
+  EXTRAS_UNLOCK_CODE = 'Farousy' + validate(); Profile "Have a code?" input
+  (only when yearLevel === 2) sets extrasUnlocked on success; `?unlock=Farousy`
+  deep-link auto-applies (validated, persisted, confetti/toast) then clears the
+  param.
+- [ ] 162. Trio visibility: arabic / religion / social render in Profile and
+  subject lists ONLY when (extrasUnlocked || own *Enabled) AND yearLevel === 2;
+  core three always visible; german untouched (free, Y2-only). Existing users
+  with trio flags on see them with zero interaction (grandfathered).
+- [ ] 163. Year-aware registry: CURRICULA becomes Record<year, Record<subject,
+  Curriculum>>; new years carry math/english/science only; PathScreen, battle,
+  checkup, weekly recap, arcade banks (arcadeMath/arcadeScience/arcadeWords) and
+  Sprint bank read the active year; subject not in year => hidden, never a
+  crash. Keep Year-2 structure byte-stable for the existing verify markers.
+- [ ] 164. Per-year leagues: leaderboard submit id = `y{N}:<playerId>` for
+  N!=2 (Year 2 / legacy stays unprefixed); client filters fetched entries by
+  active year and strips prefixes for display; friends list stays global.
+  Verify against sanitizeEntry regex `^[\w:-]+$` (colon allowed) in
+  lib/year2/leaderboard.js (read-only, review only).
+- [ ] 165. Cloudsave year fields: snapshotFromPlayer gains yearLevel,
+  extrasUnlocked, paths; merge/union tests; REPORT (do not edit - momolearn-ai
+  is read-only): server snapshot whitelist must accept those 3 fields or
+  cross-device year sync degrades to local-only (client union mitigates).
+- [ ] 166. Branding: dynamic document.title "Momo Year N Cambridge" per active
+  year + year-aware screen headings; index.html meta description +
+  apple-mobile-web-app-title and manifest.webmanifest go year-neutral
+  ("Momo Cambridge"); verify-live marker list updated for the new strings.
+- [ ] 167. Year-1 maths pilot (full depth): research agents extract Cambridge
+  Primary Mathematics Stage 1 topic spine + UK Year-1 NC maths programmes of
+  study + NNS Year-1 vocabulary checklist -> src/content/years/y1/math/*
+  mirroring the Year-2 structure (units, boss, intro/teach, activity) +
+  src/content/syllabus/y1/math.ts with provenance headers; Y1-appropriate
+  ranges (numbers to 20, simple add/sub, ordering, basic shapes, halving).
+- [ ] 168. Y1 tests + audit: scripts/audit-syllabus.mjs gains a --year param
+  (defaults to 2 so the existing call shape still works); tests/
+  syllabusRegistry.test.ts iterates every year x subject present; new tests/
+  y1MathRegistry.test.ts (counts, id prefixes, boss coverage, no cross-year
+  id collision).
+- [ ] 169. Content rollout - each sub-item follows the same recipe (extract
+  real sources -> syllabus file -> lessons -> tests -> audit clean), in this
+  order:
+  - [ ] 169a. Year 1 english
+  - [ ] 169b. Year 1 science
+  - [ ] 169c. Year 3 maths
+  - [ ] 169d. Year 3 english
+  - [ ] 169e. Year 3 science
+  - [ ] 169f. Year 4 maths
+  - [ ] 169g. Year 4 english
+  - [ ] 169h. Year 4 science
+- [ ] 170. Gates + ship (all at once): tsc clean, full vitest, precommit;
+  local verify-live 23/23 (Year-2 markers MUST stay green) + vgam 78/78; new
+  smoke checks: Year-1 path renders, year picker on a fresh profile, Profile
+  year chip, code box Year-2-only, trio hidden vs unlocked states, all at
+  390px screenshots reviewed -> commit -> push -> node scripts/deploy.mjs
+  (mandatory pre-deploy snapshot runs as step 0) -> live verify-live + vgam +
+  manifest/sw 200 + new bundle markers -> PLAN ticks -> docs commit.
+- [ ] 171. Server handoff report: write the momolearn-ai change list into this
+  PLAN (or docs/): cloudsave snapshot whitelist += yearLevel/extrasUnlocked/
+  paths; optional leaderboard proper `year` field superseding the id namespace.
+  Server code stays untouched - that repo is read-only from here.
+
+Risks: v16 migration moves progress state (dedicated migrate test with a full
+v15 fixture); daily quest/recap generators must regenerate on year switch;
+verify-live + vgam are Year-2 scoped and must not regress (new years get their
+own smoke checks, not extra vgam assertions).
 
   - Provenance: zero new cross-project files/deps (native code only).

@@ -75,13 +75,24 @@ number bond|number sentence|estimating|rounded|weight|weighing|metres|
 litres|millilitres|kilograms|grams`
 
 /** Everything above, normalized once at module load. */
-export const MATH_SYLLABUS: readonly string[] = RAW.split('|')
+const TEENS = ['eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen',
+  'seventeen', 'eighteen', 'nineteen']
+const TENS = ['twenty', 'thirty', 'forty', 'fifty']
+const ONES = ['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine']
+/** PLAN 145 — compound cardinal number words (the NNS checklist above has the
+ *  tens + ordinals but not the hyphenated compounds the counting/sequencing
+ *  units drill as choices: twenty-five, thirty-nine, ...). */
+const NUMBER_WORDS = [...TEENS, ...TENS, ...TENS.flatMap((t) => ONES.map((o) => `${t}-${o}`))]
+
+export const MATH_SYLLABUS: readonly string[] = [...RAW.split('|')
   .map((w) => w.trim().toLowerCase())
-  .filter(Boolean)
+  .filter(Boolean), ...NUMBER_WORDS]
 
 /** Proper nouns / mascots / story words that legitimately appear in maths
  *  prompts but are not curriculum vocabulary. */
 export const MATH_TOLERANCE: readonly string[] = [
   'sonic', 'tails', 'knuckles', 'amy', 'shadow', 'silver', 'cream', 'blaze',
   'rouge', 'metal', 'eggman', 'momo', 'chao', 'robot', 'badnik',
+  // pictogram / data-handling picture icons (u12 pictograms) (PLAN 145)
+  'giraffe', 'paperclip',
 ]

@@ -123,11 +123,17 @@ gelb|mittwoch|schwarz|vier|weiß|zwei|rosa|lila|braun|orange|grün|blau|rot|
 gold|bunt|farbe|farben|wetter|schwester|bruder|eltern|familie|haus|zimmer|
 schule|freunde|spielzeug|fahrrad|hose|schuhe|jacke|wetter|himmel|erde|blume|
 tier|tiere|vogel|fisch|katze|maus|hund|pferd|kuh|schaf|hahn|ente|eule|bär|
-löwe|affe|elefant|affe`
+ löwe|affe|elefant|affe`
+
+/** PLAN 145 — extraction-gap backfill: course words the german units teach
+ *  (the units follow "Deutsch mit Felix und Franzi"; Frosch is one of the
+ *  course regulars, cf. src/content/german/helpers.ts) plus unit-topic words
+ *  missing from the three PLAN-143 source extractions. */
+const BACKFILL_RAW = `frosch|lieblingsfarbe|traube|trauben|froh|entschuldigung|geliebt`
 
 export const GERMAN_SYLLABUS: readonly string[] = Array.from(
   new Set(
-    [FELIX_FRANZI_RAW, GOETHE_A1_RAW, NRW_RAW]
+    [FELIX_FRANZI_RAW, GOETHE_A1_RAW, NRW_RAW, BACKFILL_RAW]
       .flatMap((raw) => raw.split('|'))
       .map((w) => w.trim().toLowerCase())
       .filter(Boolean),
@@ -137,4 +143,7 @@ export const GERMAN_SYLLABUS: readonly string[] = Array.from(
 export const GERMAN_TOLERANCE: readonly string[] = [
   'sonic', 'tails', 'knuckles', 'amy', 'shadow', 'silver', 'cream', 'blaze',
   'rouge', 'metal', 'eggman', 'momo', 'felix', 'franzi', 'deutsch', 'engels',
+  // English glosses the units deliberately show next to the German
+  // (food/country translations in g7 fruit + g3 My-land units) (PLAN 145)
+  'strawberry', 'strawberries', 'switzerland',
 ]

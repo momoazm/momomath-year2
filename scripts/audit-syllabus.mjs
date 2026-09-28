@@ -1,12 +1,17 @@
-/** PLAN 144 — Year-2 syllabus audit.
- *  Bundles the real content registry + the syllabus word lists (extracted from
- *  real books, src/content/syllabus/*), materializes every lesson's questions,
- *  and flags learner-facing vocabulary that is NOT in the subject's syllabus.
+/** PLAN 144/145 — Year-2 syllabus audit.
+ *  Bundles the real content registry + the shared matcher
+ *  (src/content/syllabus/match.ts), materializes every lesson's questions, and
+ *  classifies learner-facing vocabulary:
  *
- *  Tiers:
  *   - bank  : words the child must READ/CHOOSE/MATCH (mcq choices, match pairs,
- *             order items, letter-tiles target)  -> CRITICAL
- *   - text  : prompts, hints, statements, titles, teach/story lines         -> WARN
+ *             order items, letter-tiles target)
+ *   - text  : prompts, hints, statements, titles, teach/story lines
+ *
+ *  Verdicts per token (see match.ts): ok (in syllabus/tolerance/stoplist or an
+ *  allowed variant) / soft (absent but plausibly year-2: reported only) / hard
+ *  (absent AND beyond the year-2 threshold -> gates the exit code; fix in
+ *  content under PLAN 145 or add to the syllabus with provenance).
+ *
  *  Usage: node scripts/audit-syllabus.mjs [--json <outPath>] [--max <n>]
  */
 import { build } from 'esbuild'
@@ -29,8 +34,9 @@ const maxPrint = (() => {
 /* ---------------------------------------------------------------- bundle */
 const entry = `
 export { CURRICULA } from './registry'
-export { SYLLABUS, TOLERANCE, SUBJECT_LANG } from './syllabus'
-export { EN_STOP, DE_STOP, AR_STOP } from './syllabus/stopwords'
+export { buildMatcher } from './syllabus/match'
+export { SUBJECT_LANG } from './syllabus'
+export { eachGeneratedQuestion, bucketQuestion } from './syllabus/walk'
 `
 const dir = await mkdtemp(path.join(tmpdir(), 'syllabus-audit-'))
 const outfile = path.join(dir, 'bundle.mjs')
@@ -44,176 +50,102 @@ await build({
   logLevel: 'silent',
 })
 const mod = await import(pathToFileURL(outfile).href)
-const { CURRICULA, SYLLABUS, TOLERANCE, SUBJECT_LANG, EN_STOP, DE_STOP, AR_STOP } = mod
-
-/* ------------------------------------------------------------- matching */
-const STOP = { en: EN_STOP, de: DE_STOP, ar: AR_STOP }
-const TOKEN_RE = /\p{L}[\p{L}\p{M}'’-]*/gu
-const SUF = {
-  en: ['s', 'es', 'ing', 'ed', "'s", 'ies'],
-  de: ['e', 'n', 'en', 'er', 'es', 's', 'le', 'chen', 'heit', 'ung', 'ig'],
-  ar: ['ات', 'ون', 'ين', 'ة', 'ها', 'هم', 'كما', 'ي', 'ان'],
-}
-
-function norm(w, lang) {
-  let s = w.normalize('NFKC').toLowerCase().replace(/^['’-]+|['’-]+$/g, '')
-  if (lang === 'ar') s = s.replace(/[\u064B-\u0652\u0640]/g, '')
-  return s
-}
-
-function inSet(set, w, lang) {
-  if (set.has(w)) return true
-  if (lang === 'en') {
-    for (const suf of SUF.en) {
-      if (w.endsWith(suf) && w.length > suf.length + 1) {
-        const base = w.slice(0, -suf.length)
-        if (set.has(base)) return true
-        if (suf === 'ies' && set.has(base + 'y')) return true
-      }
-    }
-    return false
-  }
-  if (lang === 'de') {
-    for (const suf of SUF.de) {
-      if (w.endsWith(suf) && w.length > suf.length + 1 && set.has(w.slice(0, -suf.length))) return true
-    }
-    return false
-  }
-  // ar
-  if (w.startsWith('ال') && set.has(w.slice(2))) return true
-  if (set.has('ال' + w)) return true
-  for (const suf of SUF.ar) {
-    if (w.endsWith(suf) && w.length > suf.length + 1 && set.has(w.slice(0, -suf.length))) return true
-  }
-  return false
-}
-
-function tokenize(text) {
-  return String(text).match(TOKEN_RE) ?? []
-}
+const { CURRICULA, buildMatcher, SUBJECT_LANG, eachGeneratedQuestion, bucketQuestion } = mod
 
 /* ---------------------------------------------------- question walk */
-function bucket(q, bank, text) {
-  switch (q.kind) {
-    case 'mcq':
-      bank.push(...q.choices)
-      text.push(q.prompt ?? '')
-      break
-    case 'match':
-      for (const p of q.pairs) bank.push(p.left, p.right)
-      text.push(q.prompt ?? '')
-      break
-    case 'order':
-      bank.push(...q.items)
-      text.push(q.prompt ?? '')
-      break
-    case 'letter-tiles':
-      bank.push(q.targetWord)
-      text.push(q.prompt ?? '')
-      break
-    case 'truefalse':
-      text.push(q.statement ?? '', q.prompt ?? '')
-      break
-    case 'speak':
-      text.push(q.targetText ?? '', q.prompt ?? '')
-      break
-    case 'tap-count':
-    case 'type-number':
-    default:
-      text.push(q.prompt ?? '')
-      break
-  }
-  if (q.hint) text.push(q.hint)
-  if (q.story) {
-    text.push(q.story.title ?? '')
-    for (const line of q.story.lines ?? []) text.push(line)
-  }
-}
 
-const SEEDS = [20260927, 7]
+const unitOf = (lessonId) => lessonId.replace(/l\d+.*$/, '')
+
 const report = {}
-let anyCritical = false
+let anyHard = false
 
 for (const subject of Object.keys(CURRICULA)) {
+  const matcher = buildMatcher(subject)
   const lang = SUBJECT_LANG[subject]
-  const syllabus = new Set(SYLLABUS[subject].map((w) => norm(w, lang)))
-  const tol = new Set(TOLERANCE[subject].map((w) => norm(w, lang)))
-  const stop = STOP[lang]
-  const bankFlags = new Map() // word -> {count, where}
-  const textFlags = new Map()
-  let lessons = 0
+  const hardBank = new Map() // word -> {count, where}
+  const softBank = new Map()
+  const hardText = new Map()
+  const softText = new Map()
+  const hardByUnit = new Map()
   let bankTokens = 0
   let textTokens = 0
-  const seen = new Set()
 
-  const flag = (map, token, where) => {
-    const key = norm(token, lang)
-    if (!key || key.length < 2 || stop.has(key)) return
-    if (/^\d/.test(key)) return
-    if (inSet(syllabus, key, lang) || inSet(tol, key, lang)) return
+  const bump = (map, key, where) => {
     const prev = map.get(key)
     if (prev) prev.count++
     else map.set(key, { count: 1, where })
   }
+  const classify = (which, token, where) => {
+    const v = matcher.check(token)
+    if (v === 'ok') return
+    const key = token.toLowerCase()
+    if (which === 'bank') bump(v === 'hard' ? hardBank : softBank, key, where)
+    else bump(v === 'hard' ? hardText : softText, key, where)
+    if (v === 'hard' && which === 'bank') {
+      const u = unitOf(where.split('/')[0])
+      hardByUnit.set(u, (hardByUnit.get(u) ?? 0) + 1)
+    }
+  }
 
+  // shared walk (same seeds + bucketing as tests/syllabusRegistry.test.ts)
+  const lessons = eachGeneratedQuestion(CURRICULA, subject, (lesson, q) => {
+    const { bank, text } = bucketQuestion(q)
+    for (const phrase of bank) {
+      for (const tok of String(phrase).match(/\p{L}[\p{L}\p{M}'’-]*/gu) ?? []) {
+        bankTokens++
+        classify('bank', tok, `${lesson.id}/${q.kind}`)
+      }
+    }
+    for (const phrase of text) {
+      for (const tok of String(phrase).match(/\p{L}[\p{L}\p{M}'’-]*/gu) ?? []) {
+        if (textTokens > 400000) break
+        textTokens++
+        classify('text', tok, `${lesson.id}/${q.kind ?? 'story'}`)
+      }
+    }
+  })
+
+  // lesson-level teaching text (once per lesson)
   for (const entry2 of Object.values(CURRICULA[subject].allLessons)) {
     const lesson = entry2.lesson
-    lessons++
-    for (const seed of SEEDS) {
-      let qs
-      try {
-        qs = lesson.generate(24, seed)
-      } catch (err) {
-        console.error(`[gen-fail] ${subject}/${lesson.id} seed=${seed}: ${err.message}`)
-        continue
-      }
-      for (const q of qs) {
-        const bank = []
-        const text = []
-        bucket(q, bank, text)
-        for (const phrase of bank) {
-          for (const tok of tokenize(phrase)) {
-            bankTokens++
-            flag(bankFlags, tok, `${lesson.id}/${q.kind}`)
-          }
-        }
-        for (const phrase of text) {
-          for (const tok of tokenize(phrase)) {
-            if (seen.size > 400000) break
-            textTokens++
-            flag(textFlags, tok, `${lesson.id}/${q.kind ?? 'story'}`)
-          }
-        }
-      }
-    }
-    // lesson-level teaching text
     for (const phrase of [lesson.title, lesson.subtitle, ...(lesson.teach ?? []), lesson.intro?.body ?? '']) {
-      for (const tok of tokenize(phrase)) {
+      for (const tok of String(phrase).match(/\p{L}[\p{L}\p{M}'’-]*/gu) ?? []) {
         textTokens++
-        flag(textFlags, tok, `${lesson.id}/teach`)
+        classify('text', tok, `${lesson.id}/teach`)
       }
     }
   }
 
-  const bankArr = [...bankFlags.entries()].sort((a, b) => b[1].count - a[1].count)
-  const textArr = [...textFlags.entries()].sort((a, b) => b[1].count - a[1].count)
-  if (bankArr.length > 0) anyCritical = true
+  const sorted = (m) => [...m.entries()].sort((a, b) => b[1].count - a[1].count)
+  const hardArr = sorted(hardBank)
+  const softArr = sorted(softBank)
+  const textHardArr = sorted(hardText)
+  if (hardArr.length > 0) anyHard = true
   report[subject] = {
     lessons,
+    lang,
+    syllabusSize: matcher.syllabusSize,
     bankTokens,
     textTokens,
-    bankFlaggedUnique: bankArr.length,
-    textFlaggedUnique: textArr.length,
-    bankFlags: bankArr.slice(0, 400).map(([w, m]) => ({ w, n: m.count, where: m.where })),
-    textFlags: textArr.slice(0, 300).map(([w, m]) => ({ w, n: m.count, where: m.where })),
+    hardUnique: hardArr.length,
+    softUnique: softArr.length,
+    textHardUnique: textHardArr.length,
+    hardByUnit: Object.fromEntries([...hardByUnit.entries()].sort((a, b) => b[1] - a[1])),
+    hard: hardArr.slice(0, 500).map(([w, m]) => ({ w, n: m.count, where: m.where })),
+    soft: softArr.slice(0, 200).map(([w, m]) => ({ w, n: m.count, where: m.where })),
+    textHard: textHardArr.slice(0, 200).map(([w, m]) => ({ w, n: m.count, where: m.where })),
   }
 
-  console.log(`\n=== ${subject.toUpperCase()} (lang=${lang}, lessons=${lessons}, syllabus=${syllabus.size}) ===`)
-  console.log(`  bank tokens=${bankTokens}  FLAGGED unique=${bankArr.length}  |  text tokens=${textTokens} flagged unique=${textArr.length}`)
-  console.log(`  top bank flags: ${bankArr.slice(0, 25).map(([w, m]) => `${w}(${m.count})`).join(', ') || '—'}`)
-  console.log(`  top text flags: ${textArr.slice(0, 15).map(([w, m]) => `${w}(${m.count})`).join(', ') || '—'}`)
+  console.log(`\n=== ${subject.toUpperCase()} (lang=${lang}, lessons=${lessons}, syllabus=${matcher.syllabusSize}) ===`)
+  console.log(`  bank tokens=${bankTokens}  HARD unique=${hardArr.length}  soft unique=${softArr.length}  |  text: hard=${textHardArr.length} soft=${softText.size}`)
+  console.log(`  top HARD: ${hardArr.slice(0, 25).map(([w, m]) => `${w}(${m.count})`).join(', ') || '—'}`)
+  console.log(`  top soft: ${softArr.slice(0, 12).map(([w, m]) => `${w}(${m.count})`).join(', ') || '—'}`)
+  if (hardByUnit.size) {
+    console.log(`  hard by unit: ${[...hardByUnit.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10).map(([u, n]) => `${u}=${n}`).join(', ')}`)
+  }
 }
 
 await writeFile(jsonOut, JSON.stringify(report, null, 2), 'utf8')
 console.log(`\nJSON report -> ${jsonOut}`)
-process.exit(anyCritical ? 1 : 0)
+console.log(anyHard ? 'RESULT: HARD flags present -> exit 1' : 'RESULT: clean -> exit 0')
+process.exit(anyHard ? 1 : 0)

@@ -49,12 +49,26 @@ planets|solar system|earth|moon|sun|space|rocks|soil|states of matter|solids|
 liquids|gases|changes of state|dissolve|dissolving|solution|separate|filtering|
 evaporation|condensation|air pressure|weathering|erosion|interdependent|web`
 
+/** PLAN 145 — unit-level backfill: the PLAN-143 Cambridge column extraction
+ *  was selective, so this adds the topic vocabulary the Cambridge-cited units
+ *  themselves teach (unit codes in src/content/science/s0*.ts):
+ *   2ESp rocks (igneous/sedimentary/metamorphic + examples), 2Cc reversible /
+ *   irreversible changes, 2Cm natural vs man-made, 2Bs teeth types,
+ *   2Be food chains (predators), plus the KS1 living / non-living pairing. */
+const BACKFILL_RAW = `igneous|sedimentary|metamorphic|sandstone|granite|layers|
+reversible|irreversible|natural|man-made|manufactured|non-living|living|dead|
+predators|prey|incisors|canines|premolars|molars|tooth|teeth types|
+healthy eating|exercise regularly`
+
 export const SCIENCE_SYLLABUS: readonly string[] = [
   ...NC_RAW.split('|').map((w) => w.trim().toLowerCase()).filter(Boolean),
   ...CAMBRIDGE_RAW.split('|').map((w) => w.trim().toLowerCase()).filter(Boolean),
+  ...BACKFILL_RAW.split('|').map((w) => w.trim().toLowerCase()).filter(Boolean),
 ]
 
 export const SCIENCE_TOLERANCE: readonly string[] = [
   'sonic', 'tails', 'knuckles', 'amy', 'shadow', 'silver', 'cream', 'blaze',
   'rouge', 'metal', 'eggman', 'momo', 'daisy', 'pepper', 'nature',
+  // classification / pictogram animal names (PLAN 145)
+  'giraffe', 'elephant',
 ]
