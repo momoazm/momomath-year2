@@ -454,19 +454,45 @@ Documents copy - never on main. Sources of truth:
   in that subject's syllabus list (normalized: casefold, strip punctuation/
   plural-s), tiered by severity (word length + absence). Emit per-subject/
   per-unit counts + JSON report.
-- [ ] 145. Fix flagged hard words: replace vocabulary beyond Year-2 level in
+- [x] 145. Fix flagged hard words: replace vocabulary beyond Year-2 level in
   content files (esp. german) with syllabus-aligned words; keep structure, ids
   and tests green (registry tests must still pass unchanged where possible —
   only wording changes, no lesson/unit added or removed).
-- [ ] 146. Regression guard: new `tests/syllabusRegistry.test.ts` asserting every
+  - Done: triage showed most hard flags were extraction gaps + intentional
+    pedagogy (mcq fake distractors, names, English glosses, unit-topic
+    words missing from the PLAN-143 column extractions), not beyond-level
+    content: shared `src/content/syllabus/match.ts` (EN/DE/AR token matcher
+    with suffix/plural/alef morphological closure + German-EN gloss tier)
+    + `en-core.ts` core reading vocab + english/german/science/math
+    backfills (Cambridge-cited units, number compounds, course words) +
+    tolerance entries (prefix-lesson fakes, proper names, pictogram
+    animals, gloss words) + stopword enrichment; only genuine content
+    reword: e13 "Volatile Volcanoes" -> "Mighty Volcanoes".
+    `node scripts/audit-syllabus.mjs` -> exit 0, hard=0 on all 7 subjects.
+- [x] 146. Regression guard: new `tests/syllabusRegistry.test.ts` asserting every
   learner-facing vocab word per subject is in the syllabus allowlist (with small
   tolerance set for function words/names/numbers) — future content must stay
   Year-2.
-- [ ] 147. Gates + ship: tsc clean, full vitest, precommit; local verify-live +
+  - Done: `tests/syllabusRegistry.test.ts` (9 tests) shares seeds+bucketing
+    with the audit via `src/content/syllabus/walk.ts` so they cannot drift:
+    per-subject bank-token hard=0, syllabus/tolerance sanity, fixed seeds.
+- [x] 147. Gates + ship: tsc clean, full vitest, precommit; local verify-live +
   vgam; commit -> push main -> `node scripts/deploy.mjs`; live verify-live +
   vgam + manifest/sw 200 + bundle markers (arcade sprint tile + syllabus).
-- [ ] 148. Final UI pass (390px): arcade tile + one fixed lesson per flagged
+  - Done: tsc+precommit clean, vitest 1791/1791 (94 files), local+live
+    verify-live 24/24 and verify-gamification 79/79 (run via
+    `node scripts/verify-gamification.mjs`, no scripts/vgam.mjs), commit
+    89f34c7 pushed, deployed `assets/index-BAC6LJt-.js` (deploy self-check
+    markers passed), manifest.webmanifest/sw.js/index.html all 200 + live
+    bundle markers `arcade-sprint-tile` and the e13 reword present.
+- [x] 148. Final UI pass (390px): arcade tile + one fixed lesson per flagged
   subject screenshotted and reviewed; PLAN ticks + docs commit + summary.
+  - Done: 390x844 shots `148-*.png` reviewed (path, arcade tile with
+    `data-testid=arcade-sprint-tile` present, e13l1/s2l1/u3l1/g1l1
+    intro+question; 0 pageerrors; per-shot runtime head logged:
+    english "Order the story plan!", science healthy-habit mcq, math
+    number-30 mcq, german greeting-match) - lesson deep-links need
+    `state.subject` set to the lesson subject first.
 
 ## Phase 30 — Chest-opening ceremony, bilingual voices, match re-pick (user 2026-09-27)
 
