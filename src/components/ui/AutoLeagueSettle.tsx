@@ -53,6 +53,9 @@ export function AutoLeagueSettle() {
         currentLeague: cur.currentLeague,
         anchor: curAnchor,
         boardWeek: weekKey(new Date()),
+        // PLAN 164 — settle against the active year's board only (the flat
+        // shared list mixes every year's namespaced entries).
+        year: cur.yearLevel,
       })
       cur.syncLeagueWeekByRank(myRank, standings.length)
     })

@@ -83,3 +83,50 @@ describe('buildStandings (shared by Leagues tab + auto-settler)', () => {
     expect(a).toEqual(b)
   })
 })
+
+/** PLAN 164 — the board ranks only the active year's namespaced entries. */
+describe('PLAN 164 — buildStandings year scoping', () => {
+  it('Year 2 (default) keeps the legacy unprefixed board unchanged', () => {
+    const shared = [
+      sharedPlayer({ id: 'g:two', name: 'Y2 Kid', xp: 50 }),
+      sharedPlayer({ id: 'y1:g:one', name: 'Y1 Kid', xp: 99 }),
+    ]
+    const { others, realCount } = buildStandings(baseArgs({ shared }))
+    expect(others.map((p) => p.id)).toEqual(['g:two'])
+    expect(realCount).toBe(2)
+    // explicit year=2 behaves identically (fresh Y2 device)
+    const explicit = buildStandings(baseArgs({ shared, year: 2 }))
+    expect(explicit.others.map((p) => p.id)).toEqual(['g:two'])
+    expect(explicit.realCount).toBe(2)
+  })
+
+  it('a prefixed year keeps only its namespace, stripped for display', () => {
+    const shared = [
+      sharedPlayer({ id: 'g:two', name: 'Y2 Kid', xp: 50 }),
+      sharedPlayer({ id: 'y1:g:one', name: 'Y1 Kid', xp: 99 }),
+      sharedPlayer({ id: 'y1:guest:pal', name: 'Y1 Pal', xp: 10 }),
+      sharedPlayer({ id: 'y3:name:three', name: 'Y3 Kid', xp: 70 }),
+    ]
+    const { others, realCount, standings } = buildStandings(baseArgs({ shared, year: 1 }))
+    expect(others.map((p) => p.id)).toEqual(['g:one', 'guest:pal']) // prefix stripped
+    expect(realCount).toBe(3)
+    expect(standings.some((r) => r.id === 'g:two')).toBe(false)
+    expect(standings.some((r) => r.id === 'y1:g:one')).toBe(false)
+    expect(standings.some((r) => r.id === 'y3:name:three')).toBe(false)
+  })
+
+  it('dedups my own prefixed row against the raw local id', () => {
+    const shared = [
+      sharedPlayer({ id: 'y1:name:champion', name: 'Champion', xp: 88 }),
+      sharedPlayer({ id: 'y1:g:other', name: 'Layla', xp: 25 }),
+    ]
+    const { others, realCount, standings } = buildStandings(
+      baseArgs({ shared, year: 1, weeklyXp: 100 }),
+    )
+    expect(others.map((p) => p.id)).toEqual(['g:other'])
+    expect(realCount).toBe(2)
+    expect(standings.filter((r) => r.isYou)).toHaveLength(1)
+    expect(standings.find((r) => r.isYou)?.xp).toBe(100)
+    expect(standings.some((r) => r.id === 'y1:name:champion')).toBe(false)
+  })
+})

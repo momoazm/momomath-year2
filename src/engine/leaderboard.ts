@@ -52,6 +52,42 @@ export function botsForPlayerCount(realCount: number): LeagueRival[] {
   return LEAGUE_RIVALS.slice(0, Math.max(0, LEAGUE_RIVALS.length - Math.max(0, realCount)))
 }
 
+/* ---------- PLAN 164 — per-year league id namespace ----------
+ * The server keeps ONE flat board and whitelists `{id,name,xp,league,mascot,
+ * week}` with id regex `^[\w:-]+$` (colon allowed, <= 64 chars — verified in
+ * lib/year2/leaderboard.js sanitizeEntry, read-only). There is no `year`
+ * field, so the active year rides in the CLIENT id namespace instead:
+ *   Year 2 / legacy  ->  `<rawId>`       (byte-stable: the live board is Y2)
+ *   any other year   ->  `y{N}:<rawId>`  (e.g. `y1:g:abc123`)
+ * The league board filters a fetched list to the active year and strips the
+ * prefix before display/matching; the friends list stays global (only the
+ * prefix is tolerated when matching friend ids).
+ */
+
+/** Board id for `rawId` on the active year's namespace (Year 2 = unchanged). */
+export function yearScopedId(id: string, year: number): string {
+  return year === 2 ? id : `y${year}:${id}`
+}
+
+/** Year a board entry belongs to: leading `yN:` wins, unprefixed = Year 2. */
+export function entryYear(id: string): number {
+  const m = /^y(\d+):/.exec(id)
+  return m ? Number(m[1]) : 2
+}
+
+/** The raw player id behind a board entry (stripped for display/matching). */
+export function stripYearPrefix(id: string): string {
+  return id.replace(/^y\d+:/, '')
+}
+
+/** Keep only `year`'s entries, each prefix-stripped so ids compare and render
+ *  exactly like the legacy unprefixed board. Other years drop out entirely. */
+export function entriesForYear(entries: SharedPlayer[], year: number): SharedPlayer[] {
+  return entries
+    .filter((e) => entryYear(e.id) === year)
+    .map((e) => ({ ...e, id: stripYearPrefix(e.id) }))
+}
+
 /**
  * Remove duplicate rows for the local player from the shared board.
  *

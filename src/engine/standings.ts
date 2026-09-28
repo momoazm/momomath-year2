@@ -1,4 +1,4 @@
-import { botsForPlayerCount, dedupSelf, weeklyXpOf, type SharedPlayer } from './leaderboard'
+import { botsForPlayerCount, dedupSelf, entriesForYear, weeklyXpOf, type SharedPlayer } from './leaderboard'
 import { rivalXp, type LeagueName } from './gamification'
 
 export interface StandingRow {
@@ -24,6 +24,10 @@ export interface StandingsInput {
   anchor: string
   /** Monday-based shared board week (drives dedup + real-player XP) */
   boardWeek: string
+  /** Active school year (PLAN 164): only that year's board rows count and
+   *  their `yN:` prefixes are stripped before dedup/display. Defaults to 2
+   *  (the legacy unprefixed board). */
+  year?: number
   now?: Date
 }
 
@@ -40,7 +44,11 @@ export function buildStandings(input: StandingsInput): {
 } {
   const { shared, myId, myName, name, weeklyXp, mascot, currentLeague, anchor, boardWeek } = input
   const now = input.now ?? new Date()
-  const others = dedupSelf(shared, myId, myName, boardWeek).filter((p) => p.id !== myId)
+  // PLAN 164 — scope the flat shared board to the active year's namespace
+  // (prefix stripped) so rows compare against the raw local id and render
+  // exactly like before; other years' entries never rank here.
+  const scoped = entriesForYear(shared, input.year ?? 2)
+  const others = dedupSelf(scoped, myId, myName, boardWeek).filter((p) => p.id !== myId)
   const realCount = 1 + others.length
   const bots = botsForPlayerCount(realCount)
   const standings: StandingRow[] = [

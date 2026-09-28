@@ -749,11 +749,13 @@ User decisions (clarifying Q&A, 2026-09-28):
     title, 0 page errors. Two subagents independently PASS (spec review +
     gates). Gates: tsc clean, vitest 1821/1821 (99), verify-live 25/25,
     vgam 80/80, precommit OK, audit exit 0.
-- [ ] 164. Per-year leagues: leaderboard submit id = `y{N}:<playerId>` for
+- [x] 164. Per-year leagues: leaderboard submit id = `y{N}:<playerId>` for
   N!=2 (Year 2 / legacy stays unprefixed); client filters fetched entries by
   active year and strips prefixes for display; friends list stays global.
   Verify against sanitizeEntry regex `^[\w:-]+$` (colon allowed) in
   lib/year2/leaderboard.js (read-only, review only).
+
+  - Done: pure namespace helpers in src/engine/leaderboard.ts - yearScopedId (Y2 = raw id, else year-prefixed), entryYear (leading prefix else 2), stripYearPrefix (leading-prefix-only strip), entriesForYear (filter + strip + copy); server regex verified (line 59) colon-legal with a 64-char cap (ids are g:/name:/guest: + short slugs, prefix adds 3) - server files untouched, Year-2 board byte-stable. Ranks filter once in buildStandings (StandingsInput.year, default 2) BEFORE dedup so the raw local id matches; LeaguesScreen pushes yearScopedId(myId, yearLevel) (year in deps) + year to the builder; AutoLeagueSettle settles with year; FriendsScreen pushes the same scoped id but matches friend rows by prefix-strip + name on the GLOBAL (unfiltered) list. tests: leaderboard +4 (submit shape incl. regex + cap, year read, strip semantics, filter+copy, unknown namespaces never leak), standings +3 (legacy default unchanged, prefixed-year strip, own prefixed row dedups vs raw id). probe164 (route-intercepted API, zero live traffic): Y1 PUT carries the y1 prefix and the Y1 board shows only Y1 rows; Y2 PUT unprefixed and the Y2 board shows only legacy rows; 0 page errors. Two subagents independently PASS. Gates: tsc clean, vitest 1828/1828 (99), verify-live 25/25, vgam 80/80, precommit OK.
 - [ ] 165. Cloudsave year fields: snapshotFromPlayer gains yearLevel,
   extrasUnlocked, paths; merge/union tests; REPORT (do not edit - momolearn-ai
   is read-only): server snapshot whitelist must accept those 3 fields or

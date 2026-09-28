@@ -4,7 +4,14 @@ import { isValidAnchor, usePlayer } from '../engine/store'
 import { useAuth } from '../engine/auth'
 import { sfx } from '../engine/sfx'
 import { speak, stopSpeaking } from '../engine/tts'
-import { fetchSharedPlayers, pushSharedPlayer, weeklyXpOf, type SharedPlayer } from '../engine/leaderboard'
+import {
+  fetchSharedPlayers,
+  pushSharedPlayer,
+  weeklyXpOf,
+  stripYearPrefix,
+  yearScopedId,
+  type SharedPlayer,
+} from '../engine/leaderboard'
 import { leagueWeekElapsed, weekKey } from '../engine/gamification'
 import { guestIdFromName } from '../engine/playerId'
 import {
@@ -67,15 +74,17 @@ export function FriendsScreen({ onClose }: { onClose: () => void }) {
   const weekLive = isValidAnchor(s.weeklyXpWeek) && !leagueWeekElapsed(s.weeklyXpWeek)
   useEffect(() => {
     if (!s.name.trim() || !weekLive) return
+    // PLAN 164 — same year-namespaced submit id as the Leagues tab (Year 2
+    // stays unprefixed); the friends list below stays GLOBAL across years.
     void pushSharedPlayer({
-      id: playerId,
+      id: yearScopedId(playerId, s.yearLevel),
       name: s.name.trim(),
       xp: s.weeklyXp,
       league: s.currentLeague,
       mascot: s.mascot,
       week: boardWeek,
     }).then((entries) => { if (entries.length) setShared(entries) }).catch(() => {})
-  }, [playerId, s.name, s.weeklyXp, s.currentLeague, s.mascot, weekLive, boardWeek])
+  }, [playerId, s.name, s.weeklyXp, s.currentLeague, s.mascot, s.yearLevel, weekLive, boardWeek])
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -114,8 +123,10 @@ export function FriendsScreen({ onClose }: { onClose: () => void }) {
 
   const rows: Row[] = [
     ...friends.map((f) => {
+      // The shared list is GLOBAL (every year) — match a friend's row by the
+      // raw id with any `yN:` year prefix stripped (PLAN 164), else by name.
       const entry = shared.find(
-        (p) => p.id === f.id || p.name.trim().toLowerCase() === f.name.trim().toLowerCase(),
+        (p) => stripYearPrefix(p.id) === f.id || p.name.trim().toLowerCase() === f.name.trim().toLowerCase(),
       )
       return {
         id: f.id,

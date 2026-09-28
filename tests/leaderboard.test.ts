@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import { botsForPlayerCount, dedupSelf, weeklyXpOf, type SharedPlayer } from '../src/engine/leaderboard'
+import {
+  botsForPlayerCount,
+  dedupSelf,
+  entriesForYear,
+  entryYear,
+  stripYearPrefix,
+  weeklyXpOf,
+  yearScopedId,
+  type SharedPlayer,
+} from '../src/engine/leaderboard'
 import { LEAGUE_RIVALS } from '../src/engine/gamification'
 
 function player(overrides: Partial<SharedPlayer> = {}): SharedPlayer {
@@ -110,5 +119,61 @@ describe('dedupSelf (cross-id dup of the local player)', () => {
     const out = dedupSelf(rows, 'name:fares', 'Fares', '2026-08-31')
     expect(out).toHaveLength(1)
     expect(out[0].id).toBe('p99')
+  })
+})
+
+/** PLAN 164 — per-year league id namespace (server id regex allows colons). */
+describe('PLAN 164 — year id namespace', () => {
+  it('yearScopedId keeps Year 2 unprefixed and prefixes every other year', () => {
+    expect(yearScopedId('g:abc', 2)).toBe('g:abc')
+    expect(yearScopedId('name:fares', 2)).toBe('name:fares')
+    expect(yearScopedId('g:abc', 1)).toBe('y1:g:abc')
+    expect(yearScopedId('guest:xyz', 3)).toBe('y3:guest:xyz')
+    expect(yearScopedId('name:fares', 4)).toBe('y4:name:fares')
+    // matches the server whitelist ^[\w:-]+$ (colon allowed, read-only check
+    // of lib/year2/leaderboard.js sanitizeEntry) and stays under 64 chars
+    expect(/^[\w:-]+$/.test(yearScopedId('guest:abcdefghijkm', 1))).toBe(true)
+    expect(yearScopedId('guest:abcdefghijkm', 1).length).toBeLessThanOrEqual(64)
+  })
+
+  it('entryYear reads the prefix, unprefixed = Year 2 (legacy board)', () => {
+    expect(entryYear('g:abc')).toBe(2)
+    expect(entryYear('name:fares')).toBe(2)
+    expect(entryYear('guest:xyz')).toBe(2)
+    expect(entryYear('y1:g:abc')).toBe(1)
+    expect(entryYear('y3:name:a')).toBe(3)
+    expect(entryYear('y4:guest:x')).toBe(4)
+    // an id from an unknown namespace never matches a real year's filter
+    expect(entryYear('y9:someone')).toBe(9)
+  })
+
+  it('stripYearPrefix removes only a leading yN: and is a no-op otherwise', () => {
+    expect(stripYearPrefix('y1:g:abc')).toBe('g:abc')
+    expect(stripYearPrefix('y12:name:fares')).toBe('name:fares')
+    expect(stripYearPrefix('g:abc')).toBe('g:abc')
+    expect(stripYearPrefix('guest:abc')).toBe('guest:abc')
+    // a raw id that merely CONTAINS yN: mid-string is untouched
+    expect(stripYearPrefix('name:my1:pal')).toBe('name:my1:pal')
+  })
+
+  it('entriesForYear keeps only the active year, prefix-stripped, by copy', () => {
+    const mixed = [
+      player({ id: 'g:y2player', name: 'Y2 Kid' }),
+      player({ id: 'y1:g:y1player', name: 'Y1 Kid' }),
+      player({ id: 'y3:name:three', name: 'Y3 Kid' }),
+      player({ id: 'y1:guest:also1', name: 'Y1 Too' }),
+    ]
+    const y1 = entriesForYear(mixed, 1)
+    expect(y1.map((e) => e.id)).toEqual(['g:y1player', 'guest:also1'])
+    expect(y1.every((e) => entryYear(e.id) === 2)).toBe(true) // stripped = legacy shape
+    // original array + rows untouched (filter+map copies)
+    expect(mixed.map((e) => e.id)).toEqual(['g:y2player', 'y1:g:y1player', 'y3:name:three', 'y1:guest:also1'])
+
+    const y2 = entriesForYear(mixed, 2)
+    expect(y2.map((e) => e.id)).toEqual(['g:y2player'])
+    expect(entriesForYear(mixed, 3).map((e) => e.id)).toEqual(['name:three'])
+    // unknown namespace rows never leak into a real year's board
+    expect(entriesForYear([player({ id: 'y9:ghost' })], 2)).toEqual([])
+    expect(entriesForYear([player({ id: 'y9:ghost' })], 1)).toEqual([])
   })
 })

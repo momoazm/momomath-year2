@@ -15,6 +15,7 @@ import {
   fetchSharedPlayers,
   pushSharedPlayer,
   weeklyXpOf,
+  yearScopedId,
   type SharedPlayer,
 } from '../engine/leaderboard'
 import { buildStandings } from '../engine/standings'
@@ -99,8 +100,11 @@ export function LeaguesScreen() {
   useEffect(() => {
     if (!s.name.trim() || !weekLive) return
     let alive = true
+    // PLAN 164 — the entry id carries the active year (Year 2 stays
+    // unprefixed = the legacy board); the fetch path stays raw and the
+    // year filter runs once in buildStandings.
     pushSharedPlayer({
-      id: myId,
+      id: yearScopedId(myId, s.yearLevel),
       name: s.name.trim(),
       xp: s.weeklyXp,
       league: s.currentLeague,
@@ -112,7 +116,7 @@ export function LeaguesScreen() {
     return () => {
       alive = false
     }
-  }, [myId, s.name, s.weeklyXp, s.currentLeague, s.mascot, s.weeklyXpWeek, boardWeek, weekLive])
+  }, [myId, s.name, s.weeklyXp, s.currentLeague, s.mascot, s.weeklyXpWeek, s.yearLevel, boardWeek, weekLive])
 
   const meta = LEAGUE_META[s.currentLeague]
   const goal = weeklyGoal(s.currentLeague)
@@ -130,6 +134,7 @@ export function LeaguesScreen() {
     currentLeague: s.currentLeague,
     anchor,
     boardWeek,
+    year: s.yearLevel,
     now: new Date(nowMs),
   })
 
