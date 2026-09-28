@@ -176,7 +176,6 @@ function readdirRecursive(root) {
 async function save(reason) {
   const tmp = join(STORE, `_saving_${stamp()}`)
   const siteDir = join(tmp, 'site')
-  mkdirSync(siteDir, { recursive: true })
 
   const distIndex = join(CONFIG.distDir, 'index.html')
   const distAsset = existsSync(distIndex) ? assetOf(readFileSync(distIndex, 'utf8')) : null
@@ -185,6 +184,7 @@ async function save(reason) {
 
   let source, asset, missing = []
   try {
+    mkdirSync(siteDir, { recursive: true })
     if (liveAsset && distAsset === liveAsset) {
       // Best case: the local build IS the live one - copy it, no network needed.
       source = 'local dist (same hashed bundle as live)'
