@@ -7,6 +7,7 @@ import { ARABIC_ALL_LESSONS, ARABIC_UNITS } from './arabic'
 import { RELIGION_ALL_LESSONS, RELIGION_UNITS } from './religion'
 import { SOCIAL_ALL_LESSONS, SOCIAL_UNITS } from './social'
 import { Y1_ALL_LESSONS, Y1_UNITS } from './years/y1/math'
+import { ENGLISH_Y1_ALL_LESSONS, ENGLISH_Y1_UNITS } from './years/y1/english'
 
 export interface Curriculum {
   units: UnitDef[]
@@ -39,10 +40,11 @@ const YEAR_2: YearCurriculum = {
 
 /** PLAN 163 — year-keyed registry. Year 2 carries every subject; the new
  *  years (1 / 3 / 4) share the Year-2 English/science objects until their own
- *  content lands, while Year 1 maths is its own curriculum (PLAN 167). */
+ *  content lands. Year 1 maths (PLAN 167) and Year 1 english (PLAN 169a) are
+ *  their own curricula; Year-1 science is still shared (PLAN 169b). */
 const YEAR_1: YearCurriculum = {
   math: { units: Y1_UNITS, allLessons: Y1_ALL_LESSONS },
-  english: { units: ENGLISH_UNITS, allLessons: ENGLISH_ALL_LESSONS },
+  english: { units: ENGLISH_Y1_UNITS, allLessons: ENGLISH_Y1_ALL_LESSONS },
   science: { units: SCIENCE_UNITS, allLessons: SCIENCE_ALL_LESSONS },
 }
 

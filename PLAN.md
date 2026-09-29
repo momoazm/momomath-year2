@@ -843,7 +843,7 @@ User decisions (clarifying Q&A, 2026-09-28):
 - [ ] 169. Content rollout - each sub-item follows the same recipe (extract
   real sources -> syllabus file -> lessons -> tests -> audit clean), in this
   order:
-  - [ ] 169a. Year 1 english
+  - [x] 169a. Year 1 english
   - [ ] 169b. Year 1 science
   - [ ] 169c. Year 3 maths
   - [ ] 169d. Year 3 english

@@ -13,6 +13,7 @@ import { ARABIC_SYLLABUS, ARABIC_TOLERANCE } from './arabic'
 import { RELIGION_SYLLABUS, RELIGION_TOLERANCE } from './religion'
 import { SOCIAL_SYLLABUS, SOCIAL_TOLERANCE } from './social'
 import { MATH_Y1_SYLLABUS, MATH_Y1_TOLERANCE } from './y1/math'
+import { ENGLISH_Y1_SYLLABUS, ENGLISH_Y1_TOLERANCE } from './y1/english'
 
 export { MATH_SYLLABUS, ENGLISH_SYLLABUS, SCIENCE_SYLLABUS, GERMAN_SYLLABUS,
   ARABIC_SYLLABUS, RELIGION_SYLLABUS, SOCIAL_SYLLABUS }
@@ -51,9 +52,9 @@ export const TOLERANCE: Record<Subject, readonly string[]> = {
 type YearOverrides = Partial<Record<number, Partial<Record<Subject, readonly string[]>>>>
 
 export const YEAR_SYLLABUS: YearOverrides = {
-  1: { math: MATH_Y1_SYLLABUS },
+  1: { math: MATH_Y1_SYLLABUS, english: ENGLISH_Y1_SYLLABUS },
 }
 
 export const YEAR_TOLERANCE: YearOverrides = {
-  1: { math: MATH_Y1_TOLERANCE },
+  1: { math: MATH_Y1_TOLERANCE, english: ENGLISH_Y1_TOLERANCE },
 }
