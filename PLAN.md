@@ -846,7 +846,7 @@ User decisions (clarifying Q&A, 2026-09-28):
   - [x] 169a. Year 1 english
   - [x] 169b. Year 1 science
   - [x] 169c. Year 3 maths
-  - [ ] 169d. Year 3 english
+  - [x] 169d. Year 3 english
   - [ ] 169e. Year 3 science
   - [ ] 169f. Year 4 maths
   - [ ] 169g. Year 4 english

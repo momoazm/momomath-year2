@@ -62,7 +62,12 @@ describe('PLAN 163 — getCurriculum reads the active year', () => {
   it('lessonEntry resolves inside the year too', () => {
     const someLesson = Object.keys(CURRICULA[2].english!.allLessons)[0]!
     expect(lessonEntry('english', someLesson)).toBeDefined()
-    expect(lessonEntry('english', someLesson, 3)).toBeDefined()
+    // PLAN 169d: Year-3 english now has its own curriculum, so Year-2
+    // english lesson ids resolve only in Year 2 (ids are year-scoped)…
+    expect(lessonEntry('english', someLesson, 3)).toBeUndefined()
+    // …and a Year-3 id resolves in Year 3.
+    const y3Lesson = Object.keys(CURRICULA[3].english!.allLessons)[0]!
+    expect(lessonEntry('english', y3Lesson, 3)).toBeDefined()
     expect(lessonEntry('english', 'nope-not-a-lesson')).toBeUndefined()
   })
 })
