@@ -8,6 +8,7 @@ import { RELIGION_ALL_LESSONS, RELIGION_UNITS } from './religion'
 import { SOCIAL_ALL_LESSONS, SOCIAL_UNITS } from './social'
 import { Y1_ALL_LESSONS, Y1_UNITS } from './years/y1/math'
 import { ENGLISH_Y1_ALL_LESSONS, ENGLISH_Y1_UNITS } from './years/y1/english'
+import { SCIENCE_Y1_ALL_LESSONS, SCIENCE_Y1_UNITS } from './years/y1/science'
 
 export interface Curriculum {
   units: UnitDef[]
@@ -39,13 +40,13 @@ const YEAR_2: YearCurriculum = {
 }
 
 /** PLAN 163 — year-keyed registry. Year 2 carries every subject; the new
- *  years (1 / 3 / 4) share the Year-2 English/science objects until their own
- *  content lands. Year 1 maths (PLAN 167) and Year 1 english (PLAN 169a) are
- *  their own curricula; Year-1 science is still shared (PLAN 169b). */
+ *  years (3 / 4) share the Year-2 English/science objects until their own
+ *  content lands. Year 1 maths (PLAN 167), english (169a) and science
+ *  (169b) are their own curricula. */
 const YEAR_1: YearCurriculum = {
   math: { units: Y1_UNITS, allLessons: Y1_ALL_LESSONS },
   english: { units: ENGLISH_Y1_UNITS, allLessons: ENGLISH_Y1_ALL_LESSONS },
-  science: { units: SCIENCE_UNITS, allLessons: SCIENCE_ALL_LESSONS },
+  science: { units: SCIENCE_Y1_UNITS, allLessons: SCIENCE_Y1_ALL_LESSONS },
 }
 
 export const CURRICULA: Record<number, YearCurriculum> = {
