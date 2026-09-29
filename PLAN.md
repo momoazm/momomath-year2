@@ -807,12 +807,24 @@ User decisions (clarifying Q&A, 2026-09-28):
   switching); verify-live gains 4 static head/manifest markers (29/29); gates:
   tsc clean, vitest 1847/1847 (100), verify-live 29/29, vgam 80/80, precommit
   OK.
-- [ ] 167. Year-1 maths pilot (full depth): research agents extract Cambridge
-  Primary Mathematics Stage 1 topic spine + UK Year-1 NC maths programmes of
-  study + NNS Year-1 vocabulary checklist -> src/content/years/y1/math/*
-  mirroring the Year-2 structure (units, boss, intro/teach, activity) +
-  src/content/syllabus/y1/math.ts with provenance headers; Y1-appropriate
-  ranges (numbers to 20, simple add/sub, ordering, basic shapes, halving).
+- [x] 167. Done — research agents extracted Cambridge Primary Mathematics
+  Stage 1 topic spine (16 units), DfE Year-1 NC maths PoS 2014 and the NNS
+  Year-1 vocabulary list (DfES 0313/2000); src/content/syllabus/y1/math.ts =
+  MATH_Y1_SYLLABUS (deduped NNS_Y1 + documented NC/Cambridge addendum) +
+  MATH_Y1_TOLERANCE, provenance header cited; src/content/years/y1/math/
+  {generators,curriculum,index}.ts = 11 units, 48 lessons + 11 bosses (ids
+  y1u1l1..y1u11boss so they can never collide with Year-2; codes 1Nc/1Np/
+  1Ni/1Nf/1Nm/1Gt/1Gg/1Gp/1Ss with app-scheme caveat), 41 Y1 generators
+  (all ranges inside 20, Y1-safe wording: no exactly/capacity/hyphenated
+  compounds/number-bonds) + 10 shared gens reused; registry.ts wires
+  CURRICULA[1].math = Y1 content (english/science still shared until 169);
+  smoke probe 59 lessons x 5 seeds x 10 = 2950 questions 0 fails (dup-choice
+  bugs in gY1NumWords/gY1CompareSums fixed), early vocab scan 0 bank-tier
+  HARD (only 2 text-tier provenance words remain: cambridge, shared
+  days-of-the-week hint); gates: tsc clean, vitest 1847/1847 (100 files),
+  audit-syllabus exit 0, verify-live 29/29, vgam 80/80 (local URL — the
+  script defaults to production, which is pre-Phase-31 until 170),
+  precommit OK.
 - [ ] 168. Y1 tests + audit: scripts/audit-syllabus.mjs gains a --year param
   (defaults to 2 so the existing call shape still works); tests/
   syllabusRegistry.test.ts iterates every year x subject present; new tests/
