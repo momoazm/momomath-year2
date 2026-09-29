@@ -756,10 +756,47 @@ User decisions (clarifying Q&A, 2026-09-28):
   lib/year2/leaderboard.js (read-only, review only).
 
   - Done: pure namespace helpers in src/engine/leaderboard.ts - yearScopedId (Y2 = raw id, else year-prefixed), entryYear (leading prefix else 2), stripYearPrefix (leading-prefix-only strip), entriesForYear (filter + strip + copy); server regex verified (line 59) colon-legal with a 64-char cap (ids are g:/name:/guest: + short slugs, prefix adds 3) - server files untouched, Year-2 board byte-stable. Ranks filter once in buildStandings (StandingsInput.year, default 2) BEFORE dedup so the raw local id matches; LeaguesScreen pushes yearScopedId(myId, yearLevel) (year in deps) + year to the builder; AutoLeagueSettle settles with year; FriendsScreen pushes the same scoped id but matches friend rows by prefix-strip + name on the GLOBAL (unfiltered) list. tests: leaderboard +4 (submit shape incl. regex + cap, year read, strip semantics, filter+copy, unknown namespaces never leak), standings +3 (legacy default unchanged, prefixed-year strip, own prefixed row dedups vs raw id). probe164 (route-intercepted API, zero live traffic): Y1 PUT carries the y1 prefix and the Y1 board shows only Y1 rows; Y2 PUT unprefixed and the Y2 board shows only legacy rows; 0 page errors. Two subagents independently PASS. Gates: tsc clean, vitest 1828/1828 (99), verify-live 25/25, vgam 80/80, precommit OK.
-- [ ] 165. Cloudsave year fields: snapshotFromPlayer gains yearLevel,
+- [x] 165. Cloudsave year fields: snapshotFromPlayer gains yearLevel,
   extrasUnlocked, paths; merge/union tests; REPORT (do not edit - momolearn-ai
   is read-only): server snapshot whitelist must accept those 3 fields or
   cross-device year sync degrades to local-only (client union mitigates).
+
+  - Done: CloudSave gains OPTIONAL yearLevel/extrasUnlocked/paths (old saves +
+    legacy tests keep loading); snapshotFromPlayer carries all 3 with entry-deep
+    path copies (wire payload never aliases live store objects).
+    mergeCloudSave: yearLevel follows remote (identity rule), extrasUnlocked
+    sticky-OR, per-year buckets union (lessons per-id max, arcade/sprint max,
+    subject precedence = same-year bucket > alone-in-year flat > remote flat =
+    legacy behaviour); a flat view folds ONLY when that device is in the merged
+    year and lacks a bucket (no cross-year lesson-id leaks); yearBucketOf
+    shape validation + entry guards mean corrupt buckets never throw; saves
+    with no year fields behave exactly like the old merge (remote subject,
+    no year switch). applySyncedSnapshot: cross-year switch parks OUR bucket
+    then UNIONS incoming buckets and loads the target with rollDay/rollWeek
+    re-roll (fresh-bucket fallback when yearLevel arrives without paths -
+    never parks the old view under the wrong key) + PLAN 163 subject guard;
+    same-year unions buckets and re-mirrors the active one into the top-level
+    copies (the wrapped-set mirror runs post-merge); extras sticky; legacy
+    snap = year view untouched. REPORT (server read-only evidence):
+    momolearn-ai has NO /api/year2/cloudsave route at all (repo grep = zero
+    matches; server.js only registers leaderboard), so the deployed snapshot
+    whitelist cannot accept the 3 fields - cross-device year sync degrades to
+    local-only until the PLAN 171 handoff; client union + the
+    whitelist-stripped test prove nothing is ever unwiped. momolearn-ai git
+    status shows only the pre-existing untracked ielts-site/.gitignore - zero
+    modifications. tests/cloudsaveMerge.test.ts +12 (25 total: snapshot shape,
+    deep-copy, remote-wins year, sticky extras both ways, sibling union,
+    empty-bucket round-trip, whitelist-stripped degrade, corrupt entries
+    never throw, 7 applySyncedSnapshot cases incl. fresh-bucket no-leak +
+    raw-snap union-not-wipe). probe165 (route-intercepted cloudsave API, zero
+    live traffic): boot pull switches Y2->Y1 (title Momo Year 1 Cambridge),
+    subject english, extras true, remote bucket in paths[1] + local paths[2]
+    preserved, top-level lessonProgress holds ONLY Year-1 lessons (no leak),
+    pushed save carries all 3 fields, 0 page errors. Two subagents
+    independently PASS (spec review incl. REPORT evidence + gates); review
+    hardening applied: entry guards, union-not-overwrite, fresh-bucket
+    fallback, entry deep-copy. Gates: tsc clean, vitest 1842/1842 (99, clean
+    run, zero errors), verify-live 25/25, vgam 80/80, precommit OK.
 - [ ] 166. Branding: dynamic document.title "Momo Year N Cambridge" per active
   year + year-aware screen headings; index.html meta description +
   apple-mobile-web-app-title and manifest.webmanifest go year-neutral

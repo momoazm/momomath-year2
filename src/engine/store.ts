@@ -1296,6 +1296,164 @@ export const usePlayer = create<PlayerState>()(
               telemetry: { ...initialAdaptive().telemetry, ...(ad.telemetry ?? {}) },
             }
           }
+          // PLAN 165 — year view (remote year wins = the merged snap's active
+          // year; extras unlock is sticky-OR). `paths` union per year exactly
+          // like the flat views: progress unions per lesson id, remote's
+          // subject wins, scores stay max. Corrupt entries fall back to an
+          // empty bucket — never a crash, never a wipe of sibling years.
+          const years: YearLevel[] = [1, 2, 3, 4]
+          const snapYear =
+            typeof snap.yearLevel === 'number' && years.includes(snap.yearLevel as YearLevel)
+              ? (snap.yearLevel as YearLevel)
+              : undefined
+          /** Union one incoming wire bucket with ours: corrupt-safe (shape
+           *  + entry guards), copy-on-write, never a wipe of what we hold. */
+          const unionBucket = (prev: YearPath | undefined, raw: unknown): YearPath | undefined => {
+            if (!raw || typeof raw !== 'object') return prev
+            const inc = raw as Partial<YearPath>
+            const inLp: Record<string, LessonProgress> =
+              inc.lessonProgress && typeof inc.lessonProgress === 'object' ? inc.lessonProgress : {}
+            const inScores: Record<string, number> =
+              inc.arcadeScores && typeof inc.arcadeScores === 'object' ? inc.arcadeScores : {}
+            const incSprint =
+              typeof inc.sprintBest === 'number' && Number.isFinite(inc.sprintBest) ? inc.sprintBest : 0
+            if (!prev) {
+              if (typeof inc.subject !== 'string') return prev // corrupt + nothing to keep
+              return {
+                lessonProgress: { ...inLp },
+                subject: inc.subject as Subject,
+                arcadeScores: { ...inScores },
+                sprintBest: incSprint,
+              }
+            }
+            const lp: Record<string, LessonProgress> = { ...(prev.lessonProgress ?? {}) }
+            for (const [k, v] of Object.entries(inLp)) {
+              if (!v || typeof v !== 'object') continue
+              const p = lp[k]
+              lp[k] = p
+                ? {
+                    crown: Math.max(p.crown, v.crown),
+                    bestAccuracy: Math.max(p.bestAccuracy, v.bestAccuracy),
+                    completions: Math.max(p.completions, v.completions),
+                  }
+                : { ...v }
+            }
+            const scores: Record<string, number> = { ...(prev.arcadeScores ?? {}) }
+            for (const [k, v] of Object.entries(inScores)) {
+              if (typeof v === 'number' && Number.isFinite(v)) scores[k] = Math.max(scores[k] ?? 0, v)
+            }
+            return {
+              lessonProgress: lp,
+              subject: typeof inc.subject === 'string' ? inc.subject : prev.subject,
+              arcadeScores: scores,
+              sprintBest: Math.max(prev.sprintBest ?? 0, incSprint),
+            }
+          }
+          if (snapYear !== undefined && snapYear !== state.yearLevel) {
+            // Remote device lives in another year: save OUR view into our
+            // year bucket first (same move setYearLevel makes), then load the
+            // merged bucket for the remote year.
+            const paths = { ...(state.paths ?? {}) }
+            paths[state.yearLevel] = {
+              lessonProgress: state.lessonProgress,
+              subject: state.subject,
+              arcadeScores: state.arcadeScores,
+              sprintBest: state.sprintBest,
+            }
+            next.yearLevel = snapYear
+            if (snap.paths && typeof snap.paths === 'object') {
+              // UNION (never overwrite): production snaps are pre-merged by
+              // mergeCloudSave so this is identity there, but a raw snap can
+              // never wipe a bucket we hold (PLAN 165 merge/union rule).
+              for (const y of years) {
+                const mergedBucket = unionBucket(paths[y], snap.paths[y])
+                if (mergedBucket) paths[y] = mergedBucket
+              }
+            }
+            // The target year may be new (or the snap may carry yearLevel
+            // without paths): switch like setYearLevel does into a FRESH
+            // bucket instead of letting the mirror park our old flat view
+            // under the other year's key (leak).
+            const target =
+              paths[snapYear] ?? {
+                lessonProgress: {} as Record<string, LessonProgress>,
+                subject:
+                  typeof snap.subject === 'string' && subjectInYear(snap.subject as Subject, snapYear)
+                    ? (snap.subject as Subject)
+                    : ('math' as Subject),
+                arcadeScores: {},
+                sprintBest: 0,
+              }
+            paths[snapYear] = target
+            next.paths = paths
+            if (target) {
+              // Stale-day + stale-week counters re-roll against the incoming
+              // view (PLAN 160 rule: the active year's counters are always
+              // fresh for THIS device) — the rolled view lands atomically.
+              const rolled = { ...state, ...next, ...target, yearLevel: snapYear } as PlayerState
+              rollDay(rolled)
+              rollWeek(rolled)
+              next.lessonProgress = rolled.lessonProgress
+              next.subject = rolled.subject
+              next.arcadeScores = rolled.arcadeScores
+              next.sprintBest = rolled.sprintBest
+              next.todayXp = rolled.todayXp
+              next.todayXpDay = rolled.todayXpDay
+              next.lessonsToday = rolled.lessonsToday
+              next.lessonsTodayDay = rolled.lessonsTodayDay
+              next.correctToday = rolled.correctToday
+              next.correctTodayDay = rolled.correctTodayDay
+              next.bossesToday = rolled.bossesToday
+              next.bossesTodayDay = rolled.bossesTodayDay
+              next.arcadeCorrectToday = rolled.arcadeCorrectToday
+              next.arcadeCorrectTodayDay = rolled.arcadeCorrectTodayDay
+              next.sprintsToday = rolled.sprintsToday
+              next.sprintsTodayDay = rolled.sprintsTodayDay
+              // Mirrored view must not point at a hidden roadmap (PLAN 163
+              // guard, same as setYearLevel): stray extras fall back to Maths.
+              if (!subjectInYear(next.subject, snapYear)) next.subject = 'math' as Subject
+            }
+          } else if (snap.paths && typeof snap.paths === 'object') {
+            // Same year (or a legacy snap without a year field): union the
+            // per-year views, then re-mirror the ACTIVE year's union into the
+            // top-level copies — the store invariant is "top-level = the
+            // active year's bucket" and the wrapped-set mirror enforces it
+            // AFTER this merge, so a missing top-level field would otherwise
+            // overwrite the bucket we just unioned.
+            const paths = { ...(state.paths ?? {}) }
+            for (const y of years) {
+              const mergedBucket = unionBucket(paths[y], snap.paths[y])
+              if (mergedBucket) paths[y] = mergedBucket
+            }
+            next.paths = paths
+            const active = paths[state.yearLevel]
+            if (active) {
+              const lp: Record<string, LessonProgress> = {
+                ...(next.lessonProgress ?? state.lessonProgress),
+              }
+              for (const [k, v] of Object.entries(active.lessonProgress)) {
+                const p = lp[k]
+                lp[k] = p
+                  ? {
+                      crown: Math.max(p.crown, v.crown),
+                      bestAccuracy: Math.max(p.bestAccuracy, v.bestAccuracy),
+                      completions: Math.max(p.completions, v.completions),
+                    }
+                  : v
+              }
+              next.lessonProgress = lp
+              const scores: Record<string, number> = { ...(next.arcadeScores ?? state.arcadeScores) }
+              for (const [k, v] of Object.entries(active.arcadeScores)) {
+                if (typeof v === 'number' && Number.isFinite(v)) scores[k] = Math.max(scores[k] ?? 0, v)
+              }
+              next.arcadeScores = scores
+              next.sprintBest = Math.max(next.sprintBest ?? state.sprintBest, active.sprintBest)
+              if (!next.subject && subjectInYear(active.subject, state.yearLevel)) next.subject = active.subject
+            }
+          }
+          if (typeof snap.extrasUnlocked === 'boolean' && snap.extrasUnlocked) {
+            next.extrasUnlocked = true // sticky-OR: an unlock anywhere unlocks everywhere
+          }
           return next
         }),
       setLastSyncedAt: (t) => set({ lastSyncedAt: t }),

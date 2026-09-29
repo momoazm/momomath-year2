@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { useAuth } from './auth'
-import { usePlayer, type LessonProgress, type LeagueHistoryEntry } from './store'
+import { usePlayer, type LessonProgress, type LeagueHistoryEntry, type YearLevel, type YearPath } from './store'
 import { LEAGUES, type LeagueName } from './gamification'
 import type { MascotId, Subject } from '../content/types'
 import type { AdaptiveStore, AdaptiveTelemetry, SkillState, AttemptLogEntry } from './adaptive/types'
@@ -58,6 +58,15 @@ export interface CloudSave {
   activityDays?: string[]
   /** Learning tracker; `null` on old saves — pass through, never crash. */
   adaptive: AdaptiveStore | null
+  /** PLAN 165 — multi-year fields (client-first): the active year (remote
+   *  wins), the grand-unlock switch (sticky-OR) and the per-year buckets
+   *  (unioned per year). The deployed server whitelist may drop them until
+   *  the server handoff (PLAN 171) lands — old saves pre-date them and the
+   *  client merge treats every side as optional, so cross-device year sync
+   *  degrades to local-only, never to a crash. */
+  yearLevel?: YearLevel
+  extrasUnlocked?: boolean
+  paths?: Partial<Record<YearLevel, YearPath>>
   updatedAt: number
 }
 
@@ -148,6 +157,9 @@ export function snapshotFromPlayer(p: {
   soundOn: boolean
   activityDays: string[]
   adaptive: AdaptiveStore
+  yearLevel: YearLevel
+  extrasUnlocked: boolean
+  paths: Partial<Record<YearLevel, YearPath>>
 }): CloudSave {
   // Trim the per-skill curves for the wire (local keeps 200 points).
   // Old saves carry adaptive: null — pass that through, don't crash.
@@ -155,6 +167,23 @@ export function snapshotFromPlayer(p: {
   if (p.adaptive) {
     for (const [code, series] of Object.entries(p.adaptive.masteryHistory)) {
       masteryHistory[code] = series.slice(-50)
+    }
+  }
+  // PLAN 165 — deep-copy the year buckets so the wire payload can never alias
+  // live store objects (merges / JSON serialisation mutate what they hold).
+  const paths: Partial<Record<YearLevel, YearPath>> = {}
+  for (const [k, v] of Object.entries(p.paths ?? {})) {
+    const y = Number(k) as YearLevel
+    if (!v || typeof v !== 'object') continue
+    paths[y] = {
+      // deep-copy entries too — the wire payload must never alias live store
+      // objects (a merge that later mutates an entry would corrupt state)
+      lessonProgress: Object.fromEntries(
+        Object.entries(v.lessonProgress ?? {}).map(([id, e]) => [id, { ...e }]),
+      ),
+      subject: v.subject,
+      arcadeScores: { ...(v.arcadeScores ?? {}) },
+      sprintBest: v.sprintBest,
     }
   }
   return {
@@ -195,6 +224,9 @@ export function snapshotFromPlayer(p: {
     soundOn: p.soundOn,
     activityDays: normaliseActivityDays(p.activityDays),
     adaptive: p.adaptive ? { ...p.adaptive, masteryHistory } : null,
+    yearLevel: p.yearLevel,
+    extrasUnlocked: p.extrasUnlocked,
+    paths,
     updatedAt: Date.now(),
   }
 }
@@ -287,6 +319,12 @@ export function mergeAdaptive(
  * pushed back over the account name/mascot. `onboarded` is sticky-OR so a
  * half-finished local onboarding never un-onboards an account. Counters stay
  * max/union.
+ *
+ * PLAN 165 — multi-year union (local-only until the server whitelist lands):
+ * the active year follows remote (identity, like `subject`); `extrasUnlocked`
+ * is sticky-OR (an unlock anywhere unlocks everywhere); every year bucket is
+ * unioned independently, exactly like the shared top-level fields (lesson
+ * progress unions per lesson id, subjects follow remote, scores stay max).
  */
 export function mergeCloudSave(local: CloudSave | null, remote: CloudSave | null): CloudSave | null {
   if (!local) return remote
@@ -308,10 +346,115 @@ export function mergeCloudSave(local: CloudSave | null, remote: CloudSave | null
     for (const [k, v] of Object.entries(y)) out[k] = Math.max(out[k] ?? 0, v)
     return out
   }
+  /** Coerce a wire bucket into a valid YearPath; undefined when corrupt. */
+  const yearBucketOf = (v: unknown): YearPath | undefined => {
+    if (!v || typeof v !== 'object') return undefined
+    const o = v as Partial<YearPath>
+    if (typeof o.subject !== 'string') return undefined
+    if (!o.lessonProgress || typeof o.lessonProgress !== 'object') return undefined
+    if (!o.arcadeScores || typeof o.arcadeScores !== 'object') return undefined
+    return {
+      lessonProgress: o.lessonProgress,
+      subject: o.subject as Subject,
+      arcadeScores: o.arcadeScores,
+      sprintBest: typeof o.sprintBest === 'number' && Number.isFinite(o.sprintBest) ? o.sprintBest : 0,
+    }
+  }
+  /** Union two VALID YearPath buckets: progress per lesson, remote subject, max scores. */
+  const unionPath = (a: YearPath | undefined, b: YearPath | undefined): YearPath | undefined => {
+    if (!a) return b ? { ...b, lessonProgress: { ...b.lessonProgress }, arcadeScores: { ...b.arcadeScores } } : undefined
+    if (!b) return { ...a, lessonProgress: { ...a.lessonProgress }, arcadeScores: { ...a.arcadeScores } }
+    const lp: Record<string, LessonProgress> = { ...a.lessonProgress }
+    for (const [k, v] of Object.entries(b.lessonProgress)) {
+      if (!v || typeof v !== 'object') continue // entry-level corruption guard
+      const prev = lp[k]
+      lp[k] = prev
+        ? {
+            crown: Math.max(prev.crown, v.crown),
+            bestAccuracy: Math.max(prev.bestAccuracy, v.bestAccuracy),
+            completions: Math.max(prev.completions, v.completions),
+          }
+        : v
+    }
+    return {
+      lessonProgress: lp,
+      subject: b.subject, // mirrors the top-level rule: remote's roadmap wins
+      arcadeScores: maxInventory(a.arcadeScores, b.arcadeScores),
+      sprintBest: Math.max(a.sprintBest, b.sprintBest),
+    }
+  }
+  // The merged active year (identity, like `subject`: remote wins). Computed
+  // first so the bucket loop below always travels it, even when both sides
+  // predate `paths`.
+  const mergedYear = remote.yearLevel ?? local.yearLevel ?? 2
+  const paths: Partial<Record<YearLevel, YearPath>> = {}
+  const pathYears = new Set<YearLevel>([
+    ...Object.keys(local.paths ?? {}).map(Number),
+    ...Object.keys(remote.paths ?? {}).map(Number),
+    mergedYear, // the active year always travels, even when both sides predate paths
+  ] as YearLevel[])
+  for (const y of pathYears) {
+    if (y === mergedYear) continue // folded below (yearPath)
+    const la = yearBucketOf(local.paths?.[y])
+    const lb = yearBucketOf(remote.paths?.[y])
+    if (!la && !lb) continue
+    paths[y] = unionPath(la, lb)!
+  }
+  // Fold legacy top-level progress AND scores into the merged year's bucket
+  // (old clients and old saves sync only the flat view): the flat lessons
+  // union together with both buckets, and the legacy scores max in. The wire
+  // never carried a flat sprint best (it lives per-year in `paths`), so a
+  // missing bucket starts at 0. A flat view is folded ONLY when that device
+  // is actually IN the merged year AND has no bucket for it — the flat view
+  // is a mirror of one of its own buckets, so folding an OUT-OF-YEAR flat
+  // view would leak (e.g.) Year-2 lessons into the merged Year-1 roadmap
+  // when their ids overlap.
+  const flatAsPath = (s: CloudSave) => {
+    return {
+      lessonProgress: s.lessonProgress ?? {},
+      subject: s.subject,
+      arcadeScores: s.arcadeScores ?? {},
+      sprintBest: 0,
+    }
+  }
+  const foldOf = (s: CloudSave): YearPath | undefined => {
+    if ((s.yearLevel ?? 2) !== mergedYear) return undefined
+    return yearBucketOf(s.paths?.[mergedYear as YearLevel]) ? undefined : flatAsPath(s)
+  }
+  // Subject precedence for the merged year: a real same-year bucket is
+  // authoritative (local first, then remote). With no valid bucket anywhere,
+  // only a device that is ALONE in claiming that year gets a say through its
+  // flat `subject` (e.g. a Year-1 remote vs a Year-2 local decides the merged
+  // Year-1 view); when both claim the year — or a legacy save carries no year
+  // at all — the long-standing identity rule stands: remote wins.
+  const subjectForYear = (y: number): Subject => {
+    const localInYear = (local.yearLevel ?? 2) === y
+    const remoteInYear = (remote.yearLevel ?? 2) === y
+    const flat = localInYear && !remoteInYear ? local.subject : remote.subject
+    return (
+      yearBucketOf(local.paths?.[y as YearLevel])?.subject ??
+      yearBucketOf(remote.paths?.[y as YearLevel])?.subject ??
+      flat
+    )
+  }
+  paths[mergedYear] =
+    unionPath(
+      unionPath(yearBucketOf(local.paths?.[mergedYear]), foldOf(local)),
+      unionPath(yearBucketOf(remote.paths?.[mergedYear]), foldOf(remote)),
+    ) ?? {
+      lessonProgress: {} as Record<string, LessonProgress>,
+      subject: remote.subject,
+      arcadeScores: {},
+      sprintBest: 0,
+    }
+  paths[mergedYear]!.subject = subjectForYear(mergedYear)
+  // The merged active year drives the top-level per-year view (the store's
+  // mirror treats the top-level copies as the live view of paths[year]).
+  const yearPath = paths[mergedYear]!
   return {
     name: remote.name,
     mascot: remote.mascot,
-    subject: remote.subject,
+    subject: yearPath.subject, // the ACTIVE year's roadmap (was: remote.subject)
     dailyGoal: remote.dailyGoal,
     onboarded: local.onboarded || remote.onboarded,
     soundOn: remote.soundOn,
@@ -342,7 +485,6 @@ export function mergeCloudSave(local: CloudSave | null, remote: CloudSave | null
       (!local.pendingLeagueSettle || local.pendingLeagueSettle.weekKey <= remote.pendingLeagueSettle.weekKey)
         ? remote.pendingLeagueSettle
         : local.pendingLeagueSettle) ?? null,
-    lessonProgress,
     achievements: [...new Set([...local.achievements, ...remote.achievements])],
     cardStars: mergeStars(local.cardStars, remote.cardStars),
     cardPity: Math.min(local.cardPity, remote.cardPity),
@@ -356,10 +498,16 @@ export function mergeCloudSave(local: CloudSave | null, remote: CloudSave | null
     luckyTickets: Math.max(local.luckyTickets, remote.luckyTickets),
     claimedQuests:
       newest.claimedQuests?.questIds?.length ? newest.claimedQuests : local.claimedQuests,
-    arcadeScores: maxInventory(local.arcadeScores, remote.arcadeScores),
+    arcadeScores: yearPath.arcadeScores, // ACTIVE year's (unioned with the legacy top-level same way)
     booksRead: { ...local.booksRead, ...remote.booksRead }, // union: read anywhere = read
     activityDays: mergeActivityDays(local.activityDays, remote.activityDays),
     adaptive: mergeAdaptive(local.adaptive, remote.adaptive),
+    lessonProgress: yearPath.lessonProgress, // ACTIVE year's (unioned buckets; legacy top-level folded in below)
+    // PLAN 165 — year view: remote's active year wins (identity); the local
+    // unioned buckets of every OTHER year travel in `paths` untouched.
+    yearLevel: mergedYear,
+    extrasUnlocked: (local.extrasUnlocked ?? false) || (remote.extrasUnlocked ?? false),
+    paths,
     updatedAt: Math.max(local.updatedAt || 0, remote.updatedAt || 0, Date.now()),
   }
 }
