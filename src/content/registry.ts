@@ -11,6 +11,7 @@ import { ENGLISH_Y1_ALL_LESSONS, ENGLISH_Y1_UNITS } from './years/y1/english'
 import { SCIENCE_Y1_ALL_LESSONS, SCIENCE_Y1_UNITS } from './years/y1/science'
 import { Y3_ALL_LESSONS, Y3_UNITS } from './years/y3/math'
 import { ENGLISH_Y3_ALL_LESSONS, ENGLISH_Y3_UNITS } from './years/y3/english'
+import { SCIENCE_Y3_ALL_LESSONS, SCIENCE_Y3_UNITS } from './years/y3/science'
 
 export interface Curriculum {
   units: UnitDef[]
@@ -51,12 +52,13 @@ const YEAR_1: YearCurriculum = {
   science: { units: SCIENCE_Y1_UNITS, allLessons: SCIENCE_Y1_ALL_LESSONS },
 }
 
-/** PLAN 169d — Year 3 now owns maths (169c) and english (169d); science
- *  stays on the shared Year-2 object until 169e lands. */
+/** PLAN 169e — Year 3 now owns maths (169c), english (169d) and science
+ *  (169e); only Year 4 still shares the Year-2 english/science objects. */
 const YEAR_3: YearCurriculum = {
   ...CORE,
   math: { units: Y3_UNITS, allLessons: Y3_ALL_LESSONS },
   english: { units: ENGLISH_Y3_UNITS, allLessons: ENGLISH_Y3_ALL_LESSONS },
+  science: { units: SCIENCE_Y3_UNITS, allLessons: SCIENCE_Y3_ALL_LESSONS },
 }
 
 export const CURRICULA: Record<number, YearCurriculum> = {
