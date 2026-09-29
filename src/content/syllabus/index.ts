@@ -12,6 +12,7 @@ import { GERMAN_SYLLABUS, GERMAN_TOLERANCE } from './german'
 import { ARABIC_SYLLABUS, ARABIC_TOLERANCE } from './arabic'
 import { RELIGION_SYLLABUS, RELIGION_TOLERANCE } from './religion'
 import { SOCIAL_SYLLABUS, SOCIAL_TOLERANCE } from './social'
+import { MATH_Y1_SYLLABUS, MATH_Y1_TOLERANCE } from './y1/math'
 
 export { MATH_SYLLABUS, ENGLISH_SYLLABUS, SCIENCE_SYLLABUS, GERMAN_SYLLABUS,
   ARABIC_SYLLABUS, RELIGION_SYLLABUS, SOCIAL_SYLLABUS }
@@ -41,4 +42,18 @@ export const TOLERANCE: Record<Subject, readonly string[]> = {
   arabic: ARABIC_TOLERANCE,
   religion: RELIGION_TOLERANCE,
   social: SOCIAL_TOLERANCE,
+}
+
+/** PLAN 168 — per-year syllabus overrides. A year only appears here for the
+ *  subjects whose content is its own (Year-1 maths, PLAN 167); every other
+ *  year/subject falls back to the Year-2 lists above — the shared content
+ *  those years still run (PLAN 169 replaces them one subject at a time). */
+type YearOverrides = Partial<Record<number, Partial<Record<Subject, readonly string[]>>>>
+
+export const YEAR_SYLLABUS: YearOverrides = {
+  1: { math: MATH_Y1_SYLLABUS },
+}
+
+export const YEAR_TOLERANCE: YearOverrides = {
+  1: { math: MATH_Y1_TOLERANCE },
 }

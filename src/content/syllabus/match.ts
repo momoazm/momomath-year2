@@ -23,7 +23,7 @@
  *         minimum stem length to avoid over-stripping.
  */
 import type { Subject } from '../types'
-import { SYLLABUS, TOLERANCE, SUBJECT_LANG } from './index'
+import { SYLLABUS, TOLERANCE, SUBJECT_LANG, YEAR_SYLLABUS, YEAR_TOLERANCE } from './index'
 import { ENGLISH_SYLLABUS } from './english'
 import { EN_CORE } from './en-core'
 import { EN_STOP, DE_STOP, AR_STOP } from './stopwords'
@@ -153,17 +153,23 @@ function enGloss(): Set<string> {
 export interface SubjectMatcher {
   subject: Subject
   lang: Lang
+  /** Year the matcher was built for (PLAN 168); 2 = the base lists. */
+  year: number
   syllabusSize: number
   toleranceSize: number
   check(token: string): Verdict
 }
 
-export function buildMatcher(subject: Subject): SubjectMatcher {
+/** PLAN 168 — year-aware matcher. `year` selects the syllabus override when
+ *  the year registered one (Year-1 maths); otherwise the Year-2 lists apply
+ *  (shared content). Defaults to 2 so every pre-existing call keeps its
+ *  exact behaviour. */
+export function buildMatcher(subject: Subject, year: number = 2): SubjectMatcher {
   const lang = SUBJECT_LANG[subject]
-  const syllabus = buildSet(SYLLABUS[subject], lang)
-  const tol = buildSet(TOLERANCE[subject], lang)
+  const syllabus = buildSet(YEAR_SYLLABUS[year]?.[subject] ?? SYLLABUS[subject], lang)
+  const tol = buildSet(YEAR_TOLERANCE[year]?.[subject] ?? TOLERANCE[subject], lang)
   const stop = buildSet([...STOP[lang]], lang)
-  // Shared Year-2 core reading vocabulary (all English-medium subjects).
+  // Shared core reading vocabulary (all English-medium subjects).
   const core = lang === 'en' ? buildSet(EN_CORE, 'en') : null
   const check = (token: string): Verdict => {
     const w = norm(token, lang)
@@ -178,6 +184,7 @@ export function buildMatcher(subject: Subject): SubjectMatcher {
   return {
     subject,
     lang,
+    year,
     syllabusSize: syllabus.size,
     toleranceSize: tol.size,
     check,

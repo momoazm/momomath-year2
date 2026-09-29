@@ -825,11 +825,21 @@ User decisions (clarifying Q&A, 2026-09-28):
   audit-syllabus exit 0, verify-live 29/29, vgam 80/80 (local URL — the
   script defaults to production, which is pre-Phase-31 until 170),
   precommit OK.
-- [ ] 168. Y1 tests + audit: scripts/audit-syllabus.mjs gains a --year param
-  (defaults to 2 so the existing call shape still works); tests/
-  syllabusRegistry.test.ts iterates every year x subject present; new tests/
-  y1MathRegistry.test.ts (counts, id prefixes, boss coverage, no cross-year
-  id collision).
+- [x] 168. Done — buildMatcher(subject, year=2) reads YEAR_SYLLABUS /
+  YEAR_TOLERANCE overrides from syllabus/index.ts (year 1 maths registered;
+  everything else falls back to the Year-2 lists so shared content keeps
+  passing), SubjectMatcher gains `year`; audit-syllabus.mjs --year <n>
+  (default 2, invalid/missing-curriculum errors exit 2, report header shows
+  the year, unit grouping now strips boss ids too) — `--year 1` walks
+  MATH 59 / ENGLISH 74 / SCIENCE 38 lessons, all clean, `--year 2` still
+  exit 0; syllabusRegistry.test.ts iterates all 4 years x their subjects
+  (16 year/subject tests + maths-per-year + seeds, yN/subject titles);
+  new tests/y1MathRegistry.test.ts (11 units/59 lessons/11 bosses counts,
+  y1u<N>l<M>|boss id regex + exactly-once listing, one boss per unit inside
+  its lessons, Y1-vs-every-other-curriculum id non-collision over 100+
+  foreign ids, override identity + matcher year/size + sample word checks);
+  gates: tsc clean, vitest 1862/1862 (101 files), audit both years exit 0,
+  verify-live 29/29, vgam 80/80 (local), precommit OK.
 - [ ] 169. Content rollout - each sub-item follows the same recipe (extract
   real sources -> syllabus file -> lessons -> tests -> audit clean), in this
   order:

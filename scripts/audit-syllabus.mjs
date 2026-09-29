@@ -12,7 +12,9 @@
  *  (absent AND beyond the year-2 threshold -> gates the exit code; fix in
  *  content under PLAN 145 or add to the syllabus with provenance).
  *
- *  Usage: node scripts/audit-syllabus.mjs [--json <outPath>] [--max <n>]
+ *  Usage: node scripts/audit-syllabus.mjs [--year <n>] [--json <outPath>] [--max <n>]
+ *  --year defaults to 2 (the full subject set); PLAN 168 added it so the
+ *  other years can be audited against their own syllabus overrides.
  */
 import { build } from 'esbuild'
 import { mkdtemp, writeFile } from 'node:fs/promises'
@@ -22,6 +24,15 @@ import { pathToFileURL } from 'node:url'
 
 const ROOT = process.cwd()
 const args = process.argv.slice(2)
+const year = (() => {
+  const i = args.indexOf('--year')
+  const n = i >= 0 ? Number(args[i + 1]) : 2
+  if (!Number.isInteger(n) || n < 1) {
+    console.error(`[audit] invalid --year (got ${args[i + 1] ?? n}), expected a positive integer`)
+    process.exit(2)
+  }
+  return n
+})()
 const jsonOut = (() => {
   const i = args.indexOf('--json')
   return i >= 0 ? args[i + 1] : path.join(tmpdir(), 'syllabus-audit.json')
@@ -54,17 +65,22 @@ const { CURRICULA, buildMatcher, SUBJECT_LANG, eachGeneratedQuestion, bucketQues
 
 /* ---------------------------------------------------- question walk */
 
-const unitOf = (lessonId) => lessonId.replace(/l\d+.*$/, '')
+const unitOf = (lessonId) => lessonId.replace(/(?:l\d+|boss).*$/, '')
 
 const report = {}
 let anyHard = false
 
-// PLAN 163 — the registry is year-keyed; this audit walks Year 2 (the full
-// subject set). A --year flag for the other years arrives with PLAN 168.
-const YEAR2 = CURRICULA[2]
+// PLAN 163/168 — the registry is year-keyed; walk the requested year
+// (default 2) and match every subject against that year's syllabus
+// (Year-1 maths has its own override, everything else falls back to Y2).
+const CURR = CURRICULA[year]
+if (!CURR) {
+  console.error(`[audit] no curriculum for year ${year} (have: ${Object.keys(CURRICULA).join(', ')})`)
+  process.exit(2)
+}
 
-for (const subject of Object.keys(YEAR2)) {
-  const matcher = buildMatcher(subject)
+for (const subject of Object.keys(CURR)) {
+  const matcher = buildMatcher(subject, year)
   const lang = SUBJECT_LANG[subject]
   const hardBank = new Map() // word -> {count, where}
   const softBank = new Map()
@@ -92,7 +108,7 @@ for (const subject of Object.keys(YEAR2)) {
   }
 
   // shared walk (same seeds + bucketing as tests/syllabusRegistry.test.ts)
-  const lessons = eachGeneratedQuestion(YEAR2, subject, (lesson, q) => {
+  const lessons = eachGeneratedQuestion(CURR, subject, (lesson, q) => {
     const { bank, text } = bucketQuestion(q)
     for (const phrase of bank) {
       for (const tok of String(phrase).match(/\p{L}[\p{L}\p{M}'’-]*/gu) ?? []) {
@@ -110,7 +126,7 @@ for (const subject of Object.keys(YEAR2)) {
   })
 
   // lesson-level teaching text (once per lesson)
-  for (const entry2 of Object.values(YEAR2[subject].allLessons)) {
+  for (const entry2 of Object.values(CURR[subject].allLessons)) {
     const lesson = entry2.lesson
     for (const phrase of [lesson.title, lesson.subtitle, ...(lesson.teach ?? []), lesson.intro?.body ?? '']) {
       for (const tok of String(phrase).match(/\p{L}[\p{L}\p{M}'’-]*/gu) ?? []) {
@@ -140,7 +156,7 @@ for (const subject of Object.keys(YEAR2)) {
     textHard: textHardArr.slice(0, 200).map(([w, m]) => ({ w, n: m.count, where: m.where })),
   }
 
-  console.log(`\n=== ${subject.toUpperCase()} (lang=${lang}, lessons=${lessons}, syllabus=${matcher.syllabusSize}) ===`)
+  console.log(`\n=== ${subject.toUpperCase()} (year=${year}, lang=${lang}, lessons=${lessons}, syllabus=${matcher.syllabusSize}) ===`)
   console.log(`  bank tokens=${bankTokens}  HARD unique=${hardArr.length}  soft unique=${softArr.length}  |  text: hard=${textHardArr.length} soft=${softText.size}`)
   console.log(`  top HARD: ${hardArr.slice(0, 25).map(([w, m]) => `${w}(${m.count})`).join(', ') || '—'}`)
   console.log(`  top soft: ${softArr.slice(0, 12).map(([w, m]) => `${w}(${m.count})`).join(', ') || '—'}`)
