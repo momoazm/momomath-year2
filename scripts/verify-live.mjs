@@ -249,6 +249,35 @@ async function main() {
 
   const url = `${URL_BASE}?cb=${Date.now()}`
   await page.goto(url, { waitUntil: 'domcontentloaded' })
+
+  // --- PLAN 166: static branding markers. The meta description, the apple
+  // home-screen title and the manifest all go year-neutral ("Momo Cambridge");
+  // <title> keeps the Year-2 string (deploy needle, byte-stable for Y2 users).
+  const head = await page.evaluate(() => ({
+    desc: document.querySelector('meta[name="description"]')?.getAttribute('content') ?? '',
+    apple: document.querySelector('meta[name="apple-mobile-web-app-title"]')?.getAttribute('content') ?? '',
+    title: document.title,
+  }))
+  ok(
+    'meta description is year-neutral',
+    head.desc.startsWith('Momo Cambridge - practice Cambridge Primary maths'),
+    head.desc.slice(0, 72),
+  )
+  ok('apple-mobile-web-app-title is year-neutral', head.apple === 'Momo Cambridge', head.apple)
+  ok(
+    '<title> keeps the Year-2 needle (deploy + verify marker)',
+    head.title.includes('Momo Year 2 Cambridge'),
+    head.title,
+  )
+  const manifestTxt = await page
+    .evaluate(async () => (await fetch('manifest.webmanifest', { cache: 'no-store' })).text())
+    .catch(() => '')
+  ok(
+    'manifest name/short_name are year-neutral',
+    /"name":\s*"Momo Cambridge/.test(manifestTxt) && /"short_name":\s*"Momo Cambridge"/.test(manifestTxt),
+    manifestTxt.slice(0, 96).replace(/\s+/g, ' '),
+  )
+
   // Seed the player AND a QA user (no credential): the sign-in gate settles
   // on local onboarded, so the roadmap opens without a Google session.
   await page.evaluate(({ seed, auth }) => {

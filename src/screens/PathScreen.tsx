@@ -7,6 +7,7 @@ import { CLASSIC_BOOKS } from '../content/english/classic'
 import { buildCheckup, dueSkillCodes } from '../engine/adaptive'
 import type { RetryItem } from '../engine/adaptive'
 import { displayStreak, isStreakActive } from '../engine/gamification'
+import { roadmapFooterFor } from '../engine/branding'
 import { Mascot } from '../components/mascots/Mascots'
 import { sfx } from '../engine/sfx'
 import type { LessonDef, UnitDef } from '../content/types'
@@ -499,7 +500,7 @@ export function PathScreen({
         )
       })}
       <footer className="pb-4 text-center text-xs font-bold text-slate-300">
-        Momo Year 2 Cambridge · {subjectLabel} · {lessonCount} lessons
+        {roadmapFooterFor(player.yearLevel, subjectLabel, lessonCount)}
       </footer>
 
       {/* friendly locked-node popup (PLAN 75) */}

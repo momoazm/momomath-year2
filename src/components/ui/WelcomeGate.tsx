@@ -4,6 +4,7 @@ import { GOOGLE_CLIENT_ID, renderGoogleButton, useAuth, type AuthUser } from '..
 import { usePlayer } from '../../engine/store'
 import { useSyncStatus } from '../../engine/cloudsave'
 import { resolveGatePhase } from '../../engine/gatePhase'
+import { welcomeHeadingFor } from '../../engine/branding'
 import { MASCOTS, Mascot } from '../mascots/Mascots'
 import { sfx } from '../../engine/sfx'
 import type { MascotId } from '../../content/types'
@@ -31,6 +32,7 @@ export function WelcomeGate() {
   const credential = useAuth((s) => s.credential)
   const signIn = useAuth((s) => s.signIn)
   const onboarded = usePlayer((s) => s.onboarded)
+  const yearLevel = usePlayer((s) => s.yearLevel)
   const setName = usePlayer((s) => s.setName)
   const setMascot = usePlayer((s) => s.setMascot)
   const setOnboarded = usePlayer((s) => s.setOnboarded)
@@ -134,7 +136,7 @@ export function WelcomeGate() {
               <Mascot id="sonic" expression="cheer" />
             </div>
             <h1 className="mt-2 font-display text-2xl font-extrabold text-speed-blue">
-              Welcome to Momo Year 2 Cambridge!
+              {welcomeHeadingFor(yearLevel)}
             </h1>
             <p className="mt-1 font-body text-sm font-bold text-slate-400">
               Step 1 - Sign in with your Google account to join the leaderboard.

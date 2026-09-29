@@ -18,8 +18,11 @@ describe('PWA manifest', () => {
   }
 
   it('declares name, standalone display and a relative start_url', () => {
-    expect(manifest.name).toContain('Momo Year 2 Cambridge')
-    expect(manifest.short_name).toBeTruthy()
+    // PLAN 166 — manifest copy is year-neutral ("Momo Cambridge"); the active
+    // year only lives in document.title / the in-app headings.
+    expect(manifest.name).toContain('Momo Cambridge')
+    expect(manifest.name).not.toContain('Year 2')
+    expect(manifest.short_name).toBe('Momo Cambridge')
     expect(manifest.display).toBe('standalone')
     expect(manifest.start_url).toBe('./')
     expect(manifest.scope).toBe('./')
@@ -74,12 +77,17 @@ describe('index.html wiring', () => {
     expect(existsSync(join(ROOT, 'public', 'apple-touch-icon.png'))).toBe(true)
   })
 
-  it('metadata covers all 7 subjects (not the old maths-only pitch)', () => {
+  it('metadata is year-neutral but still pitches the core subjects', () => {
+    // PLAN 166 — <title> keeps the Year-2 string (deploy needle + byte-stable
+    // verify markers); the meta description / apple title go year-neutral.
     expect(html).toContain('Learning Adventure')
     expect(html).not.toContain('Maths Adventure')
-    expect(html).toContain('science')
-    expect(html).toContain('German')
-    expect(html).toContain('Arabic')
+    expect(html).toContain(
+      '<meta name="description" content="Momo Cambridge - practice Cambridge Primary maths, English, science and more',
+    )
+    expect(html).toContain('<meta name="apple-mobile-web-app-title" content="Momo Cambridge" />')
+    expect(html).not.toContain('name="description" content="Momo Year 2')
+    expect(html).not.toContain('apple-mobile-web-app-title" content="Momo Year 2')
   })
 
   it('still contains the deploy needle', () => {

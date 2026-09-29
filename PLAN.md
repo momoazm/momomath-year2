@@ -797,10 +797,16 @@ User decisions (clarifying Q&A, 2026-09-28):
     hardening applied: entry guards, union-not-overwrite, fresh-bucket
     fallback, entry deep-copy. Gates: tsc clean, vitest 1842/1842 (99, clean
     run, zero errors), verify-live 25/25, vgam 80/80, precommit OK.
-- [ ] 166. Branding: dynamic document.title "Momo Year N Cambridge" per active
-  year + year-aware screen headings; index.html meta description +
-  apple-mobile-web-app-title and manifest.webmanifest go year-neutral
-  ("Momo Cambridge"); verify-live marker list updated for the new strings.
+- [x] 166. Done — `welcomeHeadingFor`/`roadmapFooterFor` in
+  src/engine/branding.ts drive the WelcomeGate h1 + PathScreen roadmap footer
+  (Year-2 output byte-identical: existing verify/pw-extras markers stay green);
+  index.html meta description + apple-mobile-web-app-title and manifest
+  name/short_name/description go year-neutral "Momo Cambridge" (<title> keeps
+  the Year-2 deploy needle); pwa.test.ts markers updated to the neutral copy,
+  tests/branding.test.ts 5 tests (heading byte-stability + year-number
+  switching); verify-live gains 4 static head/manifest markers (29/29); gates:
+  tsc clean, vitest 1847/1847 (100), verify-live 29/29, vgam 80/80, precommit
+  OK.
 - [ ] 167. Year-1 maths pilot (full depth): research agents extract Cambridge
   Primary Mathematics Stage 1 topic spine + UK Year-1 NC maths programmes of
   study + NNS Year-1 vocabulary checklist -> src/content/years/y1/math/*
