@@ -20,6 +20,7 @@ import { ENGLISH_Y3_SYLLABUS, ENGLISH_Y3_TOLERANCE } from './y3/english'
 import { SCIENCE_Y3_SYLLABUS, SCIENCE_Y3_TOLERANCE } from './y3/science'
 import { MATH_Y4_SYLLABUS, MATH_Y4_TOLERANCE } from './y4/math'
 import { ENGLISH_Y4_SYLLABUS, ENGLISH_Y4_TOLERANCE } from './y4/english'
+import { SCIENCE_Y4_SYLLABUS, SCIENCE_Y4_TOLERANCE } from './y4/science'
 
 export { MATH_SYLLABUS, ENGLISH_SYLLABUS, SCIENCE_SYLLABUS, GERMAN_SYLLABUS,
   ARABIC_SYLLABUS, RELIGION_SYLLABUS, SOCIAL_SYLLABUS }
@@ -55,19 +56,20 @@ export const TOLERANCE: Record<Subject, readonly string[]> = {
  *  subjects whose content is its own (Year-1 maths, PLAN 167; Year-1
  *  english, PLAN 169a; Year-1 science, PLAN 169b; Year-3 maths, PLAN
  *  169c; Year-3 english, PLAN 169d; Year-3 science, PLAN 169e; Year-4
- *  maths, PLAN 169f; Year-4 english, PLAN 169g); every other year/subject
- *  falls back to the Year-2 lists above — the shared content those years
- *  still run (PLAN 169 replaces them one subject at a time). */
+ *  maths, PLAN 169f; Year-4 english, PLAN 169g; Year-4 science, PLAN
+ *  169h); every other year/subject falls back to the Year-2 lists above —
+ *  the shared content those years still run (PLAN 169 replaces them one
+ *  subject at a time). */
 type YearOverrides = Partial<Record<number, Partial<Record<Subject, readonly string[]>>>>
 
 export const YEAR_SYLLABUS: YearOverrides = {
   1: { math: MATH_Y1_SYLLABUS, english: ENGLISH_Y1_SYLLABUS, science: SCIENCE_Y1_SYLLABUS },
   3: { math: MATH_Y3_SYLLABUS, english: ENGLISH_Y3_SYLLABUS, science: SCIENCE_Y3_SYLLABUS },
-  4: { math: MATH_Y4_SYLLABUS, english: ENGLISH_Y4_SYLLABUS },
+  4: { math: MATH_Y4_SYLLABUS, english: ENGLISH_Y4_SYLLABUS, science: SCIENCE_Y4_SYLLABUS },
 }
 
 export const YEAR_TOLERANCE: YearOverrides = {
   1: { math: MATH_Y1_TOLERANCE, english: ENGLISH_Y1_TOLERANCE, science: SCIENCE_Y1_TOLERANCE },
   3: { math: MATH_Y3_TOLERANCE, english: ENGLISH_Y3_TOLERANCE, science: SCIENCE_Y3_TOLERANCE },
-  4: { math: MATH_Y4_TOLERANCE, english: ENGLISH_Y4_TOLERANCE },
+  4: { math: MATH_Y4_TOLERANCE, english: ENGLISH_Y4_TOLERANCE, science: SCIENCE_Y4_TOLERANCE },
 }
