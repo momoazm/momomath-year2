@@ -13,6 +13,7 @@ import { Y3_ALL_LESSONS, Y3_UNITS } from './years/y3/math'
 import { ENGLISH_Y3_ALL_LESSONS, ENGLISH_Y3_UNITS } from './years/y3/english'
 import { SCIENCE_Y3_ALL_LESSONS, SCIENCE_Y3_UNITS } from './years/y3/science'
 import { Y4_ALL_LESSONS, Y4_UNITS } from './years/y4/math'
+import { ENGLISH_Y4_ALL_LESSONS, ENGLISH_Y4_UNITS } from './years/y4/english'
 
 export interface Curriculum {
   units: UnitDef[]
@@ -44,8 +45,8 @@ const YEAR_2: YearCurriculum = {
 }
 
 /** PLAN 163 — year-keyed registry. Year 2 carries every subject; Year 4
- *  shares the Year-2 english/science objects until its own content lands
- *  (PLAN 169g/169h). Year 1 maths (PLAN 167), english (169a) and science
+ *  shares the Year-2 science object until its own content lands
+ *  (PLAN 169h). Year 1 maths (PLAN 167), english (169a) and science
  *  (169b) plus Year 3 maths (169c) are their own curricula. */
 const YEAR_1: YearCurriculum = {
   math: { units: Y1_UNITS, allLessons: Y1_ALL_LESSONS },
@@ -54,7 +55,7 @@ const YEAR_1: YearCurriculum = {
 }
 
 /** PLAN 169e — Year 3 now owns maths (169c), english (169d) and science
- *  (169e); only Year 4 still shares the Year-2 english/science objects. */
+ *  (169e); only Year 4 still shares the Year-2 science object (169h). */
 const YEAR_3: YearCurriculum = {
   ...CORE,
   math: { units: Y3_UNITS, allLessons: Y3_ALL_LESSONS },
@@ -62,11 +63,12 @@ const YEAR_3: YearCurriculum = {
   science: { units: SCIENCE_Y3_UNITS, allLessons: SCIENCE_Y3_ALL_LESSONS },
 }
 
-/** PLAN 169f — Year 4 owns its own maths; english and science still share
- *  the Year-2 objects until 169g/169h replace them. */
+/** PLAN 169f/169g — Year 4 owns maths and english; only science still
+ *  shares the Year-2 object until 169h replaces it. */
 const YEAR_4: YearCurriculum = {
   ...CORE,
   math: { units: Y4_UNITS, allLessons: Y4_ALL_LESSONS },
+  english: { units: ENGLISH_Y4_UNITS, allLessons: ENGLISH_Y4_ALL_LESSONS },
 }
 
 export const CURRICULA: Record<number, YearCurriculum> = {

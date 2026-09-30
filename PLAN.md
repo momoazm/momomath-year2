@@ -849,7 +849,7 @@ User decisions (clarifying Q&A, 2026-09-28):
   - [x] 169d. Year 3 english
   - [x] 169e. Year 3 science
   - [x] 169f. Year 4 maths
-  - [ ] 169g. Year 4 english
+  - [x] 169g. Year 4 english
   - [ ] 169h. Year 4 science
 - [ ] 170. Gates + ship (all at once): tsc clean, full vitest, precommit;
   local verify-live 23/23 (Year-2 markers MUST stay green) + vgam 78/78; new
