@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { GOOGLE_CLIENT_ID, renderGoogleButton, useAuth, type AuthUser } from '../../engine/auth'
 import { usePlayer } from '../../engine/store'
-import { useSyncStatus } from '../../engine/cloudsave'
+import { useSyncStatus, flushAccountBeforeSwitch } from '../../engine/cloudsave'
 import { resolveGatePhase } from '../../engine/gatePhase'
 import { welcomeHeadingFor } from '../../engine/branding'
 import { MASCOTS, Mascot } from '../mascots/Mascots'
@@ -86,8 +86,19 @@ export function WelcomeGate() {
     let cancelled = false
     renderGoogleButton(btnRef.current, (u: AuthUser, credential: string) => {
       if (cancelled) return
-      signIn(u, credential)
-      sfx.complete()
+      const prev = useAuth.getState()
+      const switching = !!prev.user && prev.user.sub !== u.sub
+      void (async () => {
+        try {
+          // A different Gmail picked: land the outgoing profile on ITS cloud
+          // before its credential is replaced (also recovers any debounce
+          // push that sign-out cleared).
+          if (switching) await flushAccountBeforeSwitch()
+        } finally {
+          signIn(u, credential)
+          sfx.complete()
+        }
+      })()
     }).catch(() => {
       if (!cancelled) setFailed(true)
     })

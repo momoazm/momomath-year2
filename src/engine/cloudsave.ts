@@ -118,6 +118,121 @@ export const pullCloudsave = (credential: string) => authed('GET', credential)
 export const pushCloudsave = (credential: string, save: CloudSave) =>
   authed('PUT', credential, save)
 
+/* ---------- account switch (sign-in with a different Google account) -------
+ * One device = one visible player. The local store therefore belongs to a
+ * single Google account (`ownerSub`); when a DIFFERENT account signs in we
+ * stash the outgoing state under its own key and start the incoming one from
+ * its cached state (or fresh defaults) - never unioning the two profiles.
+ * The server `sanitizeSave` whitelist drops yearLevel/extrasUnlocked/paths,
+ * so the per-account client cache is also what keeps those fields intact when
+ * switching back (see docs/server-handoff.md). */
+
+const OWNER_SUB_KEY = 'momomath-year2-sync-owner'
+const ACCOUNT_CACHE_PREFIX = 'momomath-year2-account:'
+const MAX_ACCOUNT_CACHES = 6
+
+/** Tiny KV over localStorage, injectable so node tests can drive it. */
+export interface AccountKV {
+  get(k: string): string | null
+  set(k: string, v: string): void
+  remove(k: string): void
+  keys(): string[]
+}
+
+const browserKV = (): AccountKV | null => {
+  try {
+    if (typeof window === 'undefined' || !window.localStorage) return null
+    const ls = window.localStorage
+    return {
+      get: (k) => ls.getItem(k),
+      set: (k, v) => ls.setItem(k, v),
+      remove: (k) => ls.removeItem(k),
+      keys: () => Object.keys(ls),
+    }
+  } catch {
+    return null
+  }
+}
+
+let accountKV: AccountKV | null | undefined
+
+function kv(): AccountKV | null {
+  if (accountKV === undefined) accountKV = browserKV()
+  return accountKV
+}
+
+/** Test hook: inject a fake KV (or null to simulate storage-less envs). */
+export function __setAccountKVForTests(next: AccountKV | null): void {
+  accountKV = next
+}
+
+/** merge = same account (or first ever sign-in); switch = a different Google
+ *  sub taking over the device. Sign-out then sign-in is still a switch -
+ *  ownerSub persists across sign-out on purpose. */
+export function accountPullMode(ownerSub: string | null, newSub: string): 'merge' | 'switch' {
+  return ownerSub && ownerSub !== newSub ? 'switch' : 'merge'
+}
+
+export function readOwnerSub(): string | null {
+  return kv()?.get(OWNER_SUB_KEY) ?? null
+}
+
+export function writeOwnerSub(sub: string): void {
+  kv()?.set(OWNER_SUB_KEY, sub)
+}
+
+interface CachedAccount {
+  t: number
+  snap: CloudSave
+}
+
+export function readAccountCache(sub: string): CloudSave | null {
+  const raw = kv()?.get(ACCOUNT_CACHE_PREFIX + sub)
+  if (!raw) return null
+  try {
+    const c = JSON.parse(raw) as CachedAccount
+    return c && c.snap ? c.snap : null
+  } catch {
+    return null
+  }
+}
+
+export function writeAccountCache(sub: string, snap: CloudSave): void {
+  const store = kv()
+  if (!store) return
+  store.set(ACCOUNT_CACHE_PREFIX + sub, JSON.stringify({ t: Date.now(), snap }))
+  const cached = store.keys().filter((k) => k.startsWith(ACCOUNT_CACHE_PREFIX))
+  if (cached.length <= MAX_ACCOUNT_CACHES) return
+  const oldest = cached
+    .map((k) => {
+      try {
+        return [k, (JSON.parse(store.get(k) ?? '{}') as CachedAccount).t ?? 0] as const
+      } catch {
+        return [k, 0] as const
+      }
+    })
+    .sort((a, b) => a[1] - b[1])
+  for (const [k] of oldest.slice(0, cached.length - MAX_ACCOUNT_CACHES)) store.remove(k)
+}
+
+/** Push the CURRENT account's save before a different account signs in, so
+ *  the outgoing profile lands on its own cloud even if the device goes
+ *  offline right after. Best-effort: the local account cache keeps it
+ *  regardless, and pending debounce pushes are recovered here. */
+export async function flushAccountBeforeSwitch(timeoutMs = 4000): Promise<void> {
+  const { user, credential } = useAuth.getState()
+  if (!user?.sub || !credential) return
+  const snap = snapshotFromPlayer(usePlayer.getState())
+  try {
+    await Promise.race([
+      pushCloudsave(credential, snap),
+      new Promise<void>((_, reject) => setTimeout(() => reject(new Error('flush-timeout')), timeoutMs)),
+    ])
+  } catch {
+    /* offline - the local account cache still holds this state */
+  }
+}
+
 /** Whitelisted snapshot of local state — day counters stay per-device. */
 export function snapshotFromPlayer(p: {
   name: string
@@ -527,6 +642,10 @@ export function startCloudSync() {
   let pushTimer: ReturnType<typeof setTimeout> | null = null
   let lastPushedJson = ''
   let applyingRemote = false
+  /** Blocks the debounce push while a switch pull is in flight: pushing the
+   *  reset state before the incoming account's remote lands would let
+   *  newest-wins identity fields (name/mascot) overwrite its cloud. */
+  let switchPullInFlight = false
 
   function pullKey(sub: string, credential: string) {
     return `${sub}:${String(credential).slice(-12)}`
@@ -536,19 +655,53 @@ export function startCloudSync() {
     const key = pullKey(userSub, credential)
     if (initialPullDoneFor === key) return
     initialPullDoneFor = key
+    const owner = readOwnerSub()
+    const mode = accountPullMode(owner, userSub)
+    // This sub owns the device's local state from here on - record it even if
+    // the network is down, so the NEXT sign-in still detects a switch.
+    writeOwnerSub(userSub)
     setRemoteSeen(false)
     setStatus('syncing', 'Loading your progress…')
+    if (mode === 'switch' && owner) {
+      // Local (offline-safe) half of the switch: stash the outgoing profile
+      // under its own key, then start the incoming account from its cache -
+      // or from fresh defaults. Runs before the await so an offline switch
+      // never shows (or pushes) the old profile.
+      switchPullInFlight = true
+      applyingRemote = true
+      try {
+        writeAccountCache(owner, snapshotFromPlayer(usePlayer.getState()))
+        usePlayer.getState().resetForNewAccount()
+        const cached = readAccountCache(userSub)
+        if (cached) usePlayer.getState().applySyncedSnapshot(cached)
+      } finally {
+        applyingRemote = false
+      }
+    }
     try {
       const remote = await pullCloudsave(credential)
       setRemoteSeen(!!remote)
-      const local = snapshotFromPlayer(usePlayer.getState())
-      const merged = mergeCloudSave(local, remote)
-      if (merged && remote) {
+      if (remote && mode === 'switch') {
+        // Remote half: union the account's own save ONTO its (reset) state -
+        // never with the outgoing profile, which was stashed above.
         applyingRemote = true
         try {
-          usePlayer.getState().applySyncedSnapshot(merged)
+          usePlayer.getState().applySyncedSnapshot(remote)
+          // Server sanitizeSave drops `onboarded` - force it so the gate opens.
+          usePlayer.getState().setOnboarded()
         } finally {
           applyingRemote = false
+        }
+      } else if (remote) {
+        const local = snapshotFromPlayer(usePlayer.getState())
+        const merged = mergeCloudSave(local, remote)
+        if (merged) {
+          applyingRemote = true
+          try {
+            usePlayer.getState().applySyncedSnapshot(merged)
+          } finally {
+            applyingRemote = false
+          }
         }
       }
       // Push the converged state back so a fresh device that only read
@@ -559,8 +712,14 @@ export function startCloudSync() {
       usePlayer.getState().setLastSyncedAt(Date.now())
       setStatus('synced', 'Progress syncs across your devices')
     } catch (e) {
+      // A failed switch pull must never push the reset state over the incoming
+      // account's cloud: clear the key so schedulePush retries the pull first
+      // (the key mismatch routes it back here instead of pushing).
+      if (mode === 'switch') initialPullDoneFor = null
       if (e instanceof CloudAuthError) setStatus('expired', 'Tap sign-in again to keep syncing')
       else setStatus('error', 'Offline — progress is safe on this device')
+    } finally {
+      switchPullInFlight = false
     }
   }
 
@@ -568,7 +727,7 @@ export function startCloudSync() {
     if (pushTimer) clearTimeout(pushTimer)
     pushTimer = setTimeout(async () => {
       const { user, credential } = useAuth.getState()
-      if (!user?.sub || !credential || applyingRemote) return
+      if (!user?.sub || !credential || applyingRemote || switchPullInFlight) return
       if (initialPullDoneFor !== pullKey(user.sub, credential)) {
         await initialPull(user.sub, credential)
         return

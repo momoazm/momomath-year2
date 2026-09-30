@@ -256,6 +256,10 @@ interface PlayerState {
   setReligionEnabled: (v: boolean) => void
   setSocialEnabled: (v: boolean) => void
   setOnboarded: () => void
+  /** Sign-in with a DIFFERENT Google account: return every data field to
+   *  fresh-install defaults (freshPlayerState) so the incoming account never
+   *  sees the outgoing one's profile. Device prefs (soundOn) survive. */
+  resetForNewAccount: () => void
   addGems: (n: number) => void
   toggleSound: () => void
   claimQuest: (questId: string, reward: number) => void
@@ -666,34 +670,14 @@ function initialExtraEnabled(key: ExtraKey, subject: ExtraSubject): boolean {
   return new URLSearchParams(window.location.search).get('subject') === subject
 }
 
-export const usePlayer = create<PlayerState>()(
-  persist(
-    (setRaw, get) => {
-      /** PLAN 31/158 — every mutation funnels through here so
-       *  paths[yearLevel] mirrors the top-level per-year fields BEFORE the
-       *  persist middleware writes. Keeps all existing direct field access
-       *  (lessonProgress/subject/arcadeScores/sprintBest) working unchanged. */
-      const set = ((
-        partial: Parameters<typeof setRaw>[0],
-        replace?: false,
-      ) =>
-        setRaw((state) => {
-          const merged = typeof partial === 'function' ? partial(state) : partial
-          if (!merged) return state
-          const year = merged.yearLevel ?? state.yearLevel
-          const paths: Partial<Record<YearLevel, YearPath>> = {
-            ...state.paths,
-            ...merged.paths,
-            [year]: {
-              lessonProgress: merged.lessonProgress ?? state.lessonProgress,
-              subject: merged.subject ?? state.subject,
-              arcadeScores: merged.arcadeScores ?? state.arcadeScores,
-              sprintBest: merged.sprintBest ?? state.sprintBest,
-            },
-          }
-          return { ...merged, paths }
-        }, replace)) as typeof setRaw
-      return {
+/**
+ * Pristine data fields for a brand-new install - one source of truth so
+ * `resetForNewAccount` (signing in with a different Google account) can never
+ * drift from a fresh install. Device prefs (sound, extra-subject pills) are
+ * re-applied by the caller.
+ */
+function freshPlayerState() {
+  return {
       name: 'Champion',
       guestId: newGuestId(),
       mascot: 'sonic' as MascotId,
@@ -729,7 +713,7 @@ export const usePlayer = create<PlayerState>()(
       lessonProgress: {},
       claimedQuests: { day: firstDay, questIds: [] },
       achievements: [],
-      currentLeague: 'Bronze',
+      currentLeague: 'Bronze' as PlayerState['currentLeague'],
       leagueHistory: [],
       lastLeagueSettle: null,
       pendingLeagueSettle: null,
@@ -766,6 +750,38 @@ export const usePlayer = create<PlayerState>()(
       friendsAdded: 0,
       lastSyncedAt: null,
       adaptive: initialAdaptive(),
+  }
+}
+
+export const usePlayer = create<PlayerState>()(
+  persist(
+    (setRaw, get) => {
+      /** PLAN 31/158 — every mutation funnels through here so
+       *  paths[yearLevel] mirrors the top-level per-year fields BEFORE the
+       *  persist middleware writes. Keeps all existing direct field access
+       *  (lessonProgress/subject/arcadeScores/sprintBest) working unchanged. */
+      const set = ((
+        partial: Parameters<typeof setRaw>[0],
+        replace?: false,
+      ) =>
+        setRaw((state) => {
+          const merged = typeof partial === 'function' ? partial(state) : partial
+          if (!merged) return state
+          const year = merged.yearLevel ?? state.yearLevel
+          const paths: Partial<Record<YearLevel, YearPath>> = {
+            ...state.paths,
+            ...merged.paths,
+            [year]: {
+              lessonProgress: merged.lessonProgress ?? state.lessonProgress,
+              subject: merged.subject ?? state.subject,
+              arcadeScores: merged.arcadeScores ?? state.arcadeScores,
+              sprintBest: merged.sprintBest ?? state.sprintBest,
+            },
+          }
+          return { ...merged, paths }
+        }, replace)) as typeof setRaw
+      return {
+      ...freshPlayerState(),
 
       completeLesson: ({ lessonId, xp, correct, totalQuestions, crownsGained, accuracy }) =>
         set((state) => {
@@ -988,6 +1004,10 @@ export const usePlayer = create<PlayerState>()(
           return { socialEnabled: v }
         }),
       setOnboarded: () => set({ onboarded: true }),
+      resetForNewAccount: () =>
+        // setRaw, NOT the paths-mirroring set wrapper: a full replacement of
+        // every data field - stale year buckets in `paths` must NOT survive.
+        setRaw(() => ({ ...freshPlayerState(), soundOn: get().soundOn })),
       addGems: (n) => set((state) => ({ gems: state.gems + n })),
       toggleSound: () =>
         set((state) => {
