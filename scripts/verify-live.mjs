@@ -243,7 +243,7 @@ async function main() {
     const t = m.text()
     // Google Sign-In on localhost always logs a 403 origin error — not the app's.
     if (/GSI_LOGGER|accounts\.google\.com|Failed to load resource.*403/i.test(t)) return
-    errors.push(t)
+    errors.push(t + (m.location()?.url ? ` @ ${m.location().url}` : ''))
   })
   page.setDefaultTimeout(20000)
 
@@ -627,6 +627,130 @@ async function main() {
       `collected=${lib.collected} aria=${lib.ariaCount} sample=${JSON.stringify(lib.starLines.slice(0, 3))}`)
     ok('no always-on NEW badge in library', !lib.hasNewBadge, `hasNewBadge=${lib.hasNewBadge}`)
   }
+
+  // --- PLAN 170: multi-year UI smoke checks at 390px (Year-1 path, fresh
+  // profile year picker, Profile year chip, code-box Year-2-only gating,
+  // trio hidden vs unlocked). Own mobile context so the Year-2 1280px flow
+  // above stays untouched.
+  const mctx = await browser.newContext({ viewport: { width: 390, height: 844 } })
+  const mp = await mctx.newPage()
+  mp.setDefaultTimeout(20000)
+  mp.on('pageerror', (e) => errors.push(String(e)))
+  mp.on('console', (m) => {
+    if (m.type() !== 'error') return
+    const t = m.text()
+    if (/GSI_LOGGER|accounts\.google\.com|Failed to load resource.*403/i.test(t)) return
+    errors.push(t + (m.location()?.url ? ` @ ${m.location().url}` : ''))
+  })
+  const mSeed = (extra) => ({ seed: { ...SEED, state: { ...SEED.state, ...extra } }, auth: AUTH_SEED })
+  const mLoad = async (payload) => {
+    // Land on the origin first: localStorage is denied on about:blank.
+    await mp.goto(`${URL_BASE}?cb=${Date.now()}`, { waitUntil: 'domcontentloaded' })
+    await mp.evaluate(({ seed, auth }) => {
+      localStorage.setItem('momomath-year2-player-v2', JSON.stringify(seed))
+      localStorage.setItem('momomath-year2-auth', JSON.stringify(auth))
+    }, payload)
+    await mp.goto(`${URL_BASE}?cb=${Date.now()}`, { waitUntil: 'domcontentloaded' })
+    await mp.waitForTimeout(1600)
+  }
+  const mProfile = async () => {
+    await mp.evaluate(() => {
+      const b = Array.from(document.querySelectorAll('button'))
+        .find((x) => (x.textContent || '').trim().endsWith('You'))
+      b?.click()
+    })
+    await mp.waitForTimeout(900)
+  }
+  // textContent, not innerText: these headings are CSS-uppercased.
+  const advCount = () =>
+    mp.evaluate(() => (document.body.textContent.match(/Extra adventures/g) || []).length)
+
+  // 1) Year-1 path renders its own roadmap (not the Year-2 one).
+  await mLoad(mSeed({ yearLevel: 1 }))
+  await shot(mp, 'y1-path')
+  const y1path = await mp.evaluate(() => ({
+    roadmap: /Daily goal/i.test(document.body.innerText),
+    y1Node: Array.from(document.querySelectorAll('button[title]')).some((b) => /Count Them All/.test(b.title || '')),
+    y2Node: Array.from(document.querySelectorAll('button[title]')).some((b) => /Count Everything/.test(b.title || '')),
+  }))
+  ok('Year-1 path renders (Year-2 nodes absent)', y1path.roadmap && y1path.y1Node && !y1path.y2Node,
+    JSON.stringify(y1path))
+
+  // 2) Code box is Year-2-only: absent on the Year-1 profile.
+  await mProfile()
+  const codeY1 = await mp.evaluate(() =>
+    !!document.querySelector('[data-testid="unlock-code-box"]') ||
+    !!document.querySelector('[data-testid="unlock-done"]'))
+  await shot(mp, 'y1-profile-no-code-box')
+  ok('code box hidden outside Year 2', !codeY1, `y1 code box=${codeY1}`)
+
+  // 3) Fresh profile (no local save, signed-in user) opens the year picker.
+  await mp.evaluate((auth) => {
+    localStorage.removeItem('momomath-year2-player-v2')
+    localStorage.setItem('momomath-year2-auth', JSON.stringify(auth))
+  }, AUTH_SEED)
+  await mp.goto(`${URL_BASE}?cb=${Date.now()}`, { waitUntil: 'domcontentloaded' })
+  await mp.waitForTimeout(1800)
+  await shot(mp, 'fresh-year-picker')
+  const fresh = await mp.evaluate(() => ({
+    step2: /Step 2 - What year are you in\?/.test(document.body.innerText),
+    yearButtons: Array.from(document.querySelectorAll('button'))
+      .filter((b) => /^Year [1-4]$/.test((b.textContent || '').trim())).length,
+  }))
+  ok('fresh profile opens the year picker', fresh.step2 && fresh.yearButtons === 4, JSON.stringify(fresh))
+
+  // 4) Profile year chip -> switcher -> confirm panel -> cancel (no mutation).
+  await mLoad(mSeed({}))
+  await mProfile()
+  const chipTxt = await mp.evaluate(() => document.querySelector('[data-testid="year-chip"]')?.textContent ?? '')
+  await mp.evaluate(() => document.querySelector('[data-testid="year-chip"]')?.click())
+  await mp.waitForTimeout(400)
+  await mp.evaluate(() => document.querySelector('[data-testid="year-opt-1"]')?.click())
+  await mp.waitForTimeout(400)
+  await shot(mp, 'profile-year-confirm')
+  const yearUI = await mp.evaluate(() => ({
+    switcher: !!document.querySelector('[data-testid="year-switcher"]'),
+    opts: [1, 2, 3, 4].filter((y) => document.querySelector(`[data-testid="year-opt-${y}"]`)).length,
+    confirm: document.querySelector('[data-testid="year-confirm"]')?.innerText ?? '',
+  }))
+  ok('Profile year chip + switcher + confirm',
+    chipTxt.includes('Year 2') && yearUI.switcher && yearUI.opts === 4 &&
+    /Switch to Year 1\?/.test(yearUI.confirm) && /progress is kept/.test(yearUI.confirm),
+    JSON.stringify({ chip: chipTxt.trim(), ...yearUI, confirm: yearUI.confirm.replace(/\n/g, ' ') }))
+  await mp.evaluate(() => document.querySelector('[data-testid="year-cancel"]')?.click())
+  await mp.waitForTimeout(300)
+  const afterCancel = await mp.evaluate(() => ({
+    confirmGone: !document.querySelector('[data-testid="year-confirm"]'),
+    chip: document.querySelector('[data-testid="year-chip"]')?.textContent ?? '',
+  }))
+  ok('year-switch cancel keeps Year 2', afterCancel.confirmGone && afterCancel.chip.includes('Year 2'),
+    JSON.stringify(afterCancel))
+
+  // 5) Code box VISIBLE in Year 2 (default locked state) + trio HIDDEN.
+  await mp.evaluate(() =>
+    document.querySelector('[data-testid="unlock-code-box"]')?.scrollIntoView({ block: 'center' }))
+  await mp.waitForTimeout(400)
+  await shot(mp, 'y2-code-box')
+  const codeY2 = await mp.evaluate(() => !!document.querySelector('[data-testid="unlock-code-box"]'))
+  ok('code box shown in Year 2 (locked state)', codeY2, `y2 code box=${codeY2}`)
+  const trioHidden = await advCount()
+  ok('trio hidden before extras unlock', trioHidden === 1,
+    `'Extra adventures' sections=${trioHidden} (German only)`)
+
+  // 6) Trio VISIBLE after extras unlock (+ unlock-done marker replaces box).
+  await mLoad(mSeed({ extrasUnlocked: true }))
+  await mProfile()
+  const trioShown = await advCount()
+  const doneShown = await mp.evaluate(() => !!document.querySelector('[data-testid="unlock-done"]'))
+  await mp.evaluate(() =>
+    Array.from(document.querySelectorAll('section.card-white'))
+      .find((s) => /Extra adventures/.test(s.textContent || ''))?.scrollIntoView({ block: 'center' }))
+  await mp.waitForTimeout(400)
+  await shot(mp, 'y2-trio-unlocked')
+  ok('trio visible after extras unlock', trioShown === 4 && doneShown,
+    `sections=${trioShown} unlockDone=${doneShown}`)
+  await shot(mp, 'y2-trio-unlocked-bottom')
+  await mctx.close()
 
   ok('no page errors', errors.length === 0,
     errors.length ? errors.slice(0, 3).join(' | ') : 'zero pageerror/console errors')
