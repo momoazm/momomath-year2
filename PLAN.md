@@ -851,7 +851,7 @@ User decisions (clarifying Q&A, 2026-09-28):
   - [x] 169f. Year 4 maths
   - [x] 169g. Year 4 english
   - [x] 169h. Year 4 science
-- [ ] 170. Gates + ship (all at once): tsc clean, full vitest, precommit;
+- [x] 170. Gates + ship (all at once): tsc clean, full vitest, precommit;
   local verify-live 23/23 (Year-2 markers MUST stay green) + vgam 78/78; new
   smoke checks: Year-1 path renders, year picker on a fresh profile, Profile
   year chip, code box Year-2-only, trio hidden vs unlocked states, all at

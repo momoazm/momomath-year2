@@ -14,7 +14,12 @@ import { join } from 'node:path'
 const ROOT = new URL('..', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1')
 const BASE = '/momomath-year2/'
 const LIVE_URL = 'https://momoazm.github.io/momomath-year2/'
-const MUST_CONTAIN = ['apps.googleusercontent.com', 'Momo Year 2 Cambridge']
+// Markers live in the JS bundle. PLAN 166 made the branding year-neutral
+// (`Momo Year ${year} Cambridge`), so the old contiguous literal
+// "Momo Year 2 Cambridge" no longer exists in minified output — check the
+// template fragments instead (the static <title> in index.html still carries
+// the full literal and is asserted by verify-live).
+const MUST_CONTAIN = ['apps.googleusercontent.com', 'Momo Year ', 'Learning Adventure']
 const ALLOW_NO_SNAPSHOT = process.argv.includes('--allow-no-snapshot')
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
