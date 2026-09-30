@@ -879,4 +879,4 @@ own smoke checks, not extra vgam assertions).
 - [x] 7. Confetti burst when the unit-trophy ("Unit mastered!") modal pops.
 - [x] 8. Subject-aware scenery - science = starry night, english = sunrise, maths/default = day (body sky gradient + Scenery layers).
 - [x] 9. Tests for new pure helpers (ring dash math, unlocked-key diff) + full gates (tsc, vitest, precommit, verify-live 37/37, vgam 80/80, audits untouched content).
-- [ ] 10. Commit -> deploy (auto pre-deploy snapshot) -> live verify -> report.
+- [x] 10. Commits f722c95 + 1f38345 -> deploy snapshot 20260930132125_1f38345 -> live verify 37/37 + 80/80, new-code markers in served bundle.
