@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
+import confetti from 'canvas-confetti'
 import { getCurriculum } from '../content/registry'
 import { isLessonUnlocked, isUnitActivityUnlocked, nextActiveLesson } from '../engine/path'
 import { usePlayer } from '../engine/store'
@@ -87,6 +88,44 @@ export function roadsideSide(offset: number, seed: number): 'left' | 'right' {
   return seed % 2 === 0 ? 'left' : 'right'
 }
 
+/* ---------------- unit progress ring + unlock-flash helpers ---------------- *
+ * Pure so the node test env can cover them (no DOM). The ring shows how many
+ * lessons of a unit are PERFECTED (bestAccuracy 100); the key-diff decides
+ * which nodes deserve a "just opened!" glow — snapshots live in sessionStorage
+ * so a node flashes when you come BACK to the path after unlocking it. */
+
+export function unitPerfected(u: UnitDef, progress: ProgressMap): number {
+  return u.lessons.filter((l) => (progress[l.id]?.bestAccuracy ?? 0) >= 100).length
+}
+
+/** stroke-dasharray math for an SVG progress ring (clamped to 0..1). */
+export function ringDash(value: number, total: number, r = 15): { dash: string; pct: number } {
+  const c = 2 * Math.PI * r
+  const pct = total > 0 ? Math.min(1, Math.max(0, value / total)) : 0
+  return { dash: `${(pct * c).toFixed(2)} ${c.toFixed(2)}`, pct }
+}
+
+/** Keys of every node that is currently open: lessons + book + practice + activity. */
+export function collectUnlockedKeys(units: UnitDef[], progress: ProgressMap): Set<string> {
+  const keys = new Set<string>()
+  units.forEach((u, ui) => {
+    u.lessons.forEach((l, li) => {
+      if (isLessonUnlocked(ui, li, progress, units)) keys.add(`l:${l.id}`)
+    })
+    if (u.book && isLessonUnlocked(ui, 0, progress, units)) keys.add(`b:${u.id}`)
+    if (u.lessons.every((l) => (progress[l.id]?.completions ?? 0) > 0)) {
+      keys.add(`p:${u.id}`)
+      if (isUnitActivityUnlocked(u, progress)) keys.add(`a:${u.id}`)
+    }
+  })
+  return keys
+}
+
+/** Nodes that opened since the last snapshot → they get the unlock glow. */
+export function newlyUnlocked(prev: Set<string>, next: Set<string>): string[] {
+  return [...next].filter((k) => !prev.has(k))
+}
+
 /** Decorative-only: pointer-events-none so node taps/tests pass straight
  *  through; aria-hidden because it's ambience, not content. */
 function RoadsideChar({ cast, side }: { cast: { id: string; expression: Expression } | null; side: 'left' | 'right' }) {
@@ -114,7 +153,7 @@ function shade(hex: string, amt = 42) {
 type ProgressMap = Record<string, { completions: number; bestAccuracy: number }>
 
 function unitDone(u: UnitDef, progress: ProgressMap) {
-  return u.lessons.every((l) => (progress[l.id]?.bestAccuracy ?? 0) >= 100)
+  return unitPerfected(u, progress) === u.lessons.length
 }
 
 export function PathScreen({
@@ -137,6 +176,16 @@ export function PathScreen({
   const nextRef = useRef<HTMLButtonElement | null>(null)
   const [lockedMsg, setLockedMsg] = useState<string | null>(null)
   const [trophy, setTrophy] = useState<{ unitId: string; label: string } | null>(null)
+  // floating stack: mini daily-goal chip only when the big banner scrolled away
+  const goalRef = useRef<HTMLDivElement | null>(null)
+  const [bannerGone, setBannerGone] = useState(false)
+  useEffect(() => {
+    const el = goalRef.current
+    if (!el || typeof IntersectionObserver === 'undefined') return
+    const io = new IntersectionObserver(([e]) => setBannerGone(!e.isIntersecting), { threshold: 0.1 })
+    io.observe(el)
+    return () => io.disconnect()
+  }, [])
   const { units, lessonCount, subjectLabel } = useMemo(() => {
     const c = getCurriculum(player.subject, player.yearLevel)
     return {
@@ -159,6 +208,37 @@ export function PathScreen({
     }
   }, [player.subject, player.yearLevel])
 
+  // "just unlocked!" glow: diff the open-node keys against the last snapshot in
+  // sessionStorage (survives the battle screen unmount), then flash for 3s.
+  const unlockedKeys = useMemo(
+    () => collectUnlockedKeys(units, player.lessonProgress),
+    [units, player.lessonProgress],
+  )
+  const [flashKeys, setFlashKeys] = useState<ReadonlySet<string>>(new Set())
+  useEffect(() => {
+    const storeKey = `momomath-year2-unlocked:${player.subject}:${player.yearLevel}`
+    let stored: Set<string> | null = null
+    try {
+      const raw = sessionStorage.getItem(storeKey)
+      if (raw) stored = new Set(JSON.parse(raw) as string[])
+    } catch {
+      stored = null
+    }
+    try {
+      sessionStorage.setItem(storeKey, JSON.stringify([...unlockedKeys]))
+    } catch {
+      /* storage optional */
+    }
+    if (!stored) return
+    const fresh = newlyUnlocked(stored, unlockedKeys)
+    if (fresh.length > 0) setFlashKeys(new Set(fresh))
+    // always (re)schedule the clear: StrictMode's double-run must never strand
+    // the glow by clearing the only timer before a second run re-flashes.
+    const t = setTimeout(() => setFlashKeys(new Set()), 3000)
+    return () => clearTimeout(t)
+  }, [unlockedKeys, player.subject, player.yearLevel])
+  const flashCls = (key: string) => (flashKeys.has(key) ? ' animate-unlock-flash' : '')
+
   // pulse the NEXT LESSON TO BE DONE (PLAN 121): first unlocked lesson never
   // tried — the badge moves forward as soon as a lesson is started; when every
   // lesson has been tried it falls back to the first unlocked not-yet-perfected
@@ -176,6 +256,11 @@ export function PathScreen({
     for (const u of units) {
       if (unitDone(u, player.lessonProgress) && !player.unitsCelebrated.includes(u.id)) {
         setTrophy({ unitId: u.id, label: `Unit ${u.order} · ${u.icon} ${u.title}` })
+        try {
+          confetti({ particleCount: 140, spread: 80, origin: { y: 0.5 }, disableForReducedMotion: true })
+        } catch {
+          /* confetti optional */
+        }
         break
       }
     }
@@ -253,7 +338,7 @@ export function PathScreen({
         </motion.button>
       )}
       {/* daily goal banner */}
-      <div className="card-white mb-5 flex items-center gap-3">
+      <div ref={goalRef} data-testid="goal-banner" className="card-white mb-5 flex items-center gap-3">
         <div className="h-12 w-12 shrink-0">
           <Mascot id={player.mascot} expression="happy" />
         </div>
@@ -308,6 +393,8 @@ export function PathScreen({
 
       {units.map((u, ui) => {
         const done = unitDone(u, player.lessonProgress)
+        const perfected = unitPerfected(u, player.lessonProgress)
+        const ring = ringDash(perfected, u.lessons.length, 14)
         return (
           <section key={u.id} className="mb-8">
             <motion.header
@@ -325,6 +412,37 @@ export function PathScreen({
                 <p className="text-xs font-bold opacity-90">{u.subtitle}</p>
               </div>
               <div className="flex items-center gap-1.5">
+                <span
+                  title={`${perfected}/${u.lessons.length} lessons at 100%`}
+                  data-testid="unit-ring"
+                  className="shrink-0"
+                >
+                  <svg width="34" height="34" viewBox="0 0 34 34" aria-hidden>
+                    <g transform="rotate(-90 17 17)">
+                      <circle cx="17" cy="17" r="14" fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth="4" />
+                      <circle
+                        cx="17"
+                        cy="17"
+                        r="14"
+                        fill="none"
+                        stroke="#ffffff"
+                        strokeWidth="4"
+                        strokeLinecap="round"
+                        strokeDasharray={ring.dash}
+                      />
+                    </g>
+                    <text
+                      x="17"
+                      y="17.5"
+                      textAnchor="middle"
+                      dominantBaseline="central"
+                      className="fill-white font-display"
+                      style={{ fontSize: 9.5, fontWeight: 800 }}
+                    >
+                      {perfected}/{u.lessons.length}
+                    </text>
+                  </svg>
+                </span>
                 {u.book && (
                   <span title={player.booksRead[u.book.id] ? 'Book read!' : 'Unit book'} className="text-xl">
                     📖{player.booksRead[u.book.id] ? '✅' : ''}
@@ -334,7 +452,17 @@ export function PathScreen({
               </div>
             </motion.header>
 
-            <ol className="flex flex-col items-center gap-8">
+            <ol className="relative flex flex-col items-center gap-8">
+              {/* dashed road spine - nodes read as one connected path */}
+              <span
+                aria-hidden
+                data-testid="path-road"
+                className="pointer-events-none absolute inset-y-1 left-1/2 w-[6px] -translate-x-1/2 rounded-full"
+                style={{
+                  backgroundImage:
+                    'repeating-linear-gradient(to bottom, rgba(255,255,255,0.92) 0 10px, rgba(255,255,255,0) 10px 22px)',
+                }}
+              />
               {/* 📖 Book node — a NORMAL roadmap node (same markup as lesson
                   nodes), first in the unit so reading opens each unit. */}
               {u.book && (() => {
@@ -371,7 +499,7 @@ export function PathScreen({
                         bookUnlocked ? `📖 ${u.book.title}` : 'Finish the first lesson to unlock the book!'
                       }
                     >
-                      <span className="relative rounded-full bg-white p-1.5 shadow-pop">
+                      <span className={`relative rounded-full bg-white p-1.5 shadow-pop${flashCls(`b:${u.id}`)}`}>
                         {bookUnlocked && !read && (
                           <span className="animate-pulse-ring absolute inset-0 rounded-full border-4 border-sky-400" />
                         )}
@@ -448,7 +576,7 @@ export function PathScreen({
                       }`}
                       title={unlocked ? l.title : 'Finish the previous lesson first to unlock!'}
                     >
-                      <span className="relative rounded-full bg-white p-1.5 shadow-pop">
+                      <span className={`relative rounded-full bg-white p-1.5 shadow-pop${flashCls(`l:${l.id}`)}`}>
                         {isActive && (
                           <span className="animate-pulse-ring absolute inset-0 rounded-full border-4 border-emerald-400" />
                         )}
@@ -523,7 +651,7 @@ export function PathScreen({
                         onStartLesson(weakest.id)
                       }}
                     >
-                      <span className="relative rounded-full bg-white p-1.5 shadow-pop">
+                      <span className={`relative rounded-full bg-white p-1.5 shadow-pop${flashCls(`p:${u.id}`)}`}>
                         <span
                           className={`relative flex h-14 w-14 items-center justify-center rounded-full border-b-4 text-xl ${
                             allTried ? 'border-black/15 text-white' : 'border-black/5 bg-slate-300 text-white'
@@ -582,7 +710,7 @@ export function PathScreen({
                         onOpenActivity(u.id)
                       }}
                     >
-                      <span className="relative rounded-full bg-white p-1.5 shadow-pop">
+                      <span className={`relative rounded-full bg-white p-1.5 shadow-pop${flashCls(`a:${u.id}`)}`}>
                         {activityUnlocked && unitBest === 0 && (
                           <span className="animate-pulse-ring absolute inset-0 rounded-full border-4 border-violet-400" />
                         )}
@@ -620,6 +748,49 @@ export function PathScreen({
       <footer className="pb-4 text-center text-xs font-bold text-slate-300">
         {roadmapFooterFor(player.yearLevel, subjectLabel, lessonCount)}
       </footer>
+
+      {/* floating stack: jump-to-START + mini daily-goal chip (hidden while the
+          big banner is on screen) */}
+      <div className="fixed bottom-24 right-3 z-30 flex flex-col items-end gap-2" data-testid="path-float">
+        {bannerGone && (
+          <motion.button
+            data-testid="goal-chip"
+            initial={{ opacity: 0, scale: 0.85 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.18 }}
+            title="Back to the daily goal"
+            onClick={() => {
+              sfx.tap()
+              window.scrollTo({ top: 0, behavior: 'smooth' })
+            }}
+            className="flex items-center gap-2 rounded-full border-2 border-white bg-white/95 px-3 py-1.5 shadow-pop"
+          >
+            <span aria-hidden className="text-sm">🔥</span>
+            <span className="font-display text-xs font-extrabold tabular-nums text-slate-700">
+              {Math.min(player.todayXp, player.dailyGoal)}/{player.dailyGoal} XP
+            </span>
+            <span className="block h-2 w-12 overflow-hidden rounded-full bg-slate-200">
+              <span
+                className="block h-full rounded-full bg-gradient-to-r from-amber-400 to-orange-500"
+                style={{ width: `${Math.min(100, (player.todayXp / player.dailyGoal) * 100)}%` }}
+              />
+            </span>
+          </motion.button>
+        )}
+        <motion.button
+          data-testid="jump-active"
+          whileTap={{ scale: 0.92 }}
+          title="Jump to your next lesson"
+          aria-label="Jump to your next lesson"
+          onClick={() => {
+            sfx.tap()
+            nextRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+          }}
+          className="grid h-12 w-12 place-items-center rounded-full border-2 border-white bg-[#58cc02] text-2xl font-extrabold leading-none text-white shadow-pop"
+        >
+          ↓
+        </motion.button>
+      </div>
 
       {/* friendly locked-node popup (PLAN 75) */}
       {lockedMsg && (

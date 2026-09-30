@@ -66,6 +66,11 @@ export default {
           '0%,100%': { transform: 'rotate(-1.2deg)' },
           '50%': { transform: 'rotate(1.2deg)' },
         },
+        'unlock-flash': {
+          '0%': { transform: 'scale(1)', boxShadow: '0 0 0 0 rgba(255,255,255,0.95), 0 0 22px 8px rgba(52,211,155,0.9)' },
+          '55%': { transform: 'scale(1.14)', boxShadow: '0 0 0 10px rgba(255,255,255,0), 0 0 28px 12px rgba(52,211,155,0.55)' },
+          '100%': { transform: 'scale(1)', boxShadow: '0 0 0 0 rgba(255,255,255,0), 0 0 0 0 rgba(52,211,155,0)' },
+        },
       },
       animation: {
         'float-y': 'float-y 2.4s ease-in-out infinite',
@@ -79,6 +84,7 @@ export default {
         'ring-bob': 'ring-bob 4s ease-in-out infinite',
         'pulse-ring': 'pulse-ring 1.5s ease-out infinite',
         'quill-sway': 'quill-sway 3.2s ease-in-out infinite',
+        'unlock-flash': 'unlock-flash 1.3s ease-out 2',
       },
     },
   },

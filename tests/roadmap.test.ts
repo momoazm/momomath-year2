@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { migratePersisted, usePlayer } from '../src/engine/store'
 import { ENGLISH_UNITS } from '../src/content/english'
-import { kindFor, KIND_ICON, roadsideCast, roadsideSide } from '../src/screens/PathScreen'
+import { kindFor, KIND_ICON, roadsideCast, roadsideSide, unitPerfected, ringDash, collectUnlockedKeys, newlyUnlocked } from '../src/screens/PathScreen'
 import { isLessonUnlocked } from '../src/engine/path'
 import { ACHIEVEMENTS, type AchievementSnapshot } from '../src/engine/gamification'
 
@@ -264,5 +264,66 @@ describe('roadside characters (path ambience)', () => {
     expect(practice?.expression).toBe('thinking')
     expect(activity?.expression).toBe('excited')
     expect([book!.id, practice!.id, activity!.id].every((id) => typeof id === 'string' && id.length > 0)).toBe(true)
+  })
+})
+
+describe('unit progress ring (Phase 32)', () => {
+  it('unitPerfected counts only lessons at 100 bestAccuracy', () => {
+    const u = ENGLISH_UNITS[0]
+    const progress: Record<string, { completions: number; bestAccuracy: number }> = {}
+    expect(unitPerfected(u, progress)).toBe(0)
+    u.lessons.forEach((l, i) => {
+      progress[l.id] = { completions: 1, bestAccuracy: i < 3 ? 100 : 62 }
+    })
+    expect(unitPerfected(u, progress)).toBe(3)
+    progress[u.lessons[0].id] = { completions: 2, bestAccuracy: 99 }
+    expect(unitPerfected(u, progress)).toBe(2)
+  })
+
+  it('ringDash clamps to 0..1 and survives an empty unit', () => {
+    expect(ringDash(4, 7).pct).toBeCloseTo(4 / 7, 5)
+    expect(ringDash(9, 7).pct).toBe(1)
+    expect(ringDash(-2, 7).pct).toBe(0)
+    expect(ringDash(3, 0).pct).toBe(0)
+    const c = (2 * Math.PI * 14).toFixed(2)
+    expect(ringDash(0, 5, 14).dash).toBe(`0.00 ${c}`)
+    expect(ringDash(5, 5, 14).dash).toBe(`${c} ${c}`)
+    expect(ringDash(7, 7).pct).toBe(1)
+  })
+})
+
+describe('unlock-flash key diff (Phase 32)', () => {
+  it('fresh save: unit 1 lesson 1 + its book are the only open nodes', () => {
+    const units = ENGLISH_UNITS
+    const keys = collectUnlockedKeys(units, {})
+    expect(keys.has(`l:${units[0].lessons[0].id}`)).toBe(true)
+    expect(keys.has(`b:${units[0].id}`)).toBe(true)
+    expect(keys.has(`l:${units[0].lessons[1].id}`)).toBe(false)
+    expect([...keys].some((k) => k.startsWith('p:') || k.startsWith('a:'))).toBe(false)
+    expect(keys.has(`b:${units[1].id}`)).toBe(false)
+  })
+
+  it('trying every lesson of a unit opens its practice + activity nodes', () => {
+    const units = ENGLISH_UNITS
+    const progress = Object.fromEntries(
+      units[0].lessons.map((l) => [l.id, { completions: 1, bestAccuracy: 40 }]),
+    )
+    const keys = collectUnlockedKeys(units, progress)
+    expect(keys.has(`p:${units[0].id}`)).toBe(true)
+    expect(keys.has(`a:${units[0].id}`)).toBe(true)
+    expect(keys.has(`l:${units[1].lessons[0].id}`)).toBe(true) // boss beaten → unit 2 opens
+    expect(keys.has(`l:${units[1].lessons[1].id}`)).toBe(false)
+  })
+
+  it('newlyUnlocked reports only keys that appeared since the snapshot', () => {
+    const units = ENGLISH_UNITS
+    const before = collectUnlockedKeys(units, {})
+    const after = collectUnlockedKeys(units, {
+      [units[0].lessons[0].id]: { completions: 1, bestAccuracy: 60 },
+    })
+    const fresh = newlyUnlocked(before, after)
+    expect(fresh).toEqual([`l:${units[0].lessons[1].id}`])
+    expect(newlyUnlocked(after, after)).toEqual([])
+    expect(newlyUnlocked(after, before)).toEqual([]) // re-locks never flash
   })
 })
