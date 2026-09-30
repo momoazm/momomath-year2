@@ -887,4 +887,4 @@ own smoke checks, not extra vgam assertions).
 - [x] 3. A/B perf probe: .gpu will-change / body bg-attachment / scenery drift / sticky motion - all within noise after step 1 -> no pre-existing behavior changed.
 - [x] 4. Error sweep across 7 subjects x all tabs + sign-out gate (probe must target the YOU nav button) - fixed probe (nav-scoped case-insensitive matcher, err splicing), 49 page states -> zero pageerror/console errors.
 - [x] 5. Duolingo-style idle animation for roadside characters - animate-char-idle gentle bob, deterministic per-mascot delay, only while the mascot is mounted (reduced-motion honored by the global media rule). CSS lives in src/styles/index.css (dev server does not reload tailwind.config.js - `char-idle`/`unlock-flash` entries removed from config).
-- [ ] 6. Full gates (tsc, vitest, precommit, verify-live 37/37, vgam 80/80) -> commit -> deploy (snapshot) -> live verify -> report.
+- [x] 6. Full gates (tsc, vitest 1922/110, precommit, verify-live 37/37, vgam 80/80) -> commit 73ef7de -> deploy (snapshot, live=assets/index-CyTZ5Noz.js) -> live verify 37/37 + 80/80 + char-idle markers -> done.
