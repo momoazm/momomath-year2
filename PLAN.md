@@ -858,7 +858,7 @@ User decisions (clarifying Q&A, 2026-09-28):
   390px screenshots reviewed -> commit -> push -> node scripts/deploy.mjs
   (mandatory pre-deploy snapshot runs as step 0) -> live verify-live + vgam +
   manifest/sw 200 + new bundle markers -> PLAN ticks -> docs commit.
-- [ ] 171. Server handoff report: write the momolearn-ai change list into this
+- [x] 171. Server handoff report: write the momolearn-ai change list into this
   PLAN (or docs/): cloudsave snapshot whitelist += yearLevel/extrasUnlocked/
   paths; optional leaderboard proper `year` field superseding the id namespace.
   Server code stays untouched - that repo is read-only from here.
