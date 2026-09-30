@@ -1,7 +1,7 @@
 {
-  "name": "Momo Year 2 Cambridge - Learning Adventure",
-  "short_name": "Momo Year 2",
-  "description": "Cambridge Primary Year 2 practice for maths, English, science, German, Arabic, religion and social studies — with Sonic and friends. Streaks, quests, leagues and 100 collectible cards.",
+  "name": "Momo Cambridge - Learning Adventure",
+  "short_name": "Momo Cambridge",
+  "description": "Cambridge Primary practice for maths, English, science and more - with Sonic and friends. Streaks, quests, leagues and 100 collectible cards.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
