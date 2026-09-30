@@ -869,3 +869,14 @@ verify-live + vgam are Year-2 scoped and must not regress (new years get their
 own smoke checks, not extra vgam assertions).
 
   - Provenance: zero new cross-project files/deps (native code only).
+## Phase 32 - Roadmap roadside characters + path visual upgrades (user "do all" 2026-09-30)
+- [x] 1. Roadside characters beside every roadmap node - RoadsideChar + roadsideCast/roadsideSide (active/boss/book/practice/activity/ambient rosters, boss precedence, never own mascot), wired into all 4 li's; tests roadmap.test.ts (23); gates 1917 vitest / 37 live / 80 vgam.
+- [ ] 2. Dashed road spine behind each unit's <ol> so nodes read as one path.
+- [ ] 3. Jump-to-active pill (floating, scrolls to the START node).
+- [ ] 4. Sticky mini daily-goal chip - shows when the daily-goal banner scrolls out of view; tap scrolls back to top.
+- [ ] 5. Unit progress ring (perfected x/y lessons) on the sticky unit headers.
+- [ ] 6. Newly-unlocked flash - sessionStorage key diff on mount -> animate-unlock-flash on nodes that just opened.
+- [ ] 7. Confetti burst when the unit-trophy ("Unit mastered!") modal pops.
+- [ ] 8. Subject-aware scenery - science = starry night, english = sunrise, maths/default = day (body sky gradient + Scenery layers).
+- [ ] 9. Tests for new pure helpers (ring dash math, unlocked-key diff) + full gates (tsc, vitest, precommit, verify-live 37/37, vgam 80/80, audits untouched content).
+- [ ] 10. Commit -> deploy (auto pre-deploy snapshot) -> live verify -> report.

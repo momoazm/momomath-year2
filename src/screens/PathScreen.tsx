@@ -10,7 +10,7 @@ import { displayStreak, isStreakActive } from '../engine/gamification'
 import { roadmapFooterFor } from '../engine/branding'
 import { Mascot } from '../components/mascots/Mascots'
 import { sfx } from '../engine/sfx'
-import type { LessonDef, UnitDef } from '../content/types'
+import type { Expression, LessonDef, UnitDef } from '../content/types'
 
 const OFFSETS = [0, 44, 64, 0, -44, -64] // zigzag x-offsets like Duolingo's winding path
 
@@ -19,6 +19,87 @@ export type NodeKind = 'lesson' | 'boss' | 'book' | 'practice' | 'activity'
 export const KIND_ICON: Record<NodeKind, string> = { lesson: '⭐', boss: '👑', book: '📖', practice: '🔁', activity: '🎯' }
 export function kindFor(l: LessonDef): NodeKind {
   return l.id.endsWith('boss') ? 'boss' : 'lesson'
+}
+
+/* ---------------------- roadside characters (cast) ---------------------- *
+ * Deterministic mascots standing beside the path so the roadmap reads like
+ * a populated world map: your own buddy cheers on the active lesson, a rival
+ * guards each boss, themed friends sit at book/practice/activity nodes, and
+ * every third lesson gets an ambient friend who "thinks" (guards) any still-
+ * locked stretch and cheers once it's perfected. Pure functions so the node
+ * test env can cover them (it can't render JSX). */
+
+export type RoadsideRole = 'active' | 'boss' | 'book' | 'practice' | 'activity' | 'ambient'
+
+const BOSS_RIVALS = ['shadow', 'eggman', 'metal', 'omega', 'jet'] as const
+const BOOK_READERS = ['cream', 'big', 'tails', 'rouge'] as const
+const PRACTICE_THINKERS = ['silver', 'espio', 'ray'] as const
+const ACTIVITY_HYPES = ['knuckles', 'blaze', 'charmy', 'vector'] as const
+const AMBIENT_FRIENDS = ['amy', 'tails', 'cream', 'ray', 'charmy', 'big', 'vector', 'jet', 'blaze', 'rouge'] as const
+
+function pickFrom(roster: readonly string[], seed: number, avoid?: string): string {
+  const id = roster[((seed % roster.length) + roster.length) % roster.length]
+  if (avoid && id === avoid) return roster[(seed + 1) % roster.length]
+  return id
+}
+
+/** Who stands beside this node and what face they make. `cleared` = crown-3
+ *  / read book / beaten unit; `unlocked` drives the thinking-guard face. */
+export function roadsideCast(
+  role: RoadsideRole,
+  o: {
+    unitIdx: number
+    slot: number
+    unlocked: boolean
+    cleared?: boolean
+    isActive?: boolean
+    playerMascot: string
+  },
+): { id: string; expression: Expression } | null {
+  const seed = o.unitIdx * 7 + o.slot
+  switch (role) {
+    case 'active':
+      return { id: o.playerMascot, expression: 'excited' }
+    case 'boss':
+      return { id: BOSS_RIVALS[o.unitIdx % BOSS_RIVALS.length], expression: o.unlocked ? 'excited' : 'thinking' }
+    case 'book':
+      return { id: pickFrom(BOOK_READERS, seed), expression: o.cleared ? 'happy' : o.unlocked ? 'excited' : 'thinking' }
+    case 'practice':
+      return { id: pickFrom(PRACTICE_THINKERS, seed), expression: o.unlocked ? 'excited' : 'thinking' }
+    case 'activity':
+      return { id: pickFrom(ACTIVITY_HYPES, seed), expression: o.unlocked ? 'excited' : 'thinking' }
+    case 'ambient': {
+      if (o.isActive) return null // the active node gets its own companion
+      return {
+        id: pickFrom(AMBIENT_FRIENDS, seed, o.playerMascot),
+        expression: o.unlocked ? (o.cleared ? 'cheer' : 'happy') : 'thinking',
+      }
+    }
+  }
+}
+
+/** Which edge the character stands on: toward the path centre so it never
+ *  pushes past the container on narrow phones (node offsets run +/-64px).
+ *  Zero offsets alternate by seed so same-row pairs don't stack a side. */
+export function roadsideSide(offset: number, seed: number): 'left' | 'right' {
+  if (offset > 0) return 'left'
+  if (offset < 0) return 'right'
+  return seed % 2 === 0 ? 'left' : 'right'
+}
+
+/** Decorative-only: pointer-events-none so node taps/tests pass straight
+ *  through; aria-hidden because it's ambience, not content. */
+function RoadsideChar({ cast, side }: { cast: { id: string; expression: Expression } | null; side: 'left' | 'right' }) {
+  if (!cast) return null
+  return (
+    <span
+      aria-hidden
+      data-testid="roadside-char"
+      className={`pointer-events-none absolute top-1 h-14 w-14 ${side === 'left' ? 'right-full mr-2' : 'left-full ml-2'}`}
+    >
+      <Mascot id={cast.id} expression={cast.expression} />
+    </span>
+  )
 }
 
 /** Darken a hex color for gradient bottoms. */
@@ -260,8 +341,16 @@ export function PathScreen({
                 const bookUnlocked = isLessonUnlocked(ui, 0, player.lessonProgress, units)
                 const read = !!player.booksRead[u.book.id]
                 const offsetBook = OFFSETS[(ui * 3 + u.lessons.length + 2) % OFFSETS.length]
+                const cast = roadsideCast('book', {
+                  unitIdx: ui,
+                  slot: 50,
+                  unlocked: bookUnlocked,
+                  cleared: read,
+                  playerMascot: player.mascot,
+                })
                 return (
-                  <li style={{ transform: `translateX(${offsetBook}px)` }}>
+                  <li className="relative" style={{ transform: `translateX(${offsetBook}px)` }}>
+                    <RoadsideChar cast={cast} side={roadsideSide(offsetBook, ui * 2 + 1)} />
                     <button
                       aria-disabled={!bookUnlocked}
                       data-testid="book-node"
@@ -318,8 +407,23 @@ export function PathScreen({
                 const offset = OFFSETS[(ui * 3 + li) % OFFSETS.length]
                 const nodeKind = kindFor(l)
                 const isBoss = nodeKind === 'boss'
+                const cast = isBoss
+                  ? roadsideCast('boss', { unitIdx: ui, slot: li, unlocked, playerMascot: player.mascot })
+                  : isActive
+                    ? roadsideCast('active', { unitIdx: ui, slot: li, unlocked, playerMascot: player.mascot })
+                    : li % 3 === 2
+                      ? roadsideCast('ambient', {
+                          unitIdx: ui,
+                          slot: li,
+                          unlocked,
+                          cleared: crowns >= 3,
+                          isActive,
+                          playerMascot: player.mascot,
+                        })
+                      : null
                 return (
-                  <li key={l.id} style={{ transform: `translateX(${offset}px)` }}>
+                  <li key={l.id} className="relative" style={{ transform: `translateX(${offset}px)` }}>
+                    {cast && <RoadsideChar cast={cast} side={roadsideSide(offset, ui + li)} />}
                     <button
                       ref={isActive ? nextRef : undefined}
                       aria-disabled={!unlocked}
@@ -390,8 +494,15 @@ export function PathScreen({
                     : b,
                 )
                 const offset = OFFSETS[(ui * 3 + u.lessons.length) % OFFSETS.length]
+                const cast = roadsideCast('practice', {
+                  unitIdx: ui,
+                  slot: 60,
+                  unlocked: allTried,
+                  playerMascot: player.mascot,
+                })
                 return (
-                  <li key={`${u.id}practice`} style={{ transform: `translateX(${offset}px)` }}>
+                  <li key={`${u.id}practice`} className="relative" style={{ transform: `translateX(${offset}px)` }}>
+                    <RoadsideChar cast={cast} side={roadsideSide(offset, ui * 2 + 2)} />
                     <button
                       aria-disabled={!allTried}
                       className={`gpu group relative flex flex-col items-center transition-transform duration-150 ${
@@ -441,8 +552,15 @@ export function PathScreen({
                 const activityUnlocked = isUnitActivityUnlocked(u, player.lessonProgress)
                 const offsetA = OFFSETS[(ui * 3 + u.lessons.length + 1) % OFFSETS.length]
                 const unitBest = player.unitActivityBest[u.id] ?? 0
+                const cast = roadsideCast('activity', {
+                  unitIdx: ui,
+                  slot: 70,
+                  unlocked: activityUnlocked,
+                  playerMascot: player.mascot,
+                })
                 return (
-                  <li key={`${u.id}activity`} style={{ transform: `translateX(${offsetA}px)` }}>
+                  <li key={`${u.id}activity`} className="relative" style={{ transform: `translateX(${offsetA}px)` }}>
+                    <RoadsideChar cast={cast} side={roadsideSide(offsetA, ui * 2 + 3)} />
                     <button
                       aria-disabled={!activityUnlocked}
                       data-testid="activity-node"

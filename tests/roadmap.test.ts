@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { migratePersisted, usePlayer } from '../src/engine/store'
 import { ENGLISH_UNITS } from '../src/content/english'
-import { kindFor, KIND_ICON } from '../src/screens/PathScreen'
+import { kindFor, KIND_ICON, roadsideCast, roadsideSide } from '../src/screens/PathScreen'
 import { isLessonUnlocked } from '../src/engine/path'
 import { ACHIEVEMENTS, type AchievementSnapshot } from '../src/engine/gamification'
 
@@ -206,5 +206,63 @@ describe('recordFriendJoin reward (PLAN 83/step 85)', () => {
     const snap = { friendsAdded: 1 } as AchievementSnapshot
     expect(def!.test(snap)).toBe(true)
     expect(def!.test({ friendsAdded: 0 } as AchievementSnapshot)).toBe(false)
+  })
+})
+
+describe('roadside characters (path ambience)', () => {
+  it('stands toward the path centre for every zigzag offset', () => {
+    expect(roadsideSide(44, 0)).toBe('left')
+    expect(roadsideSide(64, 0)).toBe('left')
+    expect(roadsideSide(-44, 0)).toBe('right')
+    expect(roadsideSide(-64, 0)).toBe('right')
+    expect(roadsideSide(0, 0)).toBe('left')
+    expect(roadsideSide(0, 1)).toBe('right')
+  })
+
+  it('companion cheers, bosses get themed rivals whose face tracks unlocks', () => {
+    expect(roadsideCast('active', { unitIdx: 0, slot: 0, unlocked: true, playerMascot: 'amy' })).toEqual({
+      id: 'amy',
+      expression: 'excited',
+    })
+    expect(roadsideCast('boss', { unitIdx: 0, slot: 5, unlocked: false, playerMascot: 'sonic' })).toEqual({
+      id: 'shadow',
+      expression: 'thinking',
+    })
+    expect(roadsideCast('boss', { unitIdx: 1, slot: 5, unlocked: true, playerMascot: 'sonic' })).toEqual({
+      id: 'eggman',
+      expression: 'excited',
+    })
+  })
+
+  it('ambient friends guard locked stretches and cheer perfected ones', () => {
+    const locked = roadsideCast('ambient', { unitIdx: 0, slot: 2, unlocked: false, playerMascot: 'sonic' })
+    expect(locked?.expression).toBe('thinking')
+    const open = roadsideCast('ambient', { unitIdx: 1, slot: 4, unlocked: true, playerMascot: 'sonic' })
+    expect(open?.expression).toBe('happy')
+    const perfected = roadsideCast('ambient', { unitIdx: 2, slot: 5, unlocked: true, cleared: true, playerMascot: 'sonic' })
+    expect(perfected?.expression).toBe('cheer')
+  })
+
+  it('never hands the player their own mascot as an ambient friend', () => {
+    for (let slot = 0; slot < 40; slot++) {
+      const cast = roadsideCast('ambient', { unitIdx: slot % 4, slot, unlocked: true, playerMascot: 'amy' })
+      expect(cast!.id).not.toBe('amy')
+    }
+  })
+
+  it('skips ambient friends on the active node (it has its own companion)', () => {
+    expect(
+      roadsideCast('ambient', { unitIdx: 0, slot: 2, unlocked: true, isActive: true, playerMascot: 'sonic' }),
+    ).toBeNull()
+  })
+
+  it('book/practice/activity nodes always get a themed friend', () => {
+    const book = roadsideCast('book', { unitIdx: 0, slot: 50, unlocked: true, playerMascot: 'sonic' })
+    const practice = roadsideCast('practice', { unitIdx: 0, slot: 60, unlocked: false, playerMascot: 'sonic' })
+    const activity = roadsideCast('activity', { unitIdx: 0, slot: 70, unlocked: true, playerMascot: 'sonic' })
+    expect(book?.expression).toBe('excited')
+    expect(practice?.expression).toBe('thinking')
+    expect(activity?.expression).toBe('excited')
+    expect([book!.id, practice!.id, activity!.id].every((id) => typeof id === 'string' && id.length > 0)).toBe(true)
   })
 })
