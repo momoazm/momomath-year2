@@ -128,10 +128,22 @@ export function newlyUnlocked(prev: Set<string>, next: Set<string>): string[] {
 
 /** Decorative-only: pointer-events-none so node taps/tests pass straight
  *  through; aria-hidden because it's ambience, not content.
- *  Perf: 67 mascots = ~4700 SVG nodes + 27 infinite sway animations, which
- *  janked scrolling — the mascot only mounts while its node is within 300px
- *  of the viewport. The empty shell stays (stable observer target, zero cost). */
-function RoadsideChar({ cast, side }: { cast: { id: string; expression: Expression } | null; side: 'left' | 'right' }) {
+ *  Perf: mascots = ~4700 SVG nodes + sway animations, which janked scrolling —
+ *  the mascot only mounts while its node is within 300px of the viewport.
+ *  The empty shell stays (stable observer target, zero cost).
+ *  Each mascot gets its own idle dance: one of six gentle keyframes picked
+ *  deterministically from id+side+seed so the cast never moves in lockstep. */
+const CHAR_ANIMS = ['animate-char-idle', 'animate-char-hop', 'animate-char-wiggle', 'animate-char-sway', 'animate-char-float', 'animate-char-jump']
+
+function RoadsideChar({
+  cast,
+  side,
+  seed = 0,
+}: {
+  cast: { id: string; expression: Expression } | null
+  side: 'left' | 'right'
+  seed?: number
+}) {
   const ref = useRef<HTMLSpanElement | null>(null)
   const [near, setNear] = useState(true)
   useEffect(() => {
@@ -142,17 +154,17 @@ function RoadsideChar({ cast, side }: { cast: { id: string; expression: Expressi
     return () => io.disconnect()
   }, [])
   if (!cast) return null
-  // Duolingo-style idle bob: gentle hop + tilt, phase-offset per mascot so the
-  // cast never bounces in lockstep (deterministic from the mascot id). Only
-  // applied while the mascot is actually mounted (perf gate above).
-  const phase = -(([...cast.id].reduce((a, c) => a + c.charCodeAt(0), 0) % 22) / 10)
+  const hash = [...`${cast.id}|${side}|${seed}`].reduce((a, c) => a + c.charCodeAt(0), 0)
+  const anim = CHAR_ANIMS[hash % CHAR_ANIMS.length]
+  const phase = -((hash % 22) / 10)
   return (
     <span
       ref={ref}
       aria-hidden
       data-testid="roadside-char"
+      data-anim={anim}
       style={near ? { animationDelay: `${phase}s` } : undefined}
-      className={`pointer-events-none absolute top-1 h-14 w-14 ${near ? 'animate-char-idle' : ''} ${
+      className={`pointer-events-none absolute top-1 h-20 w-20 ${near ? `${anim} gpu` : ''} ${
         side === 'left' ? 'right-full mr-2' : 'left-full ml-2'
       }`}
     >
@@ -499,16 +511,6 @@ export function PathScreen({
             </motion.header>
 
             <ol className="relative flex flex-col items-center gap-8">
-              {/* dashed road spine - nodes read as one connected path */}
-              <span
-                aria-hidden
-                data-testid="path-road"
-                className="pointer-events-none absolute inset-y-1 left-1/2 w-[6px] -translate-x-1/2 rounded-full"
-                style={{
-                  backgroundImage:
-                    'repeating-linear-gradient(to bottom, rgba(255,255,255,0.92) 0 10px, rgba(255,255,255,0) 10px 22px)',
-                }}
-              />
               {/* 📖 Book node — a NORMAL roadmap node (same markup as lesson
                   nodes), first in the unit so reading opens each unit. */}
               {u.book && (() => {
@@ -524,7 +526,7 @@ export function PathScreen({
                 })
                 return (
                   <li className="relative" style={{ transform: `translateX(${offsetBook}px)` }}>
-                    <RoadsideChar cast={cast} side={roadsideSide(offsetBook, ui * 2 + 1)} />
+                    <RoadsideChar cast={cast} side={roadsideSide(offsetBook, ui * 2 + 1)} seed={ui * 2 + 1} />
                     <button
                       aria-disabled={!bookUnlocked}
                       data-testid="book-node"
@@ -585,19 +587,17 @@ export function PathScreen({
                   ? roadsideCast('boss', { unitIdx: ui, slot: li, unlocked, playerMascot: player.mascot })
                   : isActive
                     ? roadsideCast('active', { unitIdx: ui, slot: li, unlocked, playerMascot: player.mascot })
-                    : li % 3 === 2
-                      ? roadsideCast('ambient', {
-                          unitIdx: ui,
-                          slot: li,
-                          unlocked,
-                          cleared: crowns >= 3,
-                          isActive,
-                          playerMascot: player.mascot,
-                        })
-                      : null
+                    : roadsideCast('ambient', {
+                        unitIdx: ui,
+                        slot: li,
+                        unlocked,
+                        cleared: crowns >= 3,
+                        isActive,
+                        playerMascot: player.mascot,
+                      })
                 return (
                   <li key={l.id} className="relative" style={{ transform: `translateX(${offset}px)` }}>
-                    {cast && <RoadsideChar cast={cast} side={roadsideSide(offset, ui + li)} />}
+                    {cast && <RoadsideChar cast={cast} side={roadsideSide(offset, ui + li)} seed={ui * 10 + li} />}
                     <button
                       ref={isActive ? nextRef : undefined}
                       aria-disabled={!unlocked}
@@ -676,7 +676,7 @@ export function PathScreen({
                 })
                 return (
                   <li key={`${u.id}practice`} className="relative" style={{ transform: `translateX(${offset}px)` }}>
-                    <RoadsideChar cast={cast} side={roadsideSide(offset, ui * 2 + 2)} />
+                    <RoadsideChar cast={cast} side={roadsideSide(offset, ui * 2 + 2)} seed={ui * 2 + 2} />
                     <button
                       aria-disabled={!allTried}
                       className={`gpu group relative flex flex-col items-center transition-transform duration-150 ${
@@ -734,7 +734,7 @@ export function PathScreen({
                 })
                 return (
                   <li key={`${u.id}activity`} className="relative" style={{ transform: `translateX(${offsetA}px)` }}>
-                    <RoadsideChar cast={cast} side={roadsideSide(offsetA, ui * 2 + 3)} />
+                    <RoadsideChar cast={cast} side={roadsideSide(offsetA, ui * 2 + 3)} seed={ui * 2 + 3} />
                     <button
                       aria-disabled={!activityUnlocked}
                       data-testid="activity-node"

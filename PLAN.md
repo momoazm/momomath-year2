@@ -888,3 +888,10 @@ own smoke checks, not extra vgam assertions).
 - [x] 4. Error sweep across 7 subjects x all tabs + sign-out gate (probe must target the YOU nav button) - fixed probe (nav-scoped case-insensitive matcher, err splicing), 49 page states -> zero pageerror/console errors.
 - [x] 5. Duolingo-style idle animation for roadside characters - animate-char-idle gentle bob, deterministic per-mascot delay, only while the mascot is mounted (reduced-motion honored by the global media rule). CSS lives in src/styles/index.css (dev server does not reload tailwind.config.js - `char-idle`/`unlock-flash` entries removed from config).
 - [x] 6. Full gates (tsc, vitest 1922/110, precommit, verify-live 37/37, vgam 80/80) -> commit 73ef7de -> deploy (snapshot, live=assets/index-CyTZ5Noz.js) -> live verify 37/37 + 80/80 + char-idle markers -> done.
+
+## Phase 34 - User tweaks: drop road line, character on EVERY node, varied animations, bigger mascots (2026-09-30)
+- [ ] 1. Remove the dashed centre road spine (the "line in the middle") from the unit <ol>.
+- [ ] 2. Every node gets a roadside character - drop the li%3===2 gate so all lesson nodes get an ambient companion (boss/active precedence unchanged).
+- [ ] 3. Different animation per character - 6 gentle transform keyframes (hop/wiggle/sway/float/jump/idle) picked deterministically from id+side+seed, phase-offset; reduced-motion rule covers them.
+- [ ] 4. Bigger mascots (h-14 w-14 -> h-20 w-20) with no horizontal overflow at 320px.
+- [ ] 5. Full gates (tsc, vitest, precommit, local 37/37 + 80/80) -> commit -> deploy (snapshot) -> live verify -> report.

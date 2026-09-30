@@ -124,9 +124,11 @@ body {
   }
 }
 
-/* ---------- roadmap character idle bob (Duolingo-style hop + tilt) ----------
-   Plain CSS (not tailwind.config) so dev HMR always picks it up; phase-offset
-   per mascot via inline animation-delay. Reduced-motion is handled globally. */
+/* ---------- roadmap character idle dances (Duolingo-style) ----------
+   Plain CSS (not tailwind.config) so dev HMR always picks it up; each mascot
+   picks one of six variants + a phase offset via inline animation-delay so the
+   cast never moves in lockstep. Transform-only (cheap); reduced-motion is
+   handled globally. */
 @keyframes char-idle {
   0%,
   100% {
@@ -136,8 +138,80 @@ body {
     transform: translateY(-7px) rotate(1.5deg);
   }
 }
+@keyframes char-hop {
+  0%,
+  100% {
+    transform: translateY(0) scaleY(1);
+  }
+  30% {
+    transform: translateY(-12px) scaleY(1.06);
+  }
+  55% {
+    transform: translateY(0) scaleY(0.93);
+  }
+  72% {
+    transform: translateY(-5px) scaleY(1);
+  }
+}
+@keyframes char-wiggle {
+  0%,
+  100% {
+    transform: rotate(-7deg);
+  }
+  50% {
+    transform: rotate(7deg);
+  }
+}
+@keyframes char-sway {
+  0%,
+  100% {
+    transform: translateX(-7px) rotate(-2deg);
+  }
+  50% {
+    transform: translateX(7px) rotate(2deg);
+  }
+}
+@keyframes char-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-11px);
+  }
+}
+@keyframes char-jump {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  45% {
+    transform: translateY(-14px);
+  }
+  60% {
+    transform: translateY(0);
+  }
+  78% {
+    transform: translateY(-6px);
+  }
+}
 .animate-char-idle {
   animation: char-idle 2.2s ease-in-out infinite;
+}
+.animate-char-hop {
+  animation: char-hop 1.9s ease-in-out infinite;
+}
+.animate-char-wiggle {
+  animation: char-wiggle 1.5s ease-in-out infinite;
+}
+.animate-char-sway {
+  animation: char-sway 2.6s ease-in-out infinite;
+}
+.animate-char-float {
+  animation: char-float 3s ease-in-out infinite;
+}
+.animate-char-jump {
+  animation: char-jump 2.1s ease-in-out infinite;
 }
 
 /* ---------- just-unlocked node glow (PathScreen unlock flash) ---------- */
