@@ -123,3 +123,44 @@ body {
     @apply animate-shake-x border-[#ff4b4b] bg-[#ffdfe0] text-[#ea2b2b];
   }
 }
+
+/* ---------- roadmap character idle bob (Duolingo-style hop + tilt) ----------
+   Plain CSS (not tailwind.config) so dev HMR always picks it up; phase-offset
+   per mascot via inline animation-delay. Reduced-motion is handled globally. */
+@keyframes char-idle {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-1.5deg);
+  }
+  50% {
+    transform: translateY(-7px) rotate(1.5deg);
+  }
+}
+.animate-char-idle {
+  animation: char-idle 2.2s ease-in-out infinite;
+}
+
+/* ---------- just-unlocked node glow (PathScreen unlock flash) ---------- */
+@keyframes unlock-flash {
+  0% {
+    transform: scale(1);
+    box-shadow:
+      0 0 0 0 rgba(255, 255, 255, 0.95),
+      0 0 22px 8px rgba(52, 211, 155, 0.9);
+  }
+  55% {
+    transform: scale(1.14);
+    box-shadow:
+      0 0 0 10px rgba(255, 255, 255, 0),
+      0 0 28px 12px rgba(52, 211, 155, 0.55);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow:
+      0 0 0 0 rgba(255, 255, 255, 0),
+      0 0 0 0 rgba(52, 211, 155, 0);
+  }
+}
+.animate-unlock-flash {
+  animation: unlock-flash 1.3s ease-out 2;
+}

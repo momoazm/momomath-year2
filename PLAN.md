@@ -880,3 +880,11 @@ own smoke checks, not extra vgam assertions).
 - [x] 8. Subject-aware scenery - science = starry night, english = sunrise, maths/default = day (body sky gradient + Scenery layers).
 - [x] 9. Tests for new pure helpers (ring dash math, unlocked-key diff) + full gates (tsc, vitest, precommit, verify-live 37/37, vgam 80/80, audits untouched content).
 - [x] 10. Commits f722c95 + 1f38345 -> deploy snapshot 20260930132125_1f38345 -> live verify 37/37 + 80/80, new-code markers in served bundle.
+
+## Phase 33 - Roadmap perf + polish (user: "laggy scrolling", "arrow up", "animate like duolingo", "find other lags/errors" 2026-09-30)
+- [x] 1. Scroll-lag fix - viewport-gate the 67 roadside mascots (IntersectionObserver, rootMargin 300px): DOM 6151->1353, SVG 5181->447, infinite animations 35->10; scroll-down dropped frames 3->0 (max 166ms->33ms), scroll-up 15->5. Mascot SVG only mounts near the viewport; shell span stays as observer target.
+- [x] 2. Jump pill arrow is directional - points up when the START node is above the viewport, down when below (rAF-throttled passive scroll listener, same-value setState bails).
+- [x] 3. A/B perf probe: .gpu will-change / body bg-attachment / scenery drift / sticky motion - all within noise after step 1 -> no pre-existing behavior changed.
+- [x] 4. Error sweep across 7 subjects x all tabs + sign-out gate (probe must target the YOU nav button) - fixed probe (nav-scoped case-insensitive matcher, err splicing), 49 page states -> zero pageerror/console errors.
+- [x] 5. Duolingo-style idle animation for roadside characters - animate-char-idle gentle bob, deterministic per-mascot delay, only while the mascot is mounted (reduced-motion honored by the global media rule). CSS lives in src/styles/index.css (dev server does not reload tailwind.config.js - `char-idle`/`unlock-flash` entries removed from config).
+- [ ] 6. Full gates (tsc, vitest, precommit, verify-live 37/37, vgam 80/80) -> commit -> deploy (snapshot) -> live verify -> report.

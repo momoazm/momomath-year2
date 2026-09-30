@@ -127,16 +127,36 @@ export function newlyUnlocked(prev: Set<string>, next: Set<string>): string[] {
 }
 
 /** Decorative-only: pointer-events-none so node taps/tests pass straight
- *  through; aria-hidden because it's ambience, not content. */
+ *  through; aria-hidden because it's ambience, not content.
+ *  Perf: 67 mascots = ~4700 SVG nodes + 27 infinite sway animations, which
+ *  janked scrolling — the mascot only mounts while its node is within 300px
+ *  of the viewport. The empty shell stays (stable observer target, zero cost). */
 function RoadsideChar({ cast, side }: { cast: { id: string; expression: Expression } | null; side: 'left' | 'right' }) {
+  const ref = useRef<HTMLSpanElement | null>(null)
+  const [near, setNear] = useState(true)
+  useEffect(() => {
+    const el = ref.current
+    if (!el || typeof IntersectionObserver === 'undefined') return
+    const io = new IntersectionObserver(([e]) => setNear(e.isIntersecting), { rootMargin: '300px 0px' })
+    io.observe(el)
+    return () => io.disconnect()
+  }, [])
   if (!cast) return null
+  // Duolingo-style idle bob: gentle hop + tilt, phase-offset per mascot so the
+  // cast never bounces in lockstep (deterministic from the mascot id). Only
+  // applied while the mascot is actually mounted (perf gate above).
+  const phase = -(([...cast.id].reduce((a, c) => a + c.charCodeAt(0), 0) % 22) / 10)
   return (
     <span
+      ref={ref}
       aria-hidden
       data-testid="roadside-char"
-      className={`pointer-events-none absolute top-1 h-14 w-14 ${side === 'left' ? 'right-full mr-2' : 'left-full ml-2'}`}
+      style={near ? { animationDelay: `${phase}s` } : undefined}
+      className={`pointer-events-none absolute top-1 h-14 w-14 ${near ? 'animate-char-idle' : ''} ${
+        side === 'left' ? 'right-full mr-2' : 'left-full ml-2'
+      }`}
     >
-      <Mascot id={cast.id} expression={cast.expression} />
+      {near && <Mascot id={cast.id} expression={cast.expression} />}
     </span>
   )
 }
@@ -185,6 +205,32 @@ export function PathScreen({
     const io = new IntersectionObserver(([e]) => setBannerGone(!e.isIntersecting), { threshold: 0.1 })
     io.observe(el)
     return () => io.disconnect()
+  }, [])
+
+  // jump pill arrow points TOWARD the START node: ↑ when it's above the
+  // viewport, ↓ when below (rAF-throttled; same-value state updates bail out
+  // so scrolling without a crossing never re-renders).
+  const [jumpUp, setJumpUp] = useState(false)
+  useEffect(() => {
+    let raf = 0
+    const measure = () => {
+      raf = 0
+      const el = nextRef.current
+      if (!el) return
+      const r = el.getBoundingClientRect()
+      const mid = r.top + r.height / 2
+      const dir = mid < 16 ? true : mid > window.innerHeight - 16 ? false : null
+      if (dir !== null) setJumpUp((v) => (v === dir ? v : dir))
+    }
+    const onScroll = () => {
+      if (!raf) raf = requestAnimationFrame(measure)
+    }
+    window.addEventListener('scroll', onScroll, { passive: true })
+    measure()
+    return () => {
+      window.removeEventListener('scroll', onScroll)
+      if (raf) cancelAnimationFrame(raf)
+    }
   }, [])
   const { units, lessonCount, subjectLabel } = useMemo(() => {
     const c = getCurriculum(player.subject, player.yearLevel)
@@ -788,7 +834,7 @@ export function PathScreen({
           }}
           className="grid h-12 w-12 place-items-center rounded-full border-2 border-white bg-[#58cc02] text-2xl font-extrabold leading-none text-white shadow-pop"
         >
-          ↓
+          {jumpUp ? '↑' : '↓'}
         </motion.button>
       </div>
 
