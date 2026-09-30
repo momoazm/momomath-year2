@@ -436,7 +436,7 @@ Documents copy - never on main. Sources of truth:
   styled like the other games, English badge, Best = player.sprintBest; opens
   SprintScreen overlay from the arcade tab; PathScreen banner stays as-is).
   Local screenshot check at 390px.
-- [ ] 143. Syllabus extraction from real books: build `src/content/syllabus/*.ts`
+- [x] 143. Syllabus extraction from real books: build `src/content/syllabus/*.ts`
   per subject (math, english, science, german, arabic, religion, social) with a
   canonical Year-2 vocabulary/topic list AND provenance (book/curriculum title +
   publisher) in each file header. Sources (real books / official curricula):
@@ -448,7 +448,7 @@ Documents copy - never on main. Sources of truth:
   = Year-2 Islamic-studies readers (ahlak/ibadat vocabulary); social = KS1 PSHE
   community/family vocabulary. Extract via web research (firecrawl) of the
   published word lists / progression docs — do NOT copy book text wholesale.
-- [ ] 144. Audit script `scripts/audit-syllabus.mjs`: walk every lesson in
+- [x] 144. Audit script `scripts/audit-syllabus.mjs`: walk every lesson in
   CURRICULA (all 7 subjects), collect learner-facing vocabulary (mcq prompts +
   choices, match pairs, order items, word banks, hints), flag words NOT present
   in that subject's syllabus list (normalized: casefold, strip punctuation/
@@ -840,7 +840,7 @@ User decisions (clarifying Q&A, 2026-09-28):
   foreign ids, override identity + matcher year/size + sample word checks);
   gates: tsc clean, vitest 1862/1862 (101 files), audit both years exit 0,
   verify-live 29/29, vgam 80/80 (local), precommit OK.
-- [ ] 169. Content rollout - each sub-item follows the same recipe (extract
+- [x] 169. Content rollout - each sub-item follows the same recipe (extract
   real sources -> syllabus file -> lessons -> tests -> audit clean), in this
   order:
   - [x] 169a. Year 1 english
