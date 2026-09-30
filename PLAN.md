@@ -848,7 +848,7 @@ User decisions (clarifying Q&A, 2026-09-28):
   - [x] 169c. Year 3 maths
   - [x] 169d. Year 3 english
   - [x] 169e. Year 3 science
-  - [ ] 169f. Year 4 maths
+  - [x] 169f. Year 4 maths
   - [ ] 169g. Year 4 english
   - [ ] 169h. Year 4 science
 - [ ] 170. Gates + ship (all at once): tsc clean, full vitest, precommit;
