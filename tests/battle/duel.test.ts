@@ -1,0 +1,263 @@
+import { describe, expect, it } from 'vitest'
+import { mulberry32 } from '../../src/content/rng'
+import { TIER_BASE } from '../../src/engine/battle/stats'
+import { TYPE_MULT_RESIST, TYPE_MULT_SUPER } from '../../src/engine/battle/archetypes'
+import {
+  type DuelCard,
+  type DuelQuestion,
+  advance,
+  chooseMove,
+  computeDamage,
+  createDuel,
+  isOver,
+  simulate,
+  swapIn,
+} from '../../src/engine/battle/duel'
+import { botAnswer, botRand, chooseBotSwap } from '../../src/engine/battle/bot'
+
+function card(id: string, star: number, hp: number, atk: number, def: number, archetype: DuelCard['archetype']): DuelCard {
+  return {
+    uid: id,
+    cardId: id,
+    name: id,
+    tier: 'epic',
+    archetype,
+    stats: { hp, atk, def },
+    star,
+    bot: false,
+  }
+}
+
+function squadA(): DuelCard[] {
+  return [
+    card('a1', 3, 120, 20, 6, 'speed'),
+    card('a2', 3, 110, 18, 5, 'power'),
+    card('a3', 3, 130, 16, 7, 'tech'),
+  ]
+}
+
+function squadB(): DuelCard[] {
+  return [
+    card('b1', 2, 100, 16, 4, 'power'),
+    card('b2', 2, 105, 15, 5, 'flight'),
+    card('b3', 2, 95, 17, 4, 'chaos'),
+  ]
+}
+
+const QUESTIONS: DuelQuestion[] = [
+  { prompt: '2 + 2 = ?', choices: ['3', '4', '5'], answerIndex: 1 },
+  { prompt: '5 × 3 = ?', choices: ['15', '20', '10'], answerIndex: 0 },
+]
+
+function baseArgs(seed = 42) {
+  return {
+    player: { cards: squadA() },
+    bot: { cards: squadB() },
+    seed,
+    questions: QUESTIONS,
+  }
+}
+
+describe('computeDamage — bounds + same formula both sides', () => {
+  it('stays within [0.9, 1.1] × atk × power × typeMult (floored at 1)', () => {
+    for (let i = 0; i < 50; i++) {
+      const rand = mulberry32(i + 1)
+      const { damage } = computeDamage(20, 5, 'quick', 3, 'speed', 'power', rand)
+      const base = (20 / (1 + 5 / 50)) * 1.0 * TYPE_MULT_SUPER
+      expect(damage).toBeGreaterThanOrEqual(Math.max(1, Math.round(base * 0.9)))
+      expect(damage).toBeLessThanOrEqual(Math.round(base * 1.1))
+    }
+  })
+
+  it('resisted matchups deal strictly less than neutral at identical stats', () => {
+    const r = mulberry32(7)
+    const superHit = computeDamage(20, 5, 'quick', 3, 'speed', 'power', r).damage
+    const resistHit = computeDamage(20, 5, 'quick', 3, 'power', 'speed', r).damage
+    expect(resistHit).toBeLessThan(superHit)
+  })
+
+  it('a 0★ card with no Special throws a charged Quick on POWER turns', () => {
+    const r = mulberry32(3)
+    const zero = computeDamage(20, 5, 'quick', 0, 'speed', 'power', r).damage
+    const r2 = mulberry32(3)
+    const three = computeDamage(20, 5, 'quick', 3, 'speed', 'power', r2).damage
+    expect(zero).toBeGreaterThan(three)
+  })
+
+  it('never deals less than 1 damage', () => {
+    const r = mulberry32(1)
+    const { damage } = computeDamage(1, 50, 'quick', 0, 'speed', 'chaos', r)
+    expect(damage).toBeGreaterThanOrEqual(1)
+  })
+})
+
+describe('chooseMove — auto vs power', () => {
+  const c = squadA()[0]!
+  it('auto turns always throw Quick', () => {
+    expect(chooseMove(c, 'auto', true)).toBe('quick')
+    expect(chooseMove(c, 'auto', false)).toBe('quick')
+  })
+  it('power turns spend Ultimate at full meter (if unlocked), else Special', () => {
+    expect(chooseMove(c, 'power', true)).toBe('ultimate')
+    expect(chooseMove(c, 'power', false)).toBe('special')
+  })
+  it('§13.1: a WRONG power-turn answer throws normal damage only', () => {
+    expect(chooseMove(c, 'power', false, false)).toBe('quick') // wrong ⇒ normal
+    expect(chooseMove(c, 'power', true, false)).toBe('quick') // fumbled Team-Blast
+    expect(chooseMove(c, 'power', true, true)).toBe('ultimate') // correct + meter full
+    expect(chooseMove(c, 'power', false, true)).toBe('special') // correct + not full
+  })
+})
+
+describe('§13.1 power-turn rule through advance()', () => {
+  it('a WRONG answer on the opening POWER turn throws Quick and resets the meter', () => {
+    const s0 = createDuel(baseArgs(5))
+    expect(s0.turn).toBe(0) // turn 0 is a player POWER turn
+    const s1 = advance(s0, { chosen: 0, correct: false })
+    const ev = s1.log.find((e) => e.side === 'player')!
+    expect(ev.move).toBe('quick')
+    expect(s1.charge).toBe(0)
+  })
+
+  it('a CORRECT answer on the opening POWER turn throws Special and banks +1', () => {
+    const s0 = createDuel(baseArgs(5))
+    const s1 = advance(s0, { chosen: 0, correct: true })
+    const ev = s1.log.find((e) => e.side === 'player')!
+    expect(ev.move).toBe('special')
+    expect(s1.charge).toBe(1)
+  })
+
+  it('correct + full meter fires the Team-Blast Ultimate and spends the charge', () => {
+    const s0 = { ...createDuel(baseArgs(9)), charge: 3 }
+    const s1 = advance(s0, { chosen: 0, correct: true })
+    const ev = s1.log.find((e) => e.side === 'player')!
+    expect(ev.move).toBe('ultimate')
+    expect(ev.teamBlast).toBe(true)
+    expect(s1.charge).toBe(0)
+  })
+})
+
+describe('duel determinism + terminal outcome', () => {
+  it('same seed + same inputs + same answers ⇒ identical log', () => {
+    const s1 = simulate(baseArgs(42))
+    const s2 = simulate(baseArgs(42))
+    expect(s1.log).toEqual(s2.log)
+    expect(s1.phase).toBe(s2.phase)
+  })
+
+  it('a duel always reaches a terminal phase (won/lost)', () => {
+    const s = simulate(baseArgs(7))
+    expect(['won', 'lost']).toContain(s.phase)
+    expect(isOver(s)).toBe(true)
+  })
+
+  it('every log event has positive damage and valid hp bookkeeping', () => {
+    const s = simulate(baseArgs(11))
+    for (const ev of s.log) {
+      expect(ev.damage).toBeGreaterThanOrEqual(1)
+      expect(ev.targetHpAfter).toBeGreaterThanOrEqual(0)
+      expect(ev.targetHpAfter).toBeLessThanOrEqual(ev.targetMaxHp)
+    }
+  })
+})
+
+describe('purity — createDuel / advance never mutate their inputs', () => {
+  it('input card arrays are untouched', () => {
+    const p = squadA()
+    const b = squadB()
+    const snapshotP = JSON.parse(JSON.stringify(p))
+    const snapshotB = JSON.parse(JSON.stringify(b))
+    const s = createDuel({ player: { cards: p }, bot: { cards: b }, seed: 1, questions: QUESTIONS })
+    advance(s, { chosen: 0, correct: true })
+    expect(p).toEqual(snapshotP)
+    expect(b).toEqual(snapshotB)
+  })
+})
+
+describe('bot fairness — same formula, no cheating', () => {
+  it('bot-vs-bot at equal stats (both banking) deals equal damage PER TURN', () => {
+    let pDmg = 0
+    let bDmg = 0
+    let pHits = 0
+    let bHits = 0
+    for (let seed = 1; seed <= 20; seed++) {
+      const equal = squadA()
+      const s = simulate(
+        {
+          player: { cards: equal.map((c) => ({ ...c })) },
+          bot: { cards: equal.map((c) => ({ ...c, uid: 'x' + c.uid })) },
+          seed,
+          questions: QUESTIONS,
+        },
+        undefined,
+        { bankEveryPowerTurn: true },
+      )
+      for (const e of s.log) {
+        if (e.side === 'player') { pDmg += e.damage; pHits++ }
+        else { bDmg += e.damage; bHits++ }
+      }
+    }
+    // First-strike advantage lets the player end each matchup a turn sooner,
+    // so TOTAL damage differs structurally. The no-cheat invariant is that a
+    // bot hit deals the same as a player hit when both use the same formula.
+    expect(pHits).toBeGreaterThan(0)
+    expect(bHits).toBeGreaterThan(0)
+    const pPerTurn = pDmg / pHits
+    const bPerTurn = bDmg / bHits
+    expect(Math.abs(pPerTurn - bPerTurn) / Math.max(pPerTurn, bPerTurn)).toBeLessThan(0.15)
+  })
+})
+
+describe('bot policy — deterministic + matchup-aware', () => {
+  it('chooseBotSwap picks a living card with the best type matchup', () => {
+    const bot = [
+      card('b1', 1, 50, 10, 2, 'chaos'), // chaos loses to nothing here; speed beats power
+      card('b2', 1, 50, 10, 2, 'power'), // power beats tech
+      card('b3', 1, 50, 10, 2, 'flight'),
+    ]
+    const vs = card('player', 1, 50, 10, 2, 'tech')
+    const hp = [50, 50, 50]
+    expect(chooseBotSwap(bot, hp, vs)).toBe(1) // power is super vs tech
+  })
+
+  it('never swaps to a fainted card', () => {
+    const bot = [card('b1', 1, 50, 10, 2, 'chaos'), card('b2', 1, 50, 10, 2, 'power')]
+    const vs = card('player', 1, 50, 10, 2, 'tech')
+    expect(chooseBotSwap(bot, [0, 50], vs)).toBe(1)
+    expect(chooseBotSwap(bot, [0, 0], vs)).toBe(-1)
+  })
+
+  it('botAnswer is deterministic per seed and returns the right answer when correct', () => {
+    const q = QUESTIONS[0]!
+    const a1 = botAnswer(q, 5, botRand(1, 0))
+    const a2 = botAnswer(q, 5, botRand(1, 0))
+    expect(a1).toEqual(a2)
+    if (a1.correct) expect(a1.chosen).toBe(q.answerIndex)
+    else expect(a1.chosen).not.toBe(q.answerIndex)
+  })
+})
+
+describe('swapIn — faints advance the fight', () => {
+  it('playerFainted lets the player pick a living card; bot auto-swaps', () => {
+    let s = createDuel(baseArgs(3))
+    // grind until someone faints
+    let guard = 0
+    while (!isOver(s) && s.phase !== 'playerFainted' && s.phase !== 'botFainted' && guard++ < 200) {
+      if (s.phase === 'intro' || s.phase === 'auto' || s.phase === 'power') s = advance(s, { chosen: 0, correct: true })
+      else s = swapIn(s)
+    }
+    if (s.phase === 'playerFainted') {
+      const next = swapIn(s, 1)
+      expect(next.playerActive).toBe(1)
+    } else if (s.phase === 'botFainted') {
+      const next = swapIn(s)
+      expect(next.botActive).toBeGreaterThan(0)
+    }
+  })
+})
+
+describe('tier base sanity (re-exported for the duel tests)', () => {
+  it('epic base is stronger than common', () => {
+    expect(TIER_BASE.epic.atk).toBeGreaterThan(TIER_BASE.common.atk)
+  })
+})

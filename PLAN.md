@@ -949,6 +949,280 @@ arcade hunks.
 
 ---
 
+## 13. Momo Battle — Pokémon-style card battles vs bots (user directive 2026-10-17)
+
+**User directive (2026-10-17)**: make the collected cards act like Pokémon;
+users play them against bots (for now); features like health/attack increase
+with level upgrades; the game has prizes; each boss level gets harder,
+Pokémon-style. **Nothing about existing user progress or other features
+changes — make it a rule.**
+
+### 13.0 RULE R0 — purely additive (user-mandated, STANDING)
+
+Battles may only ADD. Concretely:
+
+1. **No edits to existing mechanics or numbers**: lessons/crowns, XP & gems
+   sources, `STAR_THRESHOLDS`, chest odds/pity, shop, leagues, quests,
+   achievement feeds, arcade, library, cloud-sync behavior. New
+   screens/files/fields/actions only.
+2. **Save compat**: exactly ONE additive migrate step `version: 11 → 12`
+   that only backfills battle defaults. Old saves keep every pre-existing
+   field identical in meaning; `cardStars` semantics untouched — battle
+   stats are DERIVED from it, never written back.
+3. **Existing tests stay green with NO edits**; new coverage in new
+   `tests/battle/*.test.ts` (shared-file touches, if ever needed, are
+   ADD-only describes). Roster 100 → **103**: +3 battle-exclusive cards
+   were user-approved 2026-10-17 (WS19 proposes the roster rows +
+   free-source art; approval before coding — WS4c precedent; count-test
+   updates are a locked decision, not a drift).
+4. **Proof-of-no-change (acceptance gate)**: Playwright regression seeds a
+   v11 save, plays a full battle session (win + loss + prize), then diffs
+   the persisted store: every pre-v12 field value-identical; only the new
+   battle keys differ (`battleCleared`, `battleWins`, `battleTrophies`,
+   `battleSquad`, `battleDailyBossDay`, `battleDailyBossDone`,
+   `cardBattleXp`). Existing smoke/verify scripts rerun unchanged.
+5. **Cloud**: battle progress is **local-only first** (like `sprintBest` /
+   `arcadeRounds`). Cross-device battle sync needs `lib/year2/cloudsave.js`
+   in the Default-Project (`momolearn-ai`) repo — per isolation rules this
+   repo's sessions must NOT edit it; the required change is REPORTED here
+   as backlog **B-Cloud** for that project's own session.
+6. **Free-only budget** stands (no paid services): the engine is 100%
+   client-side + deterministic → works offline (PWA) and on gh-pages where
+   `/api/*` 404s.
+7. **Deploy discipline**: deploy ONLY when the user asks
+   (`node scripts/deploy.mjs`; snapshot-before-deploy standing rule).
+
+### 13.1 Core loop — hybrid 3v3 over COVERED content (LOCKED 2026-10-17)
+
+- **3v3 squads**: bring 3 owned cards vs 3 bot cards; one active card per
+  side; on faint the player picks the next (auto-order fallback); the
+  battle ends when one side is fully down. KO = dizzy stars (kid-safe).
+- **Hybrid turns (user choice)**: normal attacks resolve automatically each
+  turn (stats-based); **a Power turn every 2nd turn carries a question** —
+  correct ⇒ the active card fires its Special (big damage + animation);
+  wrong ⇒ normal damage only. The Ultimate fires when the Team-Blast meter
+  (3 correct answers) is full.
+- **COVERED-ONLY rule (user-locked)**: battle questions may ONLY come from
+  lessons the player has already covered in the current subject (completed
+  lessons; the always-unlocked opening lessons count for a fresh save).
+  Never unseen content. Selection is deterministic + fingerprint-deduped
+  (reuse `makeLesson` machinery); higher gyms prefer harder covered
+  generators first.
+- Loss = friendly: free retry, no penalties; tiny consolation gems.
+- Determinism: seeded `mulberry32` (seed = battle id + attempt) → same
+  inputs, same duel; unit-testable; pure resolution (PvP-ready later).
+- Reuses: `src/content/rng.ts`, covered-lesson generators, `sfx.ts` (new
+  ADDITIVE battle tones), framer-motion, existing card art for bots AND
+  squads (zero new art needed for battles).
+
+### 13.2 Stats & level growth — BOTH layers (LOCKED 2026-10-17)
+
+- **Star-derived base (zero new save data)**: `hp/atk/def` = tier base ×
+  star multiplier via existing `toStar(cardStars[id])`. Star-ups from
+  duplicates are the primary "level upgrade".
+- **Battle levels (additive)**: wins award battle-XP to each participating
+  card → `cardBattleXp: Record<string, number>` (LOCAL-ONLY first); battle
+  level 1-10 ≈ +2%/level (cap ≈ +20%) on top of the star base; shown in
+  the squad picker.
+- Archetypes (Speed 🌀 / Power 💪 / Flight 🪽 / Chaos 🔮 / Tech 🤖 /
+  Trickster 🎭) + small effectiveness cycle (×1.25 / ×0.8) — static
+  per-card table (see §13.8 #1).
+- Moves: 3 per card — Quick (auto), Special (Power question), Ultimate
+  (Team-Blast charge); Special/Ultimate unlock at 1★ / 3★ / 5★ so
+  upgrading a card visibly upgrades its kit.
+- Damage (proposed): `round(atk × movePower × typeMult × (0.9 + 0.2·rand))`;
+  the bot uses the SAME formula (never cheats).
+
+### 13.3 Battle Roadmap — separate map with lock visuals (LOCKED 2026-10-17)
+
+- **Separate roadmap** living in the ⚔️ Battle tab — NOT plugged into the
+  subject paths. **Zero changes to PathScreen / curriculum / unlock chain /
+  adaptive catalog** (the strongest possible R0 stance).
+- 12 gyms + champion (final count in WS19); each gym = a themed villain
+  squad from the roster (Eggman → Zeti → Metal → Mephiles → Infinite →
+  Chaos → Black Doom → Devil Doom → Perfect Chaos → Time Eater →
+  Dark Gaia → Eggman Nega → champion), with **strictly escalating
+  hp/atk** — the user's "each boss gets harder".
+- **Unlock gate (user: "not exactly every five" + "complete the normal
+  lessons first")**: gym k unlocks at a gentle escalating count of
+  COMPLETED normal lessons — curve finalized in WS19 (proposal:
+  0/3/7/12/18/25/33/42/52/63/75/88 + champion ~100), **derived from the
+  existing `lessonProgress`** (no new counters) and counted across ALL
+  subjects so any learning advances the roadmap. No "must clear previous
+  gym" requirement (avoids soft-locks); cleared gyms stay replayable.
+- **Visuals (user-locked)**: big kid-friendly map in the Battle tab; node
+  states 🔒 locked ("Finish N more lessons" readout) / ✨ available
+  (pulsing START) / 🏆 cleared (trophy); champion node gold. Trophy
+  cabinet + stats beside the map.
+
+### 13.4 Prizes — ALL options approved (LOCKED 2026-10-17)
+
+- All payouts via ONE new ADDITIVE store action `battleFinished()` —
+  XP/gems/activity/streak bookkeeping only (never crowns, never
+  `lessonsToday`; chest only via the approved first-clear path).
+- Per win: gems + XP · first clear: victory chest (pure `rollChest` +
+  existing `grantChest` as a NEW CALLER) + trophy · Daily Rival: one
+  bonus-gem rematch/day · repeat wins: small gems (anti-farm cap).
+- **Battle-exclusive cards (approved)**: +3 roster additions proposed in
+  WS19 (e.g. `mecha-sonic`, `egg-dragoon`, `solaris`), unlocked at cleared
+  milestones (e.g. gyms 4 / 8 / champion). As a `BATTLE_CARDS` group (like
+  `ARCADE_CARDS`): total 100 → **103**, Library battle panel, free-source
+  art per the WS3/WS4c pipeline; chest pool untouched. Roster rows + art
+  require user approval before coding (WS4c precedent).
+
+### 13.5 Bot AI
+
+- Squad-aware deterministic policy: prefer strongest move when your active
+  HP is low / the bot is behind; same damage caps as the player; seeded
+  for tests. Fairness test: at equal stats the bot never out-damages a
+  perfect player line.
+
+### 13.6 UI surfaces (LOCKED 2026-10-17)
+
+- ⚔️ **Battle tab** (7th BottomNav tab; labels squeeze on small phones):
+  Battle Roadmap map (§13.3 visuals) → squad picker (3 owned cards, star
+  row + battle level + derived HP/ATK + auto-pick-strongest) → duel (6 HP
+  bars, Power-turn questions, Team-Blast meter, hit/KO animations, battle
+  sfx) → result (prizes, XP, chest reveal reuse, retry, back to map).
+- Trophy cabinet + battle stats panel in the tab. Daily Rival entry.
+- Zero owned cards → friendly hint to win a lesson chest first.
+- Phone-first, big touch targets, one-thumb, reduced-motion respected.
+
+### 13.7 Workstreams WS17–WS25 (checklist; gates per WS: `npx tsc -b` → full
+`npx vitest run` → `npm run verify` → dev smoke)
+
+> **STANDING RULE (user-mandated 2026-10-17, see AGENTS.md R1/R2):** keep this
+> checklist live and in sync — tick a box only when the work is DONE and its
+> gate has passed — and do NOT stop until every box below is `[x]` (pause only
+> on explicit user instruction).
+
+- [x] **WS17 — battle stats (pure)** — DONE 2026-10-17: `stats.ts` (tier
+  base table + star multiplier + battle-level curve + `deriveStats`/
+  `ownedCardStats`), `archetypes.ts` (per-card map + 6-type effectiveness
+  ring ×1.25/×0.8), `moves.ts` (Quick/Special/Ultimate + star unlocks 0/1/3
+  and 5★ mastered bonus). Tests (14) green: tier/star/battle-level
+  monotonicity, every roster card has an archetype + exactly 3 moves,
+  type-mult mirror-symmetry, no `cardStars` writes. `npx tsc -b` clean.
+- [x] **WS18 — duel engine (pure)** — DONE 2026-10-17: `duel.ts` (3v3 squad
+  state machine, hybrid auto-attack + Power-question turn cycle, Team-Blast,
+  damage/type-mult/seeded-RNG, `computeDamage` shared by both sides),
+  `bot.ts` (swap policy, gym-scaled answer accuracy, spend-when-full).
+  Fixed a real parity bug: the bot's power turn was `turn % 4 === 2`, which
+  lands on a *player* turn (bot takes the odd turns) — so the bot fired only
+  Quick and never Special/Ultimate. Corrected to `turn % 4 === 1`, and the
+  banking roll now runs *before* `resolveHit` spends `rand` on damage
+  variance. Bot-vs-bot now 24.46 vs 24.68 per-turn damage (0.9% apart).
+  Tests (46 total, 32 new) green incl. determinism, damage bounds, purity.
+  `npx tsc -b` clean; full `npx vitest run` green.
+- [x] **WS19 — covered-content selector + roadmap content** — DONE 2026-10-17:
+  `questions.ts` (MCQ-only harvest from COMPLETED lessons of the CURRENT
+  subject, mirroring sprint.ts; deduped by prompt; deterministic seeded;
+  higher gyms prefer later-unit generators; fresh-save falls back to the
+  always-unlocked opening lessons) and `roadmap.ts` (12 themed villain gyms +
+  champion = 13 nodes; gentle escalating unlock curve [0,3,7,12,18,25,33,42,
+  52,63,75,88,100] over completed non-boss lessons; `gymBotMul` 1+0.12×(gym-1),
+  `gymBotStar` clamp 1+floor(gym/2)→5, rewards `GYM_GEMS`/`GYM_XP` tables).
+  Roadmap references only IN-ROSTER cards (swapped the draft `mecha-sonic`
+  bot for in-roster `metal` — `mecha-sonic`/`egg-dragoon`/`solaris` stay
+  WS23 exclusives). Tests (15) green: 13 nodes + champion, monotone unlock +
+  reward escalation, every boss+3 bots resolves to a real roster card with an
+  archetype, deterministic deduped deck ≤ cap, fresh-save fallback, purity.
+  Fixed import depth (`../../content/*`) and used real curriculum lesson IDs
+  (`u1l1`..) in tests. `npx tsc -b` clean; full `npx vitest run` 97 files /
+  2610 tests green (battle suite 61).sh-save fallback = the always-unlocked opening
+  lessons; deterministic + fingerprint-deduped via `makeLesson`
+  machinery); `src/engine/battle/roadmap.ts` (13 gyms: villain squads,
+  stat scaling, unlock curve derived from completed-lesson counts across
+  subjects, reward/milestone table, +3 battle-card roster rows for
+  approval). Tests: pool NEVER contains uncovered lessons; escalation
+  strictly increasing; curve monotone; every bot id ∈ ALL_CARDS; gating
+  needs no new counters.
+- [x] **WS20 — store additive slice** — DONE 2026-10-17: fields
+  `battleCleared`, `battleWins`, `battleTrophies`, `battleSquad`,
+  `cardBattleXp`, `battleDailyBossDay`, `battleDailyBossDone`; action
+  `battleFinished({gym,won,gems,xp,perCardXp})`; persist v11→**v12**
+  additive migrate backfilling only the 7 battle keys. `battleFinished`
+  pays gems/XP/wins/trophies/clear on a FIRST win only (repeat = no re-pay
+  but still counts a win + banks card XP); per-card battle XP accrues on
+  every finish (win or loss — effort still levels the squad); daily-rival
+  flag rolls forward with the day. `applySyncedSnapshot` untouched by
+  design → battle fields stay LOCAL-ONLY. Tests (7) green: first-clear
+  pays once, repeat doesn't re-pay, loss pays nothing but banks card XP,
+  day-roll reset, R0 (zero-reward finish leaves lessonProgress/xp/gems
+  untouched), hostile sync snap can't overwrite the 7 fields, all keys
+  present on fresh boot. `npx tsc -b` clean.
+- [x] **WS21 — Battle tab + roadmap screen** — DONE 2026-10-17:
+  `BattleScreen.tsx` roadmap with 🔒 locked / ✨ available / 🏆 cleared node
+  visuals (per-node badge + grayscale-locked styling), trophy cabinet
+  (🏆 trophies, gyms cleared /13, wins, completed-lesson counter), tap-to-open
+  detail sheet showing boss + archetype + rewards (💎 gems / ⚡ battle XP /
+  3 enemies) with a ⚔️ Start Battle button (available) or unlock-progress
+  line (locked) + legend. Roadmap unlock helpers added to `roadmap.ts`:
+  `countCompletedLessons` (completions>0, boss lessons excluded via the
+  `endsWith('boss')` convention) and `isGymUnlocked` (curve + gym-1 free).
+  BottomNav 7th ⚔️ Battle tab (labels shrink to `px-2` under `sm:` so 7 tabs
+  fit ~360px screens). App.tsx wiring: `BattleScreen` import, `{tab ===
+  'battle'}` branch, `battleGym` overlay state (placeholder branch ready for
+  WS22's `<BattleDuel>`). Tests: +2 (unlock-gate block) → roadmap suite 17.
+  `npx tsc -b` clean (fixed test fixture to full `LessonProgress`), `npm run
+  verify` OK, full `npx vitest run` 98 files / 2617 tests green.
+- [ ] **WS22 — duel screen**: squad picker (owned only; star + battle
+  level + derived stats) → hybrid 3v3 duel (auto attacks, Power turns,
+  HP bars, animations, sfx) → result screen. Manual smoke: full win +
+  loss.
+- [ ] **WS23 — prizes + surfaces**: `battleFinished` payouts, victory
+  chest, Daily Rival, +3 battle cards (after roster approval: art, Library
+  battle panel, milestones), Profile battle card (ADDITIVE).
+- [ ] **WS24 — R0 proof + regression**: seeded v11 save → full battle
+  session (win, loss, prize, battle XP) → persisted-store diff = only the
+  7 new keys differ; rerun ALL existing smoke/verify scripts. THIS gate
+  enforces the user's rule.
+- [ ] **WS25 — polish**: animation juice, kid-tone copy, mobile one-thumb
+  pass, a11y labels, offline check (`vite preview`), bundle hygiene
+  (lazy-import the battle screen if needed).
+
+**Done when**: gym 1 winnable → prize granted; gym difficulty strictly
+escalates; lock visuals correct (locked/available/cleared); loss →
+friendly retry; and the R0 proof (store diff) + full suite show zero
+change to existing progress/features.
+
+### 13.8 Feature menu — "make it perfect" suggestions (pick what you like)
+
+1. **Archetype/type cycle** (Speed/Power/Flight/Chaos/Tech/Trickster) —
+   Pokémon-style depth with kid-readable icons.
+2. **Move-vs-difficulty**: Special/Ultimate questions pick harder covered
+   generators first (risk/reward tied to attack size).
+3. **Team Blast meter** — IN CORE (§13.1): 3 correct answers charge a
+   double-damage Ultimate.
+4. **Tiny status set**: Shield (Knuckles/Omega), Slow (Time Eater), Heal
+   (Cream), Rage (Shadow) — at most one at a time, visual pips.
+5. **Villain taunts + mascot coach**: your Profile mascot reacts beside
+   the duel (existing `Mascots` expressions); villains get short kid-kind
+   taunt lines.
+6. **Trophy cabinet** in arena + battle stats on Profile (additive).
+7. **Daily Rival** — IN PRIZES (§13.4): one bonus-gem rematch per day.
+8. **"Rematch +1"**: cleared gyms replay at +1 difficulty for bragging
+   rights (no extra rewards).
+9. **Practice mode**: free battles, 0 rewards (for fun / offline play).
+10. **Colorblind-safe HP bars**, big targets, respects the existing mute.
+
+### 13.9 Answers — LOCKED 2026-10-17
+
+- Q1 loop: **HYBRID** — auto normal attacks; questions (covered content
+  only) power Special/Ultimate moves.
+- Q2 format: **3v3 team battles**.
+- Q3 entry: **New ⚔️ Battle tab**.
+- Q4 growth: **BOTH** — star-derived base + battle-XP levels (local-only
+  `cardBattleXp`).
+- Q5 prizes: **ALL** — gems, XP, trophies, first-clear victory chest,
+  battle-exclusive cards ×3 (→ total 103), daily rival.
+- Q6 questions from: **current subject, covered lessons only**.
+- Q7 placement (follow-up): **separate battle roadmap** in the Battle tab
+  with clear locked/available/cleared visuals — NOT in the subject paths;
+  unlock curve is a gentle escalating lesson-count, not exactly every 5.
+
+---
+
 ## 8. Session changelog
 
 | Date | Session | What happened |
@@ -976,4 +1250,5 @@ arcade hunks.
 | 2026-09-25 | WS13-checkup | **Daily check-up mixed review session (§12) + fixed a latent crash in `LessonScreen.finishLesson`.** New pure `src/engine/adaptive/checkup.ts`: `dueSkillCodes` (cross-subject `isDueForReview`, most-overdue-first, insertion-order independent, ties break on code) + `buildCheckup` (day-number default seed → stable per day; due items generated from each code's own lesson slot; wrong items = exact `recentWrong` snapshots; round-robin due-first interleave; `questionFingerprint` dedupe; caps 10/7/5; never mutates inputs; empty round → entries hidden). LessonScreen: `checkup?: boolean` prop + check-up intro before the untouched retry intro; **bugfix** — `finishLesson` ran `entry!.lesson…` (crash: `entry` is null for every prop-entered retry) and consumed double-XP before the retry branch; retry/check-up payout now returns first (XP-only `recordPractice`, no crowns/chests), fresh path unchanged. App `retryCheckup` state; PathScreen "N skills due 🔔" banner; ProfileScreen "Daily check-up" card. Tests `tests/adaptive/checkup.test.ts` **15 green** (due selection/determinism, composition/dedupe/caps, seed stability, no mutation, XP-only store accounting). Gates: `npx tsc -b` ✓; full `npx vitest run` **89 files / 2489 green**; `npm run verify` ✓; dev smoke `tmp/ws13-checkup-smoke.mjs` :3213 — banner/intro/question/quit, Profile card, hidden-when-empty, retry 5/5 `ALL FIXED · +5 XP` + xpTotal 50→55 through the old crash path, 0 pageerrors (3200 occupied by another session's vite — not touched). Files: src/engine/adaptive/{checkup,lessons,index}.ts, src/screens/{LessonScreen,PathScreen,ProfileScreen}.tsx, src/App.tsx, tests/adaptive/checkup.test.ts, PLAN.md. Committed `43b00f0`; deployed 2026-09-25 (gh-pages `assets/index-DcQCikWz.js`). |
 | 2026-09-25 | WS14-followup | **AI follow-up question after a mistake (§12 WS14).** New `api/year2/followup.ts` (standalone: BYOK-first ranked free-provider chain copied from `/explain`; strict MCQ JSON `{prompt, choices, answerIndex|answer}` validated by the SHARED `parseLlmMcq` with caps — prompt ≤300 chars, 2–4 unique choices ≤80, index in range, markdown fences/prose stripped — malformed reply skips to the next provider; no keys/all fail → deterministic sibling-generator re-roll `{source:'sibling'}`, unknown lesson → `{source:'none'}`) + `vercel.json` rewrite. New client `src/engine/adaptive/followup.ts` modeled on `explanations.ts` (in-memory cache 60, 3000 ms timeout, `byokHeaders`, local sibling re-roll with seed `hashString(lessonId|code|prompt)` → one mistake always maps to one stable question; never throws — works offline and on gh-pages where `/api/*` 404s) + `FOLLOWUP_ROUTE/CACHE_SIZE/TIMEOUT_MS` in config + barrel exports. LessonScreen **additive hunks only**: prefetch on wrong first attempt (request-id guard against late answers), 🔁 "Try a similar one" footer button, `trySimilar` splices the follow-up at `qIdx+1` (initial version appended at queue END — dev smoke caught it showing a remaining original first; insert-next fixed it while `handleContinue` still requeues the missed original at the end). Tests `tests/adaptive/followup.test.ts` **21 green** (route validation/BYOK/sibling determinism/LLM+fences+per-cacheKey caching/malformed→fallback/none; parser caps; client cache/404/throw/junk/timeout-never-throws; cache-key stability). Gates: `npx tsc -b` ✓; full `npx vitest run` **90 files / 2510 green**; `npm run verify` ✓; dev smoke `tmp/ws14-followup-smoke.mjs` on :3213 **EXIT=0** — offer after wrong → browser-predicted sibling question ("What is 1 less than 27?") renders → insert-next ordering verified (remaining original → requeued original) → correct first attempt gets NO offer → retry `ALL FIXED` + xpTotal 50→52, **0 pageerrors**. Files: api/year2/followup.ts, src/engine/adaptive/{followup,config,index}.ts, src/screens/LessonScreen.tsx, vercel.json, tests/adaptive/followup.test.ts, tmp/ws14-followup-smoke.mjs, PLAN.md. Committed `43b00f0`; deployed 2026-09-25 (gh-pages `assets/index-DcQCikWz.js`). |
 | 2026-09-25 | WS15-recap | **Streak calendar + weekly recap (§12 WS15).** New pure `src/engine/recap.ts`: capped activity-day log (`ACTIVITY_DAYS_CAP` 60 — normalise filter/dedupe/sort/slice, `addActivityDay`, `mergeActivityDays` union) + `buildWeeklyRecap` (7-day local window: league-week XP passthrough, windowed accuracy % rounded, distinct subjects in canonical order, cards won gated on week-key match, active days in window) + Monday-first `buildMonthGrid` (today highlight, future greyed, practisedCount) + `subjectOfLesson` mirror. `store.ts` persist **v10→v11** (migrate backfills `activityDays` from `lastActiveDay`, seeds `cardsWonWeek`/`cardsWonWeekKey`; initial state fields); `completeLesson`/`recordPractice`/`addArcadeXp` mark the day; `grantChest` (+cards.length) / `grantArcadeCard` (+1) feed `cardsWonWeek` with a lazy reset when the league week rolls (bump helper, no churn at the weeklyXp reset sites); `applySyncedSnapshot` union-merges `activityDays`. Cloudsave union both sides: client `CloudSave.activityDays?` + `snapshotFromPlayer`/`mergeCloudSave`, server `lib/year2/cloudsave.js` (Default Project — sanitize ISO-only + sort + 60-cap, `unionDays` in `mergeSaves`; `node --check` ✓; not deployed). ProfileScreen two additive cards after daily goal: practice calendar (green practised cells / today border / `M T W T F S S` header / "Month · N days") + weekly recap (⚡ XP · 🎯 accuracy % + x/y answers · 🗂️ subjects · 🃏 cards won + "Practised N of the last 7 days"). Tests `tests/recap.test.ts` **25 green** (helper caps/dedupe; day-roll via fake `Date` for practice/lesson/arcade + 60-cap + snapshot union; cloudsave snapshot whitelist/merge union/old-save tolerance; recap window/accuracy/subjects/stale-key/active-days/XP passthrough; month grid Monday-first/today/future; card counters incl. real `rollChest` + lazy week reset). Gates: `npx tsc -b` ✓; full `npx vitest run` **91 files / 2535 green**; `npm run verify` ✓; dev smoke `tmp/ws15-recap-smoke.mjs` :3213 **EXIT=0** — v10 seed migrate filters `bad-day` → grid 2 green, today unlit → recap ⚡42 / 🎯50% 1/2 / math·english / 🃏0 / 2 active → live `recordPractice` lights today (3 active) → `grantChest` → 🃏1 in UI → persisted `version: 11`, **0 pageerrors**. Files: src/engine/{recap,store,cloudsave}.ts, src/screens/ProfileScreen.tsx, lib/year2/cloudsave.js (Default Project), tests/recap.test.ts, tmp/ws15-recap-smoke.mjs, PLAN.md. Committed `43b00f0`; deployed 2026-09-25 (gh-pages `assets/index-DcQCikWz.js`). |
-| 2026-09-25 | WS16-sprint | **Flashcard Sprint (§12 WS16 — the last workstream).** New pure `src/engine/sprint.ts`: 60s round constants; `collectUnitMcqs`/`buildSprintBank` harvest validated mcq-kind questions from every english unit's `lesson.generate` (2–4 unique choices, in-range answerIndex, prompt-deduped, audio-only prompts excluded — the sprint is fully visual), deterministic mulberry32 `sprintDeck`, `applySprintAnswer` (correct +1 score + streak, wrong resets streak, bestStreak kept), `sprintXpFor` 1 XP/correct, clamped `sprintRemainingMs`/`isSprintTimeUp`, strictly-greater `isNewSprintBest`, `sprintAccuracy` (rounded % or null). New `src/screens/SprintScreen.tsx` (intro → playing → done; 100ms interval timer + progress bar, 450ms feedback lock, deck reshuffle on exhaustion, ✕ during play pays out the current score, done screen shows score/best-streak/accuracy/XP/NEW BEST + Play again). Store additive fields `sprintBest`/`sprintRuns`/`sprintsTodayDay`/`sprintsToday` (**no version bump** — v11 shallow-merge defaults), day-roll reset in `rollDay`, `finishSprint(score)` action (counters + `markActivity` + `checkAchievements`); XP-only payout goes through the existing `recordPractice` (streak/dailies/calendar move; lessons/crowns/chests untouched). `gamification.ts` additive: `QuestSnapshot.sprintsToday` + `sprint1` quest (goal 1, reward 15), `AchievementSnapshot.sprintRuns` + `sprint-debut` "Word Sprinter" 💨; `questProgressSnapshot` feeds the day-rolled counter; `checkAchievements` snap extended. UI wiring: `App.tsx` `sprintOpen` full-screen branch, `PathScreen` english-only sprint banner (current best) after the check-up banner. Tests `tests/sprint.test.ts` **14 green** (timer countdown/clamp/skew, streak rules, XP/best/accuracy, **bank non-empty for every english unit** + shape/dedupe/visual-only, deck determinism/permutation, `finishSprint` runs/best/today/calendar + day-roll + no-best-downgrade, `sprint1` progress, `sprint-debut` unlock) + `questsMultiSubject` fixtures extended. Gates: `npx tsc -b` ✓; full `npx vitest run` **92 files / 2549 green**; `npm run verify` ✓ (no dup it-titles); dev smoke `tmp/ws16-sprint-smoke.mjs` :3213 **EXIT=0 ×2** — banner→intro→60s timer/4 choices→2 correct taps (⭐2 🔥2)→forced time-up→done NEW BEST + ⚡2→store sprintBest 2/runs 1/today 1/xp 50→52/`sprint-debut` unlocked/quest 1/activity marked/lessons 0→banner "Best score: 2"→persist version stays 11, **0 pageerrors**. Files: src/engine/sprint.ts (new), src/screens/SprintScreen.tsx (new), src/{engine/store,engine/gamification,screens/PathScreen,App}.tsx, tests/sprint.test.ts (new), tests/questsMultiSubject.test.ts, tmp/ws16-sprint-smoke.mjs, PLAN.md. Committed `43b00f0`; deployed 2026-09-25 (gh-pages `assets/index-DcQCikWz.js`, live-verified incl. sprint/recap/checkup/followup markers). **§12 WS12–WS16 complete.** |
+| 2026-09-25 | WS16-sprint | **Flashcard Sprint (§12 WS16 — the last workstream).** New pure `src/engine/sprint.ts`: 60s round constants; `collectUnitMcqs`/`buildSprintBank` harvest validated mcq-kind questions from every english unit's `lesson.generate` (2–4 unique choices, in-range answerIndex, prompt-deduped, audio-only prompts excluded — the sprint is fully visual), deterministic mulberry32 `sprintDeck`, `applySprintAnswer` (correct +1 score + streak, wrong resets streak, bestStreak kept), `sprintXpFor` 1 XP/correct, clamped `sprintRemainingMs`/`isSprintTimeUp`, strictly-greater `isNewSprintBest`, `sprintAccuracy` (rounded % or null). New `src/screens/SprintScreen.tsx` (intro → playing → done; 100ms interval timer + progress bar, 450ms feedback lock, deck reshuffle on exhaustion, ✕ during play pays out the current score, done screen shows score/best-streak/accuracy/XP/NEW BEST + Play again). Store additive fields `sprintBest`/`sprintRuns`/`sprintsTodayDay`/`sprintsToday` (**no version bump** — v11 shallow-merge defaults), day-roll reset in `rollDay`, `finishSprint(score)` action (counters + `markActivity` + `checkAchievements`); XP-only payout goes through the existing `recordPractice` (streak/dailies/calendar move; lessons/crowns/chests untouched). `gamification.ts` additive: `QuestSnapshot.sprintsToday` + `sprint1` quest (goal 1, reward 15), `AchievementSnapshot.sprintRuns` + `sprint-debut` "Word Sprinter" 💨; `questProgressSnapshot` feeds the day-rolled counter; `checkAchievements` snap extended. UI wiring: `App.tsx` `sprintOpen` full-screen branch, `PathScreen` english-only sprint banner (current best) after the check-up banner. Tests `tests/sprint.test.ts` **14 green** (timer countdown/clamp/skew, streak rules, XP/best/accuracy, **bank non-empty for every english unit** + shape/dedupe/visual-only, deck determinism/permutation, `finishSprint` runs/best/today/calendar + day-roll + no-best-downgrade, `sprint1` progress, `sprint-debut` unlock) + `questsMultiSubject` fixtures extended. Gates: `npx tsc -b` ✓; full `npx vitest run` **92 files / 2549 green**; `npm run verify` ✓ (no dup it-titles); dev smoke `tmp/ws16-sprint-smoke.mjs` :3213 **EXIT=0 ×2** — banner→intro→60s timer/4 choices→2 correct taps (⭐2 🔥2)→forced time-up→done NEW BEST + ⚡2→store sprintBest 2/runs 1/today 1/xp 50→52/`sprint-debut` unlocked/quest 1/activity marked/lessons 0→banner "Best score: 2"→persist version stays 11, **0 pageerrors**. Files: src/engine/sprint.ts (new), src/screens/SprintScreen.tsx (new), src/{engine/store,engine/gamification,screens/PathScreen,App}.tsx, tests/sprint.test.ts (new), tests/questsMultiSubject.test.ts, tmp/ws16-sprint-smoke.mjs, PLAN.md. Committed `43b00f0`; deployed 2026-09-25 (gh-pages `assets/index-DcQCikWz.js`, live-verified incl. sprint/recap/checkup/followup markers). **§12 WS12-WS16 complete.** |
+| 2026-10-17 | battle-plan | **§13 Momo Battle planned + all decisions LOCKED (user Q&A).** Hybrid **3v3** battles over **covered content only** (auto normal attacks; questions power Special/Ultimate moves); **separate Battle Roadmap** in a new ⚔️ Battle tab (12 gyms + champion, strictly harder each step, gentle escalating lesson-count unlock curve derived from existing `lessonProgress`, clear locked/available/cleared visuals — zero changes to subject paths); stats = star-derived base **+ battle-XP levels** (local-only `cardBattleXp`); prizes = gems/XP/trophies/first-clear chest **+3 battle-exclusive cards (100→103, roster approval pending)**/daily rival; **RULE R0 — purely additive** with the proof-by-store-diff gate over the 7 expected new keys + zero-edit test policy. WS17–WS25 checklist + feature menu ready. No code changes yet; awaiting user go. |

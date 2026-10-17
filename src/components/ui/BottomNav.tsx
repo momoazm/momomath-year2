@@ -1,4 +1,4 @@
-type Tab = 'path' | 'shop' | 'leagues' | 'quests' | 'arcade' | 'profile'
+type Tab = 'path' | 'shop' | 'leagues' | 'quests' | 'arcade' | 'battle' | 'profile'
 
 const TABS: { id: Tab; icon: string; label: string }[] = [
   { id: 'path', icon: '🏁', label: 'Path' },
@@ -6,6 +6,7 @@ const TABS: { id: Tab; icon: string; label: string }[] = [
   { id: 'leagues', icon: '🏆', label: 'Leagues' },
   { id: 'quests', icon: '📜', label: 'Quests' },
   { id: 'arcade', icon: '🕹️', label: 'Arcade' },
+  { id: 'battle', icon: '⚔️', label: 'Battle' },
   { id: 'profile', icon: '🦔', label: 'You' },
 ]
 
@@ -19,7 +20,7 @@ export function BottomNav({ tab, onTab }: { tab: Tab; onTab: (t: Tab) => void })
             <button
               key={t.id}
               onClick={() => onTab(t.id)}
-              className={`gpu relative flex flex-col items-center rounded-2xl px-4 py-1.5 font-display text-xs font-bold uppercase tracking-wide transition-all ${
+              className={`gpu relative flex flex-col items-center rounded-2xl px-2 py-1.5 font-display text-xs font-bold uppercase tracking-wide transition-all sm:px-4 ${
                 active
                   ? 'bg-speed-bluelight text-speed-blue shadow-sm'
                   : 'text-slate-400 hover:text-slate-600'

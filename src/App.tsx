@@ -11,6 +11,8 @@ import { ShopScreen } from './screens/ShopScreen'
 import { LibraryScreen } from './screens/LibraryScreen'
 import { ArcadeScreen } from './screens/ArcadeScreen'
 import { SprintScreen } from './screens/SprintScreen'
+import { BattleScreen } from './screens/BattleScreen'
+import { BattleDuel } from './screens/BattleDuel'
 import { WelcomeGate } from './components/ui/WelcomeGate'
 import { AutoLeagueSettle } from './components/ui/AutoLeagueSettle'
 import { Scenery } from './components/ui/Scenery'
@@ -29,6 +31,8 @@ export default function App() {
   const [showLibrary, setShowLibrary] = useState(false)
   /** WS16 — Flashcard Sprint overlay (standalone full-screen round). */
   const [sprintOpen, setSprintOpen] = useState(false)
+  /** WS21 — Momo Battle duel overlay: gym number to fight (null = closed). */
+  const [battleGym, setBattleGym] = useState<number | null>(null)
 
   // Same Google account → same progress on every device. Pulls the cloud save
   // on sign-in and pushes (debounced) on every change; local play always works.
@@ -64,6 +68,10 @@ export default function App() {
 
   if (sprintOpen) {
     return <SprintScreen onExit={() => setSprintOpen(false)} />
+  }
+
+  if (battleGym != null) {
+    return <BattleDuel gym={battleGym} onExit={() => setBattleGym(null)} />
   }
 
   if (activeLesson || retryItems) {
@@ -103,6 +111,7 @@ export default function App() {
       {tab === 'leagues' && <LeaguesScreen />}
       {tab === 'quests' && <QuestsScreen />}
       {tab === 'arcade' && <ArcadeScreen />}
+      {tab === 'battle' && <BattleScreen onStartGym={(g) => setBattleGym(g)} />}
       {tab === 'profile' && (
         <ProfileScreen
           onPracticeLesson={(id) => setActiveLesson(id)}

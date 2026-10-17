@@ -43,6 +43,14 @@ const initialAdaptive = (): AdaptiveStore => ({
 
 export { ADAPTIVE_CONFIG, initialAdaptive }
 
+// --- Momo Battle payouts (§13.4; single source for the battle economy) ---
+/** Repeat-win anti-farm cap: replaying an ALREADY-CLEARED gym pays a tiny
+ *  fixed gem amount (never the full first-clear prize). */
+export const REPEAT_WIN_GEMS = 2
+/** Friendly loss (§13.1): free retry, no penalties — just a tiny
+ *  consolation gem so a loss still feels like something. */
+export const LOSS_CONSOLATION_GEMS = 1
+
 export interface LessonProgress {
   crown: number
   bestAccuracy: number
@@ -143,6 +151,22 @@ interface PlayerState {
   /** day-rolled count of sprints finished today (feeds the sprint1 quest) */
   sprintsTodayDay: string
   sprintsToday: number
+
+  // --- Momo Battle (WS20; additive, LOCAL-ONLY — excluded from cloud sync) ---
+  /** gym indices (1..13) the player has cleared at least once. */
+  battleCleared: number[]
+  /** lifetime battles won (achievement + display). */
+  battleWins: number
+  /** display trophy counter (increments on wins; cosmetic). */
+  battleTrophies: number
+  /** the 3 roster card ids chosen as the current squad. */
+  battleSquad: string[]
+  /** per-card battle XP (drives battle level 1-10 via battleLevelForXp). */
+  cardBattleXp: Record<string, number>
+  /** ISO day the daily rival was last offered/attempted. */
+  battleDailyBossDay: string
+  /** whether the daily rival was beaten today. */
+  battleDailyBossDone: boolean
   /** timestamp (ms) of last successful cloud sync */
   lastSyncedAt: number | null
 
@@ -175,6 +199,20 @@ interface PlayerState {
   /** Record a finished Flashcard Sprint run (WS16): lifetime runs/best +
    *  day-rolled quest counter. XP is paid separately via recordPractice. */
   finishSprint: (score: number) => void
+  /** Settle a finished Momo Battle (WS20): clears a gym on first win, pays
+   *  §13.4 prizes (first clear = full gems+XP+trophy; repeat win = tiny
+   *  anti-farm gems; loss = tiny consolation), awards per-card battle XP on
+   *  every finish, bumps wins, and rolls the daily-rival day. Pass
+   *  `dailyRival: true` ONLY for the Daily Rival rematch (its win flips the
+   *  once-a-day flag). Purely additive — never lessonProgress/lessons/crowns. */
+  battleFinished: (args: {
+    gym: number
+    won: boolean
+    gems: number
+    xp: number
+    perCardXp: Record<string, number>
+    dailyRival?: boolean
+  }) => void
   setDailyGoal: (g: number) => void
   setName: (n: string) => void
   setMascot: (m: MascotId) => void
@@ -617,6 +655,14 @@ export const usePlayer = create<PlayerState>()(
       sprintRuns: 0,
       sprintsTodayDay: firstDay,
       sprintsToday: 0,
+      // --- Momo Battle (WS20; local-only) ---
+      battleCleared: [],
+      battleWins: 0,
+      battleTrophies: 0,
+      battleSquad: [],
+      cardBattleXp: {},
+      battleDailyBossDay: firstDay,
+      battleDailyBossDone: false,
       lastSyncedAt: null,
 
       // --- adaptive learning ---
@@ -717,6 +763,59 @@ export const usePlayer = create<PlayerState>()(
           s.sprintBest = Math.max(s.sprintBest, Math.max(0, Math.round(Number(score) || 0)))
           s.sprintsToday += 1
           checkAchievements(s)
+          return s
+        }),
+
+      battleFinished: ({ gym, won, gems, xp, perCardXp, dailyRival }) =>
+        set((state) => {
+          const s: PlayerState = {
+            ...state,
+            battleCleared: [...state.battleCleared],
+            cardBattleXp: { ...state.cardBattleXp },
+          }
+          rollDay(s)
+          rollWeek(s)
+          markActivity(s)
+
+          const g = Math.max(1, Math.round(Number(gym) || 1))
+          const firstClear = won && !s.battleCleared.includes(g)
+
+          if (firstClear) {
+            // §13.4 first clear: full gems + XP + ONE trophy + the clear mark.
+            s.battleCleared.push(g)
+            s.battleTrophies += 1
+            s.battleWins += 1
+            const safeGems = Math.max(0, Math.round(Number(gems) || 0))
+            const safeXp = Math.max(0, Math.round(Number(xp) || 0))
+            s.gems += safeGems
+            s.xpTotal += safeXp
+            s.todayXp += safeXp
+            s.weeklyXp += safeXp
+          } else if (won) {
+            // §13.4 repeat win: tiny fixed gems (anti-farm cap), still a win.
+            s.battleWins += 1
+            s.gems += REPEAT_WIN_GEMS
+          } else {
+            // §13.1 friendly loss: free retry, no penalties, tiny consolation.
+            s.gems += LOSS_CONSOLATION_GEMS
+          }
+
+          // Per-card battle XP accrues on EVERY finish (win or loss — effort
+          // still levels the squad). Player XP/gems stay win-only above.
+          for (const [cardId, amt] of Object.entries(perCardXp ?? {})) {
+            const n = Math.max(0, Math.round(Number(amt) || 0))
+            if (n > 0) s.cardBattleXp[cardId] = (s.cardBattleXp[cardId] ?? 0) + n
+          }
+
+          // Daily rival: the day always rolls forward with any battle, but
+          // only a Daily Rival MATCH marks today's rematch as beaten.
+          const today = todayISO()
+          if (s.battleDailyBossDay !== today) {
+            s.battleDailyBossDay = today
+            s.battleDailyBossDone = false
+          }
+          if (dailyRival && won) s.battleDailyBossDone = true
+
           return s
         }),
 
@@ -1212,7 +1311,7 @@ export const usePlayer = create<PlayerState>()(
     }),
     {
       name: 'momomath-year2-player-v2',
-    version: 11,
+    version: 12,
     migrate: (persisted, version) => {
         const p = { ...(persisted as PlayerState) }
         if (version < 4) {
@@ -1312,6 +1411,18 @@ export const usePlayer = create<PlayerState>()(
           if (!isIsoDay(anyP.cardsWonWeekKey)) {
             anyP.cardsWonWeekKey = isIsoDay(anyP.weeklyXpWeek) ? anyP.weeklyXpWeek : firstDay
           }
+        }
+        if (version < 12) {
+          // v12 (WS20, additive): Momo Battle slice. Backfill ONLY the 7 new
+          // battle fields — never touches lessonProgress/XP/gems/crowns (R0).
+          const anyP = p as Partial<PlayerState>
+          if (!Array.isArray(anyP.battleCleared)) anyP.battleCleared = []
+          if (typeof anyP.battleWins !== 'number') anyP.battleWins = 0
+          if (typeof anyP.battleTrophies !== 'number') anyP.battleTrophies = 0
+          if (!Array.isArray(anyP.battleSquad)) anyP.battleSquad = []
+          if (!anyP.cardBattleXp || typeof anyP.cardBattleXp !== 'object') anyP.cardBattleXp = {}
+          if (!isIsoDay(anyP.battleDailyBossDay)) anyP.battleDailyBossDay = firstDay
+          if (typeof anyP.battleDailyBossDone !== 'boolean') anyP.battleDailyBossDone = false
         }
         return p
       },
