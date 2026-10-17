@@ -1166,10 +1166,19 @@ Battles may only ADD. Concretely:
   WS22's `<BattleDuel>`). Tests: +2 (unlock-gate block) → roadmap suite 17.
   `npx tsc -b` clean (fixed test fixture to full `LessonProgress`), `npm run
   verify` OK, full `npx vitest run` 98 files / 2617 tests green.
-- [ ] **WS22 — duel screen**: squad picker (owned only; star + battle
-  level + derived stats) → hybrid 3v3 duel (auto attacks, Power turns,
-  HP bars, animations, sfx) → result screen. Manual smoke: full win +
-  loss.
+- [x] **WS22 — duel screen** — DONE 2026-10-17: squad picker (owned only;
+  star + battle level + derived stats) → hybrid 3v3 duel (auto attacks,
+  Power turns, HP bars, animations, sfx) → result screen. **Manual smoke
+  PASSED** (Edge/playwright-cli, dev :3200): **WIN** gym 1 — squad picker
+  auto-picked sonic·eggman·shadow → VS intro → FIGHT → 3 correct Power
+  turns (specials) → "VICTORY!" + 💎14/⚡30/🏆1/📈+15 each, all persisted
+  (gems 120→134, xpTotal 80→110, trophies 0→1, wins 0→1, cleared [1],
+  cardXP sonic 615/eggman 15/shadow 15). **LOSS** — lone star-1 sonic vs
+  👑 champion (272 seeded lessons unlock every gym) → "So close!" + 💎1/
+  📈+5 each, persisted (gems 50→51, xpTotal 40, wins 0, cleared [],
+  sonicXp 5). Console: **0 errors / 0 warnings**. Deck replication
+  verified (gym-1 attempt-0 seed 7932 → deck[0] prompt matches the live
+  first power turn). Smoke helpers in `tmp/` (mk-deck/play-*/nav-*).
 - [ ] **WS23 — prizes + surfaces**: `battleFinished` payouts, victory
   chest, Daily Rival, +3 battle cards (after roster approval: art, Library
   battle panel, milestones), Profile battle card (ADDITIVE).
