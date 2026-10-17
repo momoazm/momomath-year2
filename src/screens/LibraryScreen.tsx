@@ -1,6 +1,6 @@
 import { useEffect, useState, type CSSProperties } from 'react'
 import { usePlayer } from '../engine/store'
-import { CARDS, ARCADE_CARDS, ARCADE_CARD_GOALS, ALL_CARDS, cardImageUrl, STAR_THRESHOLDS, copiesToNextStar, toStar, TIER_META, TIER_ORDER, type CardDef, type ChestTier } from '../engine/cards'
+import { CARDS, ARCADE_CARDS, ARCADE_CARD_GOALS, BATTLE_CARDS, BATTLE_CARD_GOALS, ALL_CARDS, cardImageUrl, STAR_THRESHOLDS, copiesToNextStar, toStar, TIER_META, TIER_ORDER, type CardDef, type ChestTier } from '../engine/cards'
 import { ARCADE_GAMES } from '../engine/gamification'
 import { AnimatePresence, motion } from 'framer-motion'
 
@@ -9,7 +9,7 @@ function isOwnedId(cardStars: Record<string, number>, id: string): boolean {
 }
 
 export function LibraryScreen({ onClose }: { onClose?: () => void }) {
-  const { cardStars, arcadeRounds, arcadeBossesDown, arcadeScores } = usePlayer()
+  const { cardStars, arcadeRounds, arcadeBossesDown, arcadeScores, battleCleared } = usePlayer()
   const [filterTier, setFilterTier] = useState<ChestTier | 'all'>('all')
   const [query, setQuery] = useState('')
   const [ownedOnly, setOwnedOnly] = useState(false)
@@ -32,6 +32,13 @@ export function LibraryScreen({ onClose }: { onClose?: () => void }) {
     const goal = ARCADE_CARD_GOALS[id]
     if (!goal) return ''
     return `${goal.unit} ${goal.progress(arcadeSnapshot)}/${goal.goal}`
+  }
+
+  const battleGoalText = (id: string) => BATTLE_CARD_GOALS[id]?.label ?? ''
+  const battleProgressText = (id: string) => {
+    const goal = BATTLE_CARD_GOALS[id]
+    if (!goal) return ''
+    return `Gyms ${battleCleared.length}/${goal.gym}`
   }
 
   const owned = new Set(Object.keys(cardStars).filter((id) => (cardStars[id] ?? 0) > 0))
@@ -77,6 +84,14 @@ export function LibraryScreen({ onClose }: { onClose?: () => void }) {
         cardStars={cardStars}
         goalText={goalText}
         progressText={progressText}
+      />
+      <BattleExclusives
+        isOwned={isOwned}
+        onCardClick={handleCardClick}
+        getHiddenCardStyle={getHiddenCardStyle}
+        cardStars={cardStars}
+        goalText={battleGoalText}
+        progressText={battleProgressText}
       />
       <LibraryToolbar
         filterTier={filterTier}
@@ -175,6 +190,107 @@ function ArcadeExclusives({
                     style={{ background: 'linear-gradient(0deg, rgba(2,6,23,0.78) 0%, transparent 55%)' }}>
                     <p className="font-display text-sm font-extrabold text-white drop-shadow">{card.name}</p>
                     <p className="font-display text-[10px] font-bold text-slate-200">🔒 Arcade exclusive</p>
+                    <p className="font-display text-[9px] font-bold text-slate-300 leading-tight">{goalText(card.id)}</p>
+                    <p className="font-display text-[9px] font-extrabold text-amber-400">{progressText(card.id)}</p>
+                  </div>
+                )}
+                {owned_ && (
+                  <div className="absolute inset-x-0 bottom-0 px-2 pb-2 pt-6 text-center"
+                    style={{ background: 'linear-gradient(0deg, rgba(2,6,23,0.85) 35%, transparent)' }}>
+                    {(() => {
+                      const star = toStar(count)
+                      const need = copiesToNextStar(count)
+                      return (
+                        <>
+                          <div className="flex justify-center gap-0.5">
+                            {[1,2,3,4,5].map(s => (
+                              <span key={s} className={"text-xs " + (s <= star ? "text-amber-400" : "text-slate-500")}>★</span>
+                            ))}
+                          </div>
+                          <h3 className="font-display text-base font-extrabold leading-tight text-white drop-shadow">
+                            {card.name}
+                          </h3>
+                          <p className="mt-0.5 text-center font-display text-[10px] font-extrabold text-slate-200">
+                            ×{count} {need > 0 ? `· ${need} more for ${star + 1}★` : '· MAX ★'}
+                          </p>
+                        </>
+                      )
+                    })()}
+                  </div>
+                )}
+              </div>
+            </motion.button>
+          )
+        })}
+      </div>
+    </section>
+  )
+}
+
+function BattleExclusives({
+  isOwned,
+  onCardClick,
+  getHiddenCardStyle,
+  cardStars,
+  goalText,
+  progressText,
+}: {
+  isOwned: (id: string) => boolean
+  onCardClick: (card: CardDef) => void
+  getHiddenCardStyle: (tier: ChestTier) => CSSProperties
+  cardStars: Record<string, number>
+  goalText: (id: string) => string
+  progressText: (id: string) => string
+}) {
+  const collected = BATTLE_CARDS.filter((c) => isOwned(c.id)).length
+  return (
+    <section className="mb-6" aria-label="Battle Exclusives">
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="font-display text-xl font-extrabold text-slate-800">⚔️ Battle Exclusives</h2>
+        <span className="text-sm text-slate-500">{collected} / {BATTLE_CARDS.length} collected</span>
+      </div>
+      <div className="grid grid-cols-3 gap-3">
+        {BATTLE_CARDS.map((card) => {
+          const owned_ = isOwned(card.id)
+          const hiddenStyle = getHiddenCardStyle(card.tier)
+          const count = cardStars[card.id] ?? 0
+          const meta = TIER_META[card.tier]
+          return (
+            <motion.button
+              key={card.id}
+              onClick={() => onCardClick(card)}
+              className={`relative aspect-[3/4] rounded-xl overflow-hidden card-white transition-all ${
+                owned_ ? 'cursor-pointer' : 'cursor-default'
+              }`}
+              whileTap={{ scale: 0.95 }}
+              style={owned_ ? { borderColor: meta.color, boxShadow: `0 0 0 2px ${meta.color}, 0 0 24px ${meta.glow}` } : hiddenStyle}
+            >
+              <div className="absolute inset-0">
+                <img
+                  src={cardImageUrl(card)}
+                  alt={owned_ ? card.name : `${card.name} (locked)`}
+                  loading="lazy"
+                  onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
+                  className={`absolute inset-0 h-full w-full object-cover transition-[filter,opacity] ${
+                    owned_ ? '' : 'opacity-55 saturate-[0.25] brightness-75'
+                  }`}
+                />
+                <div
+                  className="absolute inset-x-0 top-0 flex items-center justify-between px-2 pt-1.5"
+                  style={{ background: `linear-gradient(180deg, ${meta.color}66, transparent)` }}
+                >
+                  <span
+                    className="font-display text-[11px] font-extrabold px-2 py-0.5 rounded-full"
+                    style={{ background: meta.color, color: 'white' }}
+                  >
+                    {meta.label}
+                  </span>
+                </div>
+                {!owned_ && (
+                  <div className="absolute inset-0 flex flex-col items-center justify-end p-2 text-center"
+                    style={{ background: 'linear-gradient(0deg, rgba(2,6,23,0.78) 0%, transparent 55%)' }}>
+                    <p className="font-display text-sm font-extrabold text-white drop-shadow">{card.name}</p>
+                    <p className="font-display text-[10px] font-bold text-slate-200">⚔️ Battle exclusive</p>
                     <p className="font-display text-[9px] font-bold text-slate-300 leading-tight">{goalText(card.id)}</p>
                     <p className="font-display text-[9px] font-extrabold text-amber-400">{progressText(card.id)}</p>
                   </div>

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { mulberry32 } from '../src/content/rng'
-import { CARDS, ARCADE_CARDS, ALL_CARDS, rollChest, PITY_LIMIT, STAR_THRESHOLDS } from '../src/engine/cards'
+import { CARDS, ARCADE_CARDS, BATTLE_CARDS, ALL_CARDS, rollChest, PITY_LIMIT, STAR_THRESHOLDS } from '../src/engine/cards'
 import { ARCADE_GAMES } from '../src/engine/arcade'
 import { usePlayer } from '../src/engine/store'
 
@@ -27,8 +27,8 @@ describe('arcade exclusives never enter the chest pool', () => {
       }
     }
   })
-  it('ALL_CARDS is exactly CARDS plus the 3 exclusives with no overlap', () => {
-    expect(ALL_CARDS).toHaveLength(CARDS.length + ARCADE_CARDS.length)
+  it('ALL_CARDS is exactly CARDS plus the 3 arcade + 3 battle exclusives with no overlap', () => {
+    expect(ALL_CARDS).toHaveLength(CARDS.length + ARCADE_CARDS.length + BATTLE_CARDS.length)
     expect(ALL_CARDS.filter((c) => ARCADE_IDS.has(c.id))).toHaveLength(3)
     expect(CARDS.filter((c) => ARCADE_IDS.has(c.id))).toHaveLength(0)
   })

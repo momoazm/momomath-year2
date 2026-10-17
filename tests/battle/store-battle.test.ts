@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import {
+  DAILY_RIVAL_BONUS_GEMS,
   LOSS_CONSOLATION_GEMS,
   REPEAT_WIN_GEMS,
   usePlayer,
@@ -28,6 +29,8 @@ beforeEach(() => {
     todayXp: 0,
     todayXpDay: todayISO(),
     weeklyXp: 0,
+    cardStars: {},
+    cardPity: 0,
     lessonProgress: {},
     battleCleared: [],
     battleWins: 0,
@@ -40,19 +43,23 @@ beforeEach(() => {
 })
 
 describe('battleFinished — first clear pays rewards exactly once', () => {
-  it('first win grants gems/XP, clears the gym, and bumps win/trophy counters', () => {
-    usePlayer.getState().battleFinished({
+  it('first win grants gems/XP, clears the gym, bumps win/trophy counters, and rolls a victory chest', () => {
+    const chest = usePlayer.getState().battleFinished({
       gym: 1,
       won: true,
       gems: 14,
       xp: 30,
       perCardXp: { sonic: 15 },
+      rng: () => 0, // deterministic chest
     })
     const s = usePlayer.getState()
     expect(s.battleCleared).toContain(1)
     expect(s.battleWins).toBe(1)
     expect(s.battleTrophies).toBe(1)
-    expect(s.gems).toBe(1014)
+    // WS23: first clear returns + grants a victory chest; its gems + duplicate
+    // dust are ADDED on top of the 14 first-clear gems (approved new caller).
+    expect(chest).not.toBeNull()
+    expect(s.gems).toBe(1014 + (chest?.gems ?? 0) + (chest?.dust ?? 0))
     expect(s.xpTotal).toBe(30)
     expect(s.cardBattleXp.sonic).toBe(15)
   })
@@ -120,25 +127,55 @@ describe('battleFinished — daily rival flag rolls with the day', () => {
     })
     expect(usePlayer.getState().battleDailyBossDone).toBe(true)
   })
+
+  it('a Daily Rival rematch win pays ONE bonus gem on top of the repeat-win gems', () => {
+    // Clear gym 1 first (so the rematch is a repeat win, not a first clear).
+    usePlayer.getState().battleFinished({ gym: 1, won: true, gems: 14, xp: 30, perCardXp: {}, rng: () => 0 })
+    const before = usePlayer.getState().gems
+    usePlayer.getState().battleFinished({ gym: 1, won: true, gems: 0, xp: 0, perCardXp: {}, dailyRival: true })
+    // repeat-win gems + daily-rival bonus gem
+    expect(usePlayer.getState().gems).toBe(before + REPEAT_WIN_GEMS + DAILY_RIVAL_BONUS_GEMS)
+    expect(usePlayer.getState().battleDailyBossDone).toBe(true)
+  })
+
+  it('the bonus gem is once-a-day: a second rival win the SAME day pays only repeat-win gems', () => {
+    usePlayer.getState().battleFinished({ gym: 1, won: true, gems: 14, xp: 30, perCardXp: {}, rng: () => 0 })
+    usePlayer.getState().battleFinished({ gym: 1, won: true, gems: 0, xp: 0, perCardXp: {}, dailyRival: true })
+    const afterFirstRival = usePlayer.getState().gems
+    usePlayer.getState().battleFinished({ gym: 1, won: true, gems: 0, xp: 0, perCardXp: {}, dailyRival: true })
+    expect(usePlayer.getState().gems).toBe(afterFirstRival + REPEAT_WIN_GEMS) // no 2nd bonus
+  })
+
+  it('a losing Daily Rival pays only the consolation and does NOT mark today beaten', () => {
+    usePlayer.getState().battleFinished({ gym: 1, won: true, gems: 14, xp: 30, perCardXp: {}, rng: () => 0 })
+    const before = usePlayer.getState().gems
+    usePlayer.getState().battleFinished({ gym: 1, won: false, gems: 0, xp: 0, perCardXp: {}, dailyRival: true })
+    expect(usePlayer.getState().gems).toBe(before + LOSS_CONSOLATION_GEMS)
+    expect(usePlayer.getState().battleDailyBossDone).toBe(false) // can retry today
+  })
 })
 
 describe('R0 — battle progress never mutates lesson/XP/gems progress on its own', () => {
-  it('a zero-reward first clear leaves lessonProgress/xpTotal/gems untouched', () => {
+  it('a zero-reward first clear leaves lessonProgress/xpTotal untouched (gems move only by the victory chest)', () => {
     usePlayer.setState({
       lessonProgress: { u1l1: { crown: 2, bestAccuracy: 90, completions: 1 } },
       gems: 500,
       xpTotal: 120,
     })
-    usePlayer.getState().battleFinished({
+    const chest = usePlayer.getState().battleFinished({
       gym: 5,
       won: true,
-      gems: 0, // caller passed zero ⇒ nothing moves
+      gems: 0, // caller passed zero ⇒ no battle-gem payout
       xp: 0,
       perCardXp: {},
+      rng: () => 0, // deterministic chest
     })
     const s = usePlayer.getState()
     expect(s.lessonProgress).toEqual({ u1l1: { crown: 2, bestAccuracy: 90, completions: 1 } })
-    expect(s.gems).toBe(500)
+    // WS23: the ONLY gem movement on a first clear is the victory chest's own
+    // gems + duplicate dust (approved new grantChest caller) — never the
+    // battle-gem prize.
+    expect(s.gems).toBe(500 + (chest?.gems ?? 0) + (chest?.dust ?? 0))
     expect(s.xpTotal).toBe(120)
     expect(s.battleCleared).toContain(5) // battle-only state still progresses
   })

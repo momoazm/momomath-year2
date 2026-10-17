@@ -33,6 +33,8 @@ export default function App() {
   const [sprintOpen, setSprintOpen] = useState(false)
   /** WS21 — Momo Battle duel overlay: gym number to fight (null = closed). */
   const [battleGym, setBattleGym] = useState<number | null>(null)
+  /** WS23 — true when the duel was launched from the Daily Rival rematch. */
+  const [battleDailyRival, setBattleDailyRival] = useState(false)
 
   // Same Google account → same progress on every device. Pulls the cloud save
   // on sign-in and pushes (debounced) on every change; local play always works.
@@ -71,7 +73,13 @@ export default function App() {
   }
 
   if (battleGym != null) {
-    return <BattleDuel gym={battleGym} onExit={() => setBattleGym(null)} />
+    return (
+      <BattleDuel
+        gym={battleGym}
+        dailyRival={battleDailyRival}
+        onExit={() => { setBattleGym(null); setBattleDailyRival(false) }}
+      />
+    )
   }
 
   if (activeLesson || retryItems) {
@@ -111,7 +119,12 @@ export default function App() {
       {tab === 'leagues' && <LeaguesScreen />}
       {tab === 'quests' && <QuestsScreen />}
       {tab === 'arcade' && <ArcadeScreen />}
-      {tab === 'battle' && <BattleScreen onStartGym={(g) => setBattleGym(g)} />}
+      {tab === 'battle' && (
+        <BattleScreen
+          onStartGym={(g) => { setBattleGym(g); setBattleDailyRival(false) }}
+          onDailyRival={(g) => { setBattleGym(g); setBattleDailyRival(true) }}
+        />
+      )}
       {tab === 'profile' && (
         <ProfileScreen
           onPracticeLesson={(id) => setActiveLesson(id)}

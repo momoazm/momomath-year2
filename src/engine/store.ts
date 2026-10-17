@@ -16,7 +16,7 @@ import {
 } from './gamification'
 import { SHOP_ITEMS } from './shop'
 import { setMuted, sfx } from './sfx'
-import { chestPayout, ARCADE_CARDS, ARCADE_CARD_GOALS, STAR_THRESHOLDS } from './cards'
+import { chestPayout, rollChest, ARCADE_CARDS, ARCADE_CARD_GOALS, BATTLE_CARDS, BATTLE_CARD_GOALS, STAR_THRESHOLDS } from './cards'
 import type { ChestResult } from './cards'
 import { ARCADE_GAMES } from './arcade'
 import type { AdaptiveStore } from './adaptive/types'
@@ -50,6 +50,9 @@ export const REPEAT_WIN_GEMS = 2
 /** Friendly loss (§13.1): free retry, no penalties — just a tiny
  *  consolation gem so a loss still feels like something. */
 export const LOSS_CONSOLATION_GEMS = 1
+/** Daily Rival (§13.4): winning the once-a-day rematch vs a cleared rival
+ *  pays this ONE bonus gem on top of the repeat-win gems (so +3 total). */
+export const DAILY_RIVAL_BONUS_GEMS = 1
 
 export interface LessonProgress {
   crown: number
@@ -185,6 +188,11 @@ interface PlayerState {
   /** Evaluate all ARCADE_CARD_GOALS against current progress; grants every
    *  newly-satisfied goal. Returns the ids granted this call. */
   checkArcadeCards: () => string[]
+  /** Grant a battle-exclusive card 3 copies (1★) once; false if already owned. */
+  grantBattleCard: (id: string) => boolean
+  /** Evaluate all BATTLE_CARD_GOALS against gyms cleared; grants every
+   *  newly-satisfied goal. Returns the ids granted this call. */
+  checkBattleCards: () => string[]
   completeLesson: (args: {
     lessonId: string
     xp: number
@@ -199,12 +207,16 @@ interface PlayerState {
   /** Record a finished Flashcard Sprint run (WS16): lifetime runs/best +
    *  day-rolled quest counter. XP is paid separately via recordPractice. */
   finishSprint: (score: number) => void
-  /** Settle a finished Momo Battle (WS20): clears a gym on first win, pays
-   *  §13.4 prizes (first clear = full gems+XP+trophy; repeat win = tiny
-   *  anti-farm gems; loss = tiny consolation), awards per-card battle XP on
-   *  every finish, bumps wins, and rolls the daily-rival day. Pass
-   *  `dailyRival: true` ONLY for the Daily Rival rematch (its win flips the
-   *  once-a-day flag). Purely additive — never lessonProgress/lessons/crowns. */
+  /** Settle a finished Momo Battle (WS20/WS23): clears a gym on first win, pays
+   *  §13.4 prizes (first clear = full gems+XP+trophy+VICTORY CHEST via the new
+   *  grantChest caller; repeat win = tiny anti-farm gems; loss = tiny
+   *  consolation), awards per-card battle XP on every finish, bumps wins,
+   *  rolls the daily-rival day, and re-checks battle-exclusive card unlocks.
+   *  Pass `dailyRival: true` ONLY for the Daily Rival rematch (its win flips
+   *  the once-a-day flag). Purely additive — never lessonProgress/lessons/
+   *  crowns. Returns the first-clear victory ChestResult (else null) so the
+   *  result screen can reveal it; pass `rng` to make the chest deterministic
+   *  in tests (defaults to Math.random). */
   battleFinished: (args: {
     gym: number
     won: boolean
@@ -212,7 +224,8 @@ interface PlayerState {
     xp: number
     perCardXp: Record<string, number>
     dailyRival?: boolean
-  }) => void
+    rng?: () => number
+  }) => ChestResult | null
   setDailyGoal: (g: number) => void
   setName: (n: string) => void
   setMascot: (m: MascotId) => void
@@ -766,7 +779,14 @@ export const usePlayer = create<PlayerState>()(
           return s
         }),
 
-      battleFinished: ({ gym, won, gems, xp, perCardXp, dailyRival }) =>
+      battleFinished: ({ gym, won, gems, xp, perCardXp, dailyRival, rng }) => {
+        const g = Math.max(1, Math.round(Number(gym) || 1))
+        const firstClear = won && !get().battleCleared.includes(g)
+        // Daily-rival once-a-day check against PRE-roll state (the set rolls the
+        // day below, so read the flag before it resets). Bonus is win-only.
+        const alreadyDoneToday = get().battleDailyBossDay === todayISO() && get().battleDailyBossDone === true
+        let chest: ChestResult | null = null
+
         set((state) => {
           const s: PlayerState = {
             ...state,
@@ -776,9 +796,6 @@ export const usePlayer = create<PlayerState>()(
           rollDay(s)
           rollWeek(s)
           markActivity(s)
-
-          const g = Math.max(1, Math.round(Number(gym) || 1))
-          const firstClear = won && !s.battleCleared.includes(g)
 
           if (firstClear) {
             // §13.4 first clear: full gems + XP + ONE trophy + the clear mark.
@@ -795,6 +812,8 @@ export const usePlayer = create<PlayerState>()(
             // §13.4 repeat win: tiny fixed gems (anti-farm cap), still a win.
             s.battleWins += 1
             s.gems += REPEAT_WIN_GEMS
+            // Daily Rival rematch (once/day) pays ONE bonus gem on top.
+            if (dailyRival && !alreadyDoneToday) s.gems += DAILY_RIVAL_BONUS_GEMS
           } else {
             // §13.1 friendly loss: free retry, no penalties, tiny consolation.
             s.gems += LOSS_CONSOLATION_GEMS
@@ -817,7 +836,24 @@ export const usePlayer = create<PlayerState>()(
           if (dailyRival && won) s.battleDailyBossDone = true
 
           return s
-        }),
+        })
+
+        // §13.4 first-clear VICTORY CHEST — pure rollChest + existing grantChest
+        // as a NEW caller (gyms are villain-boss fights → 'boss' chest context).
+        // The chest's own gems/cards/dust are granted by grantChest; on top of
+        // the first-clear gems+XP+trophy paid above. Deterministic in tests via
+        // the optional `rng` (defaults to Math.random).
+        if (firstClear) {
+          chest = rollChest(rng ?? Math.random, 'boss', get().cardStars, get().cardPity)
+          get().grantChest(chest)
+        }
+
+        // A fresh clear may satisfy a battle-exclusive card milestone (gym 4/8/
+        // champion) — re-check so mecha-sonic/egg-dragoon/solaris grant here.
+        get().checkBattleCards()
+
+        return chest
+      },
 
       setDailyGoal: (g) => set({ dailyGoal: g }),
       setName: (n) => set({ name: n.trim() || 'Champion' }),
@@ -1076,6 +1112,34 @@ export const usePlayer = create<PlayerState>()(
           if ((st.cardStars[card.id] ?? 0) >= STAR_THRESHOLDS[0]) continue
           if (goal.progress(snap) >= goal.goal) {
             if (get().grantArcadeCard(card.id)) granted.push(card.id)
+          }
+        }
+        return granted
+      },
+      grantBattleCard: (id) => {
+        const def = BATTLE_CARDS.find((c) => c.id === id)
+        if (!def) return false
+        let granted = false
+        set((state) => {
+          if ((state.cardStars[id] ?? 0) >= STAR_THRESHOLDS[0]) return state
+          granted = true
+          return {
+            cardStars: { ...state.cardStars, [id]: STAR_THRESHOLDS[0] },
+            ...bumpCardsWon(state, 1),
+          }
+        })
+        return granted
+      },
+      checkBattleCards: () => {
+        const st = get()
+        const cleared = new Set(st.battleCleared)
+        const granted: string[] = []
+        for (const card of BATTLE_CARDS) {
+          const goal = BATTLE_CARD_GOALS[card.id]
+          if (!goal) continue
+          if ((st.cardStars[card.id] ?? 0) >= STAR_THRESHOLDS[0]) continue
+          if (cleared.has(goal.gym)) {
+            if (get().grantBattleCard(card.id)) granted.push(card.id)
           }
         }
         return granted

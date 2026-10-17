@@ -12,6 +12,7 @@ import {
 } from '../engine/battle/roadmap'
 import { ARCHETYPE_META, CARD_ARCHETYPE } from '../engine/battle/archetypes'
 import { CARD_BY_ID } from '../engine/cards'
+import { todayISO } from '../engine/gamification'
 
 /** Node state for the roadmap visuals: 🔒 locked / ✨ available / 🏆 cleared. */
 type NodeState = 'locked' | 'available' | 'cleared'
@@ -27,10 +28,12 @@ const STATE_BADGE: Record<NodeState, { icon: string; label: string; cls: string 
   cleared: { icon: '🏆', label: 'Cleared', cls: 'bg-emerald-100 text-emerald-600' },
 }
 
-export function BattleScreen({ onStartGym }: { onStartGym?: (gym: number) => void }) {
+export function BattleScreen({ onStartGym, onDailyRival }: { onStartGym?: (gym: number) => void; onDailyRival?: (gym: number) => void }) {
   const battleCleared = usePlayer((s) => s.battleCleared)
   const battleTrophies = usePlayer((s) => s.battleTrophies)
   const battleWins = usePlayer((s) => s.battleWins)
+  const battleDailyBossDay = usePlayer((s) => s.battleDailyBossDay)
+  const battleDailyBossDone = usePlayer((s) => s.battleDailyBossDone)
   const lessonProgress = usePlayer((s) => s.lessonProgress)
   const [selected, setSelected] = useState<number | null>(null)
 
@@ -38,6 +41,14 @@ export function BattleScreen({ onStartGym }: { onStartGym?: (gym: number) => voi
   const completed = useMemo(() => countCompletedLessons(lessonProgress), [lessonProgress])
   const sel = selected != null ? ROADMAP_GYMS.find((g) => g.index === selected) ?? null : null
   const selState = sel ? nodeState(sel, cleared, completed) : null
+
+  // Daily Rival: a once-a-day rematch vs your strongest cleared gym for one
+  // bonus gem (§13.4). Available until you win it today.
+  const today = todayISO()
+  const rivalGym = battleCleared.length > 0 ? Math.max(...battleCleared) : null
+  const dailyRivalDoneToday = battleDailyBossDay === today && battleDailyBossDone
+  const dailyRivalGym = !dailyRivalDoneToday && rivalGym != null ? rivalGym : null
+  const rivalDef = rivalGym != null ? ROADMAP_GYMS.find((g) => g.index === rivalGym) ?? null : null
 
   return (
     <div className="mx-auto w-full max-w-xl px-4 pb-28 pt-4">
@@ -68,6 +79,44 @@ export function BattleScreen({ onStartGym }: { onStartGym?: (gym: number) => voi
           ✨ {completed} non-boss lessons done — finish lessons to unlock more gyms!
         </p>
       </section>
+
+      {/* Daily Rival (§13.4) — one bonus-gem rematch per day vs your strongest cleared gym */}
+      {rivalDef && (
+        <section
+          className={`card-white mb-5 border-2 ${
+            dailyRivalGym != null ? 'border-pink-300 bg-gradient-to-r from-pink-50 to-rose-50' : 'border-slate-200 bg-slate-50'
+          }`}
+        >
+          <div className="flex items-center gap-3">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-pink-100 text-2xl">
+              {dailyRivalGym != null ? '🥊' : '😴'}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="font-display text-sm font-extrabold text-slate-800">
+                Daily Rival · {rivalDef.villain}
+                {dailyRivalGym != null && (
+                  <span className="ml-2 rounded-full bg-pink-100 px-2 py-0.5 text-[10px] font-extrabold uppercase text-pink-600">
+                    +1 💎 bonus
+                  </span>
+                )}
+              </p>
+              <p className="text-xs font-medium text-slate-500">
+                {dailyRivalGym != null
+                  ? `Rematch #{rivalDef.index} for an extra gem today!`
+                  : 'Come back tomorrow for a new rematch.'}
+              </p>
+            </div>
+            {dailyRivalGym != null && (
+              <button
+                onClick={() => onDailyRival?.(dailyRivalGym)}
+                className="btn-blue shrink-0 rounded-2xl px-4 py-2.5 font-display text-xs font-extrabold uppercase tracking-wide transition-transform active:scale-95"
+              >
+                🥊 Rematch
+              </button>
+            )}
+          </div>
+        </section>
+      )}
 
       {/* The roadmap */}
       <ol className="space-y-3">

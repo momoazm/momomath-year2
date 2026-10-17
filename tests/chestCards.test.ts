@@ -5,6 +5,8 @@ import {
   ALL_CARDS,
   ARCADE_CARDS,
   ARCADE_CARD_BY_ID,
+  BATTLE_CARDS,
+  BATTLE_CARD_BY_ID,
   CARDS,
   CARD_BY_ID,
   CARD_CHANCE,
@@ -531,10 +533,11 @@ describe('WS4c roster (full 100-card collection, PLAN.md §7 + §10)', () => {
     expect(CARDS.length).toBe(97)
   })
 
-  it('ALL_CARDS is exactly 100 (97 chest + 3 arcade exclusives)', () => {
-    expect(ALL_CARDS).toHaveLength(100)
+  it('ALL_CARDS is exactly 103 (97 chest + 3 arcade + 3 battle exclusives)', () => {
+    expect(ALL_CARDS).toHaveLength(103)
     expect(ARCADE_CARDS).toHaveLength(3)
-    expect(CARDS.length + ARCADE_CARDS.length).toBe(ALL_CARDS.length)
+    expect(BATTLE_CARDS).toHaveLength(3)
+    expect(CARDS.length + ARCADE_CARDS.length + BATTLE_CARDS.length).toBe(ALL_CARDS.length)
   })
 
   it('arcade exclusives are exclusive-tier, source arcade, and disjoint from CARDS', () => {
@@ -561,6 +564,34 @@ describe('WS4c roster (full 100-card collection, PLAN.md §7 + §10)', () => {
     for (const tier of TIER_ORDER) {
       const pool = CARDS.filter((c) => c.tier === tier).map((c) => c.id)
       for (const id of pool) expect(arcadeIds.has(id), id).toBe(false)
+    }
+  })
+
+  it('battle exclusives are exclusive-tier, source battle, and disjoint from CARDS + arcade', () => {
+    const chestIds = new Set(CARDS.map((c) => c.id))
+    const arcadeIds = new Set(ARCADE_CARDS.map((c) => c.id))
+    for (const c of BATTLE_CARDS) {
+      expect(c.tier, c.id).toBe('exclusive')
+      expect(c.source, c.id).toBe('battle')
+      expect(chestIds.has(c.id), c.id).toBe(false)
+      expect(arcadeIds.has(c.id), c.id).toBe(false)
+      expect(BATTLE_CARD_BY_ID[c.id], c.id).toBe(c)
+      expect(ALL_CARDS).toContain(c)
+    }
+    expect(new Set(BATTLE_CARDS.map((c) => c.id)).size).toBe(3)
+  })
+
+  it('rollChest never drops a battle exclusive id', () => {
+    const battleIds = new Set(BATTLE_CARDS.map((c) => c.id))
+    for (let i = 0; i < 5000; i++) {
+      const r = rollChest(rng(i * 31 + 7), 'boss', {}, i % 4 === 0 ? PITY_LIMIT : 0)
+      for (const card of r.cards) {
+        expect(battleIds.has(card.cardId), card.cardId).toBe(false)
+      }
+    }
+    for (const tier of TIER_ORDER) {
+      const pool = CARDS.filter((c) => c.tier === tier).map((c) => c.id)
+      for (const id of pool) expect(battleIds.has(id), id).toBe(false)
     }
   })
 

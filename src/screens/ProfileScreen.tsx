@@ -209,6 +209,16 @@ export function ProfileScreen({ onPracticeLesson, onPracticeRetry, onStartChecku
         </p>
       </section>
 
+      {/* WS23 — Momo Battle stats (additive; trophies/wins/gyms cleared) */}
+      <section className="card-white mt-4 border-l-4 border-l-purple-500">
+        <p className="font-display text-sm font-bold uppercase tracking-wide text-slate-400">⚔️ Battle Road</p>
+        <div className="mt-2 grid grid-cols-3 gap-3 text-center">
+          <Stat icon="🏆" label="Trophies" value={String(s.battleTrophies)} sub="first clears" />
+          <Stat icon="⚔️" label="Wins" value={String(s.battleWins)} sub="all battles" />
+          <Stat icon="🗺️" label="Gyms" value={`${s.battleCleared.length}/13`} sub="cleared" />
+        </div>
+      </section>
+
       {/* optional extras: Deutsch + Arabic (Egyptian Tawassol Grade 2).
           Opt-in DLC — never forced, never in the core toggle until enabled.
           Shared XP/gems/league economy when on. */}

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   ALL_CARDS,
   ARCADE_CARDS,
+  BATTLE_CARDS,
   CARDS,
   DUST_PER_CARD,
   MAX_STAR,
@@ -52,10 +53,11 @@ describe('star curve [3,6,10,15,21]', () => {
 })
 
 describe('library card art contract (real images, no blanks)', () => {
-  it('all 100 shipped cards point at an existing art file', () => {
-    expect(ALL_CARDS).toHaveLength(100)
+  it('all 103 shipped cards point at an existing art file', () => {
+    expect(ALL_CARDS).toHaveLength(103)
     expect(CARDS).toHaveLength(97)
     expect(ARCADE_CARDS).toHaveLength(3)
+    expect(BATTLE_CARDS).toHaveLength(3)
     const expected: Record<string, string> = {
       tails: 'cards/tails.webp',
       amy: 'cards/amy.webp',
@@ -157,8 +159,11 @@ describe('library card art contract (real images, no blanks)', () => {
       'metal-overlord': 'cards/metal-overlord.webp',
       'perfect-chaos': 'cards/perfect-chaos.webp',
       'dark-gaia': 'cards/dark-gaia.webp',
+      'mecha-sonic': 'cards/mecha-sonic.webp',
+      'egg-dragoon': 'cards/egg-dragoon.webp',
+      solaris: 'cards/solaris.webp',
     }
-    expect(Object.keys(expected)).toHaveLength(100)
+    expect(Object.keys(expected)).toHaveLength(103)
     for (const card of ALL_CARDS) {
       expect(card.image, card.id).toBe(expected[card.id])
     }

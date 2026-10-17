@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, MotionConfig, motion } from 'framer-motion'
 import { usePlayer, REPEAT_WIN_GEMS, LOSS_CONSOLATION_GEMS } from '../engine/store'
 import { CARD_BY_ID, cardImageUrl } from '../engine/cards'
+import type { ChestResult } from '../engine/cards'
 import {
   advance,
   createDuel,
@@ -54,6 +55,8 @@ interface ResultInfo {
   gems: number
   xp: number
   cardXp: number
+  /** first-clear victory chest (WS23), revealed on the result screen */
+  chest?: ChestResult | null
 }
 
 function nameOf(state: DuelState, uid: string): string {
@@ -143,7 +146,7 @@ function ChargePips({ charge, label, ready }: { charge: number; label: string; r
   )
 }
 
-export function BattleDuel({ gym, onExit }: { gym: number; onExit: () => void }) {
+export function BattleDuel({ gym, dailyRival, onExit }: { gym: number; dailyRival?: boolean; onExit: () => void }) {
   const cardStars = usePlayer((s) => s.cardStars)
   const cardBattleXp = usePlayer((s) => s.cardBattleXp)
   const lessonProgress = usePlayer((s) => s.lessonProgress)
@@ -220,12 +223,13 @@ export function BattleDuel({ gym, onExit }: { gym: number; onExit: () => void })
       const wasFirst = won && !battleCleared.includes(gym)
       const perCardXp: Record<string, number> = {}
       for (const id of sel) perCardXp[id] = won ? BATTLE_XP_WIN : BATTLE_XP_LOSS
-      battleFinished({
+      const chest = battleFinished({
         gym,
         won,
         gems: GYM_GEMS[gym] ?? 0,
         xp: GYM_XP[gym] ?? 0,
         perCardXp,
+        dailyRival,
       })
       setResult({
         won,
@@ -233,6 +237,7 @@ export function BattleDuel({ gym, onExit }: { gym: number; onExit: () => void })
         gems: won ? (wasFirst ? GYM_GEMS[gym] ?? 0 : REPEAT_WIN_GEMS) : LOSS_CONSOLATION_GEMS,
         xp: won && wasFirst ? GYM_XP[gym] ?? 0 : 0,
         cardXp: won ? BATTLE_XP_WIN : BATTLE_XP_LOSS,
+        chest,
       })
       if (won) sfx.complete()
       else sfx.wrong()
@@ -610,6 +615,25 @@ export function BattleDuel({ gym, onExit }: { gym: number; onExit: () => void })
                   </span>
                 </div>
                 <p className="mt-2 text-[11px] font-bold text-slate-400">Squad: {sel.join(' · ')}</p>
+                {result.chest && (
+                  <div
+                    className="mt-3 rounded-xl border-2 border-amber-300 bg-amber-50 p-3 text-center"
+                    aria-label="Victory Chest"
+                  >
+                    <p className="font-display text-sm font-extrabold text-amber-700">
+                      🎁 Victory Chest · {result.chest.finalTier.toUpperCase()}
+                    </p>
+                    <p className="mt-0.5 text-[11px] font-bold text-amber-600">+{result.chest.gems} gems{result.chest.dust > 0 ? ` · +${result.chest.dust} dust` : ''}</p>
+                    {result.chest.cards.length > 0 && (
+                      <p className="mt-1 text-[11px] font-extrabold text-slate-700">
+                        {result.chest.cards
+                          .map((c) => CARD_BY_ID[c.cardId]?.name ?? c.cardId)
+                          .join(' · ')}{' '}
+                        card{result.chest.cards.length > 1 ? 's' : ''}!
+                      </p>
+                    )}
+                  </div>
+                )}
               </section>
 
               <div className="mt-5 grid grid-cols-2 gap-3">

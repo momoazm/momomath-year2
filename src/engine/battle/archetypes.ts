@@ -91,7 +91,7 @@ export const CARD_ARCHETYPE: Record<string, Archetype> = {
   // ---- Arcade exclusives (3) ----
   fang: 'trickster', bean: 'trickster', bark: 'power',
   // ---- Battle exclusives (3; cards.ts gains these in WS23) ----
-  'mecha-sonic': 'tech', 'egg-dragon': 'power', solaris: 'chaos',
+  'mecha-sonic': 'tech', 'egg-dragoon': 'power', solaris: 'chaos',
 }
 
 /** Archetype for a card id. Throws on unknown id (roster drift is a bug). */

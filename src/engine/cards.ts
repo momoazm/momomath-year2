@@ -23,7 +23,7 @@ export interface CardDef {
   image: string
   /** 'chest' (default) = drops from lesson chests; 'arcade' = unlock-only,
    *  never in the chest pool (drawCardId/mastered read CARDS, which excludes these). */
-  source?: 'chest' | 'arcade'
+  source?: 'chest' | 'arcade' | 'battle'
 }
 
 
@@ -148,10 +148,22 @@ export const ARCADE_CARDS: CardDef[] = [
   { id: 'bark', tier: 'exclusive', name: 'Bark the Polar Bear', flavor: 'Crushes 5 bosses in Boss Rush!', image: 'cards/bark.webp', source: 'arcade' },
 ]
 
-/** Every card incl. arcade exclusives (library/profile display). */
-export const ALL_CARDS: CardDef[] = [...CARDS, ...ARCADE_CARDS]
+/* -------------------- battle-exclusive cards -------------------- */
+/** Unlock-only battle squad cards — NEVER in the chest pool (uniform pick,
+ *  locked-pity and novelty math all read CARDS, which excludes these).
+ *  Granted by clearing gyms on the Battle Road (see BATTLE_CARD_GOALS + store
+ *  checkBattleCards). Art: placeholder webps (WS23; real art can drop in later). */
+export const BATTLE_CARDS: CardDef[] = [
+  { id: 'mecha-sonic', tier: 'exclusive', name: 'Mecha Sonic', flavor: 'Clear gym 4 to recruit!', image: 'cards/mecha-sonic.webp', source: 'battle' },
+  { id: 'egg-dragoon', tier: 'exclusive', name: 'Egg Dragoon', flavor: 'Clear gym 8 to recruit!', image: 'cards/egg-dragoon.webp', source: 'battle' },
+  { id: 'solaris', tier: 'exclusive', name: 'Solaris', flavor: 'Defeat the Champion to recruit!', image: 'cards/solaris.webp', source: 'battle' },
+]
+
+/** Every card incl. arcade + battle exclusives (library/profile display). */
+export const ALL_CARDS: CardDef[] = [...CARDS, ...ARCADE_CARDS, ...BATTLE_CARDS]
 
 export const ARCADE_CARD_BY_ID: Record<string, CardDef> = Object.fromEntries(ARCADE_CARDS.map((c) => [c.id, c]))
+export const BATTLE_CARD_BY_ID: Record<string, CardDef> = Object.fromEntries(BATTLE_CARDS.map((c) => [c.id, c]))
 
 /** Unlock progress target for each arcade card. `unit` is the short progress
  *  prefix shown on the locked library card ("Rounds 4/10"). */
@@ -159,6 +171,14 @@ export const ARCADE_CARD_GOALS: Record<string, { label: string; unit: string; go
   fang: { label: 'Finish {n} arcade rounds', unit: 'Rounds', goal: 10, progress: (s) => s.arcadeRounds },
   bark: { label: 'Defeat {n} bosses in Boss Rush', unit: 'Bosses', goal: 5, progress: (s) => s.arcadeBossesDown },
   bean: { label: 'Score in all {n} subject games', unit: 'Games', goal: 3, progress: (s) => s.arcadeGamesPlayed },
+}
+
+/** Unlock target for each battle card: the gym that must be CLEARED
+ *  (battleCleared includes `gym`). `label` is the locked library hint. */
+export const BATTLE_CARD_GOALS: Record<string, { gym: number; label: string }> = {
+  'mecha-sonic': { gym: 4, label: 'Clear gym 4' },
+  'egg-dragoon': { gym: 8, label: 'Clear gym 8' },
+  solaris: { gym: 13, label: 'Defeat the Champion' },
 }
 
 /** Resolves a card's character render to an absolute URL under the Vite base path. */
