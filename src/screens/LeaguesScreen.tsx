@@ -3,6 +3,7 @@ import { motion } from 'framer-motion'
 import {
   LEAGUES,
   LEAGUE_META,
+  leagueMeta,
   advanceLeague,
   leagueOutcomeByRank,
   leagueWeekElapsed,
@@ -112,7 +113,7 @@ export function LeaguesScreen() {
     }
   }, [myId, s.name, s.weeklyXp, s.currentLeague, s.mascot, s.weeklyXpWeek, boardWeek, weekLive])
 
-  const meta = LEAGUE_META[s.currentLeague]
+  const meta = leagueMeta(s.currentLeague)
   const goal = weeklyGoal(s.currentLeague)
   const countdown = formatCountdown(msUntilWeekEnd(anchor, new Date(nowMs)))
 
@@ -383,7 +384,7 @@ export function LeaguesScreen() {
           <ul className="space-y-1 text-sm font-bold text-slate-500">
             {[...s.leagueHistory].reverse().slice(0, 5).map((h) => (
               <li key={h.weekKey}>
-                Week of {h.weekKey}: {LEAGUE_META[h.league].icon} {h.league} · {h.xp} XP ·{' '}
+                Week of {h.weekKey}: {leagueMeta(h.league).icon} {h.league} · {h.xp} XP ·{' '}
                 {h.outcome === 'promoted' ? '⬆️ promoted' : h.outcome === 'demoted' ? '⬇️ demoted' : '— stayed'}
               </li>
             ))}

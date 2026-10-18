@@ -1,5 +1,5 @@
 import { usePlayer } from '../../engine/store'
-import { LEAGUE_META, displayStreak, isStreakActive } from '../../engine/gamification'
+import { leagueMeta, displayStreak, isStreakActive } from '../../engine/gamification'
 import { ENERGY_IS_UNLIMITED } from '../../engine/store'
 import { AuthBadge } from './AuthBadge'
 import { useAuth } from '../../engine/auth'
@@ -96,7 +96,7 @@ function Pill({ icon, iconBg, value, title, valueClass }: { icon: string; iconBg
 export function TopBar({ onLeagueClick, onLibraryClick }: { onLeagueClick?: () => void; onLibraryClick?: () => void }) {
   const s = usePlayer()
   const user = useAuth((a) => a.user)
-  const league = LEAGUE_META[s.currentLeague]
+  const league = leagueMeta(s.currentLeague)
   // Streak only lights up after a lesson is completed TODAY. Otherwise the
   // pill shows "—" so yesterday's count doesn't carry over before the first
   // lesson of the new day.

@@ -37,6 +37,13 @@ export const LEAGUE_META: Record<LeagueName, { icon: string; color: string }> = 
   Diamond: { icon: '💎', color: '#06b6d4' },
 }
 
+/** Crash-proof league lookup — a foreign save (other app line, same storage
+ *  key) or a corrupt one may hold a league name this build doesn't know.
+ *  Never index LEAGUE_META with raw save values: fall back to Bronze. */
+export function leagueMeta(name: unknown): { icon: string; color: string } {
+  return LEAGUE_META[name as LeagueName] ?? LEAGUE_META.Bronze
+}
+
 export const PROMOTION_GOAL_FACTOR = 1 // hit the weekly goal -> promoted
 export const STAY_FACTOR = 0.34 // at least this fraction of the goal keeps your league
 

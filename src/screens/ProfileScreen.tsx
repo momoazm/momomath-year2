@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { ACHIEVEMENTS, ARCADE_GAMES, LEAGUES, LEAGUE_META, displayStreak, isStreakActive } from '../engine/gamification'
+import { ACHIEVEMENTS, ARCADE_GAMES, LEAGUES, leagueMeta, displayStreak, isStreakActive } from '../engine/gamification'
 import { usePlayer } from '../engine/store'
 import { GrownUpsReview } from '../components/ui/GrownUpsReview'
 import { MASCOTS, Mascot } from '../components/mascots/Mascots'
@@ -469,15 +469,15 @@ export function ProfileScreen({ onPracticeLesson, onPracticeRetry, onStartChecku
       <section className="card-white mt-4">
         <p className="font-display text-sm font-bold uppercase tracking-wide text-slate-400">League history</p>
         <p className="mt-1 font-body font-bold text-slate-500">
-          Current: <span style={{ color: LEAGUE_META[s.currentLeague].color }}>
-            {LEAGUE_META[s.currentLeague].icon} {s.currentLeague}
+          Current: <span style={{ color: leagueMeta(s.currentLeague).color }}>
+            {leagueMeta(s.currentLeague).icon} {s.currentLeague}
           </span> · ladder: {LEAGUES.join(' → ')}
         </p>
         {s.leagueHistory.length > 0 && (
           <ul className="mt-2 space-y-1 text-sm font-bold text-slate-400">
             {[...s.leagueHistory].reverse().slice(0, 5).map((h) => (
               <li key={h.weekKey}>
-                Week of {h.weekKey}: {LEAGUE_META[h.league].icon} {h.league} · {h.xp} XP ·{' '}
+                Week of {h.weekKey}: {leagueMeta(h.league).icon} {h.league} · {h.xp} XP ·{' '}
                 {h.outcome === 'promoted' ? '⬆️ promoted' : h.outcome === 'demoted' ? '⬇️ demoted' : '— stayed'}
               </li>
             ))}

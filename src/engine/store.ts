@@ -610,6 +610,79 @@ function initialExtraEnabled(key: ExtraKey, subject: ExtraSubject): boolean {
   return new URLSearchParams(window.location.search).get('subject') === subject
 }
 
+/** Subject ids this build ships a roadmap for. */
+const KNOWN_SUBJECTS: readonly string[] = ['math', 'english', 'science', 'german', 'arabic', 'religion', 'social']
+
+/**
+ * Foreign-save bridge + hydration guard (defensive, additive).
+ *
+ * The live site has been served by TWO divergent lines of this app under the
+ * same localStorage key. The multi-year line (store v13–v16) relocated a
+ * player's live progress into `paths[yearLevel]` and can hold enum values
+ * this build doesn't know. Two jobs, both lossless:
+ *
+ *  1. bridge: MAX-merge `paths[yearLevel]` lessonProgress / arcadeScores /
+ *     sprintBest into the top-level fields this build reads, so a returning
+ *     player's real progress is never lost when switching back to this line;
+ *  2. guard: coerce out-of-range enums (currentLeague, subject) and drop
+ *     malformed league-history rows — an unknown value must never reach the
+ *     render tree (it used to white-screen the whole app via LEAGUE_META).
+ */
+export function bridgeForeignSave(p: Partial<PlayerState>): void {
+  const anyP = p as Record<string, unknown>
+  const paths = anyP.paths as Record<string, unknown> | undefined
+  if (paths && typeof paths === 'object') {
+    const level = typeof anyP.yearLevel === 'number' ? String(anyP.yearLevel) : '2'
+    const path = (paths[level] ?? paths['2']) as
+      | {
+          lessonProgress?: Record<string, unknown>
+          arcadeScores?: Record<string, number>
+          sprintBest?: number
+          subject?: unknown
+        }
+      | undefined
+    if (path && typeof path === 'object') {
+      if (path.lessonProgress && typeof path.lessonProgress === 'object') {
+        const merged: Record<string, LessonProgress> = { ...(p.lessonProgress ?? {}) }
+        const source = path.lessonProgress as Record<string, Partial<LessonProgress> | null>
+        for (const [id, v] of Object.entries(source)) {
+          if (!v || typeof v !== 'object') continue
+          const prev = merged[id]
+          merged[id] = {
+            crown: Math.max(prev?.crown ?? 0, v.crown ?? 0),
+            bestAccuracy: Math.max(prev?.bestAccuracy ?? 0, v.bestAccuracy ?? 0),
+            completions: Math.max(prev?.completions ?? 0, v.completions ?? 0),
+          }
+        }
+        p.lessonProgress = merged
+      }
+      if (path.arcadeScores && typeof path.arcadeScores === 'object') {
+        const merged = { ...(p.arcadeScores ?? {}) }
+        for (const [k, v] of Object.entries(path.arcadeScores)) {
+          if (typeof v === 'number' && Number.isFinite(v)) merged[k] = Math.max(merged[k] ?? 0, v)
+        }
+        p.arcadeScores = merged
+      }
+      if (typeof path.sprintBest === 'number' && Number.isFinite(path.sprintBest)) {
+        p.sprintBest = Math.max(typeof p.sprintBest === 'number' ? p.sprintBest : 0, path.sprintBest)
+      }
+      if (typeof path.subject === 'string' && !KNOWN_SUBJECTS.includes(p.subject as string)) {
+        p.subject = (KNOWN_SUBJECTS.includes(path.subject) ? path.subject : 'math') as Subject
+      }
+    }
+  }
+  // Hydration guard — values outside this build's known sets.
+  if (!LEAGUES.includes(p.currentLeague as LeagueName)) p.currentLeague = 'Bronze'
+  if (!KNOWN_SUBJECTS.includes(p.subject as string)) p.subject = 'math'
+  if (Array.isArray(p.leagueHistory)) {
+    p.leagueHistory = (p.leagueHistory as LeagueHistoryEntry[]).filter(
+      (h) => !!h && typeof h === 'object' && LEAGUES.includes(h.league),
+    )
+  } else {
+    p.leagueHistory = []
+  }
+}
+
 export const usePlayer = create<PlayerState>()(
   persist(
     (set, get) => ({
@@ -1378,6 +1451,9 @@ export const usePlayer = create<PlayerState>()(
     version: 12,
     migrate: (persisted, version) => {
         const p = { ...(persisted as PlayerState) }
+        // Foreign/corrupt saves (other app line, same storage key): bridge +
+        // guard FIRST — the version chain below still repairs older saves.
+        bridgeForeignSave(p)
         if (version < 4) {
           // Backfill any fields added after v3 (streak milestone rewards).
           p.lastStreakReward = typeof p.lastStreakReward === 'number' ? p.lastStreakReward : 0
