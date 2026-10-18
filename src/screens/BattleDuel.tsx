@@ -342,6 +342,8 @@ export function BattleDuel({ gym, dailyRival, onExit }: { gym: number; dailyRiva
                       return (
                         <li key={e.def.id}>
                           <button
+                            aria-pressed={sel.includes(e.def.id)}
+                            aria-label={`${e.def.name}${sel.includes(e.def.id) ? ', selected' : ''}`}
                             onClick={() => {
                               sfx.tap(e.def.id)
                               setSel((cur) => {
@@ -585,8 +587,8 @@ export function BattleDuel({ gym, dailyRival, onExit }: { gym: number; dailyRiva
 
           {/* ---------------- RESULT ---------------- */}
           {stage === 'result' && result && (
-            <div className="pt-6 text-center">
-              <motion.p initial={{ scale: 0.5, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="text-6xl">
+            <div className="pt-6 text-center" role="status" aria-live="polite">
+              <motion.p initial={{ scale: 0.5, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="text-6xl" aria-hidden="true">
                 {result.won ? '🎉' : '💫'}
               </motion.p>
               <h2 className={`mt-2 font-display text-3xl font-extrabold ${result.won ? 'text-speed-blue' : 'text-slate-500'}`}>
@@ -618,6 +620,7 @@ export function BattleDuel({ gym, dailyRival, onExit }: { gym: number; dailyRiva
                 {result.chest && (
                   <div
                     className="mt-3 rounded-xl border-2 border-amber-300 bg-amber-50 p-3 text-center"
+                    role="status"
                     aria-label="Victory Chest"
                   >
                     <p className="font-display text-sm font-extrabold text-amber-700">

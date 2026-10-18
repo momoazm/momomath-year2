@@ -96,13 +96,13 @@ export function BattleScreen({ onStartGym, onDailyRival }: { onStartGym?: (gym: 
                 Daily Rival · {rivalDef.villain}
                 {dailyRivalGym != null && (
                   <span className="ml-2 rounded-full bg-pink-100 px-2 py-0.5 text-[10px] font-extrabold uppercase text-pink-600">
-                    +1 💎 bonus
+                    {' '}+1 💎 bonus
                   </span>
                 )}
               </p>
               <p className="text-xs font-medium text-slate-500">
                 {dailyRivalGym != null
-                  ? `Rematch #{rivalDef.index} for an extra gem today!`
+                  ? `Rematch #${rivalDef.index} for an extra gem today!`
                   : 'Come back tomorrow for a new rematch.'}
               </p>
             </div>
