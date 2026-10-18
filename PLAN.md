@@ -1308,6 +1308,9 @@ harder and has larger health. Also add a background."
    **Medium = the identity tier (×1 HP/ATK, 0.6 accuracy = the exact shipped
    numbers)** so the default experience is numerically unchanged (R0-safe);
    everything else is opt-in.
+   **AMENDED by §13.11 (WS27)**: the user's follow-up directive asked for a
+   harder game — the ladder was retuned and medium is no longer the identity
+   tier.
 3. **Arena backdrop** for the duel + VS stages (pure CSS scene: sky, sun,
    drifting clouds, arena floor; per the no-IP-art rule — no new assets).
 4. **Silent-round fix (found during the 2026-10-18 replay):** battle decks
@@ -1355,6 +1358,60 @@ shipped numbers identical.
       meter banking on POWER answers, arena scene + difficulty chips visible
       (screenshots reviewed) (DONE 2026-10-18)
 
+### 13.11 WS27 — Balance rework: fights are not easy; harder tiers demand stronger cards (user directive 2026-10-18, follow-up)
+
+**User directive (2026-10-18, right after playing WS26)**: "adjust the health
+and strength and special abilities so games are not that easy so in harder
+level the player must have a high level of the card to be able to win".
+
+**Spec delta — retunes §13.10's numbers (same 4 tiers, same picker):**
+
+1. **Harder ladder + the "special abilities" knob.** New per-tier
+   `specialMul` — an extra multiplier on the rival's Special/Ultimate damage
+   ONLY (quicks never) — wired through `duel.ts`
+   (`CreateDuelArgs.botSpecialMul` → `DuelState.botSpecialMul` →
+   `resolveHit(..., powerMult)` on bot specials). New table:
+   Easy 🌱 ×0.6/×0.6/35% · Medium ⚔️ ×1.15/×1.1/62%/💥×1.05 ·
+   Hard 🔥 ×1.85/×1.5/75%/💥×1.2 · Impossible 💀 ×2.7/×1.9/88%/💥×1.35.
+   **Medium is no longer the identity tier** (harder across the board was the
+   ask); `DEFAULT_BOT_ACCURACY` 0.6 → 0.62 = medium accuracy.
+2. **Late-gym taper** (`GYM_DIFFICULTY_TAPER` +
+   `effectiveBattleDifficulty(key, gym)`): at gyms 9-12 (×0.65) and gym 13
+   (×0.15) only the ABOVE-1 part of hp/atk/specialMul is compressed toward 1.
+   The champion's base squad is already at a maxed exclusive-tier player's
+   power, so a full extra multiplier made champion Hard/Impossible 0% even
+   for the strongest squad — dead content. Easy's sub-1 handicap and
+   accuracy are never tapered. `squad.ts` + BattleDuel use the effective def
+   for THIS gym (the picker shows the effective numbers).
+3. **Balance probe + gates** — new `tests/battle/balance.test.ts`: seeded
+   Monte-Carlo (64 battles/cell; squads starter→ultra; gyms 1/5/8/12/13;
+   player accuracy 70%/90%) prints the full win-rate table and locks the
+   ladder: starter commons fail Medium+, Hard needs rare-3★+/epic-4★,
+   Impossible needs epic/legendary and stays winnable by the top squad even
+   at the champion (ultra 41%/84% Hard, 3%/41% Impossible).
+4. **Engine parity fix**: `simulate()` now answers the opening ('intro')
+   question turn exactly like the screen does (it silently auto-missed turn 0
+   before).
+
+- [x] `difficulty.ts` — `specialMul` + retuned ladder + taper helpers
+      (`gymDifficultyTaper` / `effectiveBattleDifficulty`) (DONE 2026-10-18)
+- [x] `duel.ts` — `botSpecialMul` (args+state, clamped ≥0, default 1) +
+      `resolveHit` powerMult on bot specials/ultimates + `simulate()` intro-
+      question parity (DONE 2026-10-18)
+- [x] `squad.ts` + `BattleDuel.tsx` — effective (tapered) tier for stats +
+      specialMul, picker line gains "💥 ×…" (DONE 2026-10-18)
+- [x] tests: difficulty.test.ts rewritten (strict escalation incl. specialMul,
+      medium default >1, taper bands, champion compression, scaling vs def
+      ratios), duel.test.ts WS27 block (special ×1.5 / ultimate ×2 scaled,
+      quick never; default 1; negatives→0), new balance.test.ts (DONE)
+- [x] gates: `npx tsc -b` clean → full `npx vitest run` **105 files / 2694
+      tests green** → `npm run verify` OK → `npm run build` ✓
+      (`index-DClAQ_Y7.js`) (DONE 2026-10-18)
+- [x] PLAY verify (dev :3200, Daily Rival picker): Medium shows "Rival: ❤️
+      ×1.15 · ⚔️ ×1.1 · 💥 ×1.05 · answers ~62% of questions right"; picking
+      Hard switches the header chip, tagline and numbers (❤️ ×1.85 · ⚔️ ×1.5
+      · 💥 ×1.2 · ~75%) (screenshot reviewed) (DONE 2026-10-18)
+
 ---
 
 ## 8. Session changelog
@@ -1394,3 +1451,4 @@ shipped numbers identical.
 | 2026-10-18 | deploy | **Momo Battle shipped live + deploy pipeline hardened to the user rule.** Ported from the tts line: `scripts/site_snapshot.mjs` (save/list/restore/prune, rolling window 2, fail-closed) + deploy.mjs **step 0** (no archive → no publish; `--allow-no-snapshot` only for a never-deployed site), **step 1.5** restore of all previously published hashed assets into dist (gh-pages replaces branch content; without this a cached old index.html 404s its JS), **step 4** live stale-cache check; MUST_CONTAIN now includes Battle Exclusives/Daily Rival/Mecha Sonic; `npm run snapshot/snapshots/rollback` added (commit `6075659`). First publish attempt died 5/5 `spawn ENAMETOOLONG` — gh-pages default removal passes EVERY branch file (6,155 incl. 5,985 tts clips) as one `git rm` argv — fixed with `--add` (commit `3117523`; also exactly the keep-old-assets policy); live was untouched by the failure. Pre-deploy archive of live `assets/index-DkCjZO-X.js` stored (170.1 MB, 6,155 files; the retry run captured an identical duplicate → window currently 2× DkCjZO-X). Deployed `assets/index-C-Rvbjqs.js` (998 KB raw / 308.5 KB gzip): 28 old assets restored, live in sync in ~2.5 min with all markers, stale-cache asset still 200. Live verification: **WS25 suite** (9 battle markers + all 3 battle art files 200), **PWA suite** (manifest/sw/icons 200), **WS16 suite** (sprint/check-up/recap markers), **live browser smoke** (Daily Rival shows the WS25-fixed `Rematch #3 for an extra gem today!`; Library battle panel + art naturalWidth 300; Profile Battle Road 🏆3/⚔️5/🗺️3/13; console **0 errors / 0 warnings**), full vitest **102 files / 2666 green** on the deployed commit. `main` stays unpushed (diverged: ahead 23 / behind 84 vs origin/main — separate merge decision); the gh-pages branch carries the deploy. Rollback: `node scripts/site_snapshot.mjs restore --name 20261018102421_3117523_index-DkCjZO-X --publish`. |
 | 2026-10-18 | edge-white-screen-fix | **User report "does not work on Edge" — found + fixed a white-screen class, redeployed.** Recon: live has been served by TWO divergent lines under the same storage key — the multi-year line (store v13–v16, relocates progress into `paths[yearLevel]`) vs ours (v12). Reproduced in msedge against live: a save holding any value outside this build's known sets crashed first render — `TypeError: … (reading 'icon')` from `LEAGUE_META[currentLeague].icon` in TopBar (renders on every screen) → **blank page**. Fix (additive): exported `bridgeForeignSave()` runs at hydrate for ALL incoming saves — MAX-merges `paths[yearLevel]` lessonProgress/arcadeScores/sprintBest into the top-level fields (lossless), coerces unknown `currentLeague`→Bronze / `subject`→math, drops malformed leagueHistory rows; new `leagueMeta()` crash-proof accessor; TopBar/Profile/Leagues lookups go through it; `tests/foreignSave.test.ts` +4 tests. Gates: tsc clean; full vitest **103 files / 2670 green**; committed `9929b0a`. Deploy: pre-deploy snapshot `20261018110554_9929b0a_index-C-Rvbjqs` (172.9 MB captured from live; window now C-Rvbjqs + DkCjZO-X); live now `assets/index-DKfsAgdT.js` (999.9 KB raw / 308.8 KB gzip, 30 old assets restored, stale asset still 200). Live verification: WS25 markers + 3 battle art PASS, PWA PASS, WS16 PASS; **live v16-save repro on the deployed build — the formerly-fatal save now renders (no blank; Bronze fallback), write-back carries u1l2 / retro:1500 / sprintBest:33 from paths[2], console 0 errors**; gate + GSI button render PASS. Pending: user confirmation of the exact original symptom. |
 | 2026-10-18 | WS26-question-duel | **User directive: rival fights back through its own questions, damage only on correct answers (both ways) + Easy→Impossible difficulty per gym + an arena background.** Engine (`duel.ts`): EVERY turn is a question turn — for the player a correct answer is the only way to deal damage (wrong ⇒ `kind:'miss'` log entry, no chip damage anymore; POWER-turn meter banks/resets unchanged), and the bot now answers its own question every turn from the seeded stream at a difficulty-driven `botAccuracy` (default 0.6 = new `DEFAULT_BOT_ACCURACY`), dealing damage only on right answers; `chooseMove` returns `null` on a wrong answer; test hook `bankEveryPowerTurn` → `botAlwaysCorrect`. New `difficulty.ts`: Easy 🌱 ×0.7/×0.7/40% · Medium ⚔️ ×1/×1/60% (**identity tier = shipped numbers, R0-safe default**) · Hard 🔥 ×1.4/×1.35/75% · Impossible 💀 ×1.9/×1.75/90% (`hpMul`/`atkMul`/`accuracy` + guards). `squad.ts` `gymBotDuelCards(gym, difficulty)` scales rival HP/ATK (def untouched; default arg = medium ⇒ existing callers unchanged). `BattleDuel.tsx`: 4-chip difficulty radio picker with tagline + "Rival: ❤️ ×… ⚔️ ×… answers ~…%" line, difficulty chips in fight header/VS panel/result, per-turn labels (POWER vs normal), miss banners for both sides, "🤔 <rival> is answering its question…" beat, and the arena: full-bleed `ArenaBackdrop` + visible `ArenaScene` strip (sky/sun/drifting clouds/hills/grass — pure CSS, no assets). Also fixed a real play bug found in the 2026-10-18 replay: battle decks leaked ARABIC audio-only prompts ("استمع … سمعته/سمعتها") from arabic/religion/social (the English-only filter missed them; duels are silent) — `LISTEN_ONLY_PROMPT_RE` now excludes them (+hear/heard/listening/audio/voice). Tests: duel.test.ts spec updates + WS26 block (question on every player turn incl. non-POWER, accuracy 0/1 bots, per-seed determinism), roadmap.test.ts silent-deck test across all 7 subjects, new difficulty.test.ts (ordering, identity, guards, scaling) — battle suite 112 green. Gates: `tsc -b` clean; full vitest **104 files / 2681 green**; `npm run verify` OK; `npm run build` ✓ (`index-CCNnhqTJ.js`). Play verify (dev :3200, seeded 5-card save, screenshots): Easy full battle → VICTORY with wrong answers visibly dealing zero damage and the rival missing its own questions; Impossible rematch → rival 95/95 (×1.9) vs Easy 35/35, rival "answered right — Special Move · 21 dmg" back at the player, new question every turn, meter banking on POWER answers, arena scene + chips visible, console clean (only pre-existing GSI noise). Deployment deliberately NOT run (not requested); deploy flow unchanged — snapshot → build → publish when asked. |
+| 2026-10-18 | WS27-balance | **User follow-up directive: "adjust the health and strength and special abilities so games are not that easy so in harder level the player must have a high level of the card to be able to win".** Retuned the whole difficulty ladder + added the "special abilities" knob: new per-tier `specialMul` (extra multiplier on the rival's SPECIAL/ULTIMATE damage only) plumbed through `duel.ts` (`botSpecialMul` in args/state → `resolveHit` powerMult on bot specials/ultimates; quicks never scaled). New ladder: Easy 🌱 ×0.6/×0.6/35% · Medium ⚔️ ×1.15/×1.1/62%/💥×1.05 · Hard 🔥 ×1.85/×1.5/75%/💥×1.2 · Impossible 💀 ×2.7/×1.9/88%/💥×1.35 — **medium is no longer the identity tier** (`DEFAULT_BOT_ACCURACY` 0.6→0.62). New **late-gym taper** (`GYM_DIFFICULTY_TAPER` = 1/1/0.65/0.15 for gyms ≤4/≤8/≤12/13 + `effectiveBattleDifficulty(key, gym)`): only the above-1 part of hp/atk/specialMul compresses toward 1 at elite gyms — without it the champion gym (base squad ≈ a maxed exclusive-tier squad) had Hard/Impossible at 0% even for the strongest possible squad = dead content; Easy's sub-1 handicap and accuracy never taper; `squad.ts` + the picker line both use the effective numbers. New `tests/battle/balance.test.ts` = the tuning instrument + gates: seeded 64-battle Monte-Carlo over squads starter(common 0★)→ultra(exclusive 5★ Lv10) × gyms 1/5/8/12/13 × player accuracy 70/90%, prints the win-rate table and locks the ladder (player 70%/90%: gym1 medium starter 8/27% → early 92/98%, hard mid 91/98%, impossible late 100%; gym8 medium mid 2/11% → late 88/100%, hard maxed 75/98%, impossible maxed 2/2% vs ultra 25/80%; champion medium maxed 31/86%, hard ultra 41/84%, impossible ultra 3/41%). Also fixed engine test-utility parity: `simulate()` now answers the opening ('intro') question turn like the screen does (before: turn 0 auto-missed). Tests: difficulty.test.ts rewritten (strict escalation incl. specialMul, medium default >1, taper bands, champion compression, scaling vs def ratios), duel.test.ts +WS27 block (special ×1.5 / ultimate ×2 scaled exactly, quick never; default 1; negatives→0), balance.test.ts new. Gates: `npx tsc -b` clean; full `npx vitest run` **105 files / 2694 tests green**; `npm run verify` OK; `npm run build` ✓ (`index-DClAQ_Y7.js`). PLAY verify on dev :3200 (Daily Rival picker): Medium "Rival: ❤️ ×1.15 · ⚔️ ×1.1 · 💥 ×1.05 · answers ~62% of questions right" + Hard chip switches header/tagline/numbers (screenshot reviewed). Deployment deliberately NOT run (not requested). |

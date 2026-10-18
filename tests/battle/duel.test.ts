@@ -211,6 +211,47 @@ describe('WS26 — both sides fight back through their own questions', () => {
   })
 })
 
+describe('WS27 — botSpecialMul scales the rival’s special moves only', () => {
+  it('is 1 by default and clamps negatives to 0', () => {
+    expect(createDuel(baseArgs(1)).botSpecialMul).toBe(1)
+    expect(createDuel({ ...baseArgs(1), botSpecialMul: -3 }).botSpecialMul).toBe(0)
+    expect(createDuel({ ...baseArgs(1), botSpecialMul: 1.5 }).botSpecialMul).toBe(1.5)
+  })
+
+  it('multiplies Special + Ultimate damage, never Quick, with the same seed', () => {
+    // Turn 1 is a bot POWER turn; give the bot squadA (★3) so it owns both
+    // Special and Ultimate. botAccuracy 1 ⇒ the turn always resolves a hit.
+    const settle = (mul: number, turn: number, botCharge = 0): DuelEvent => {
+      const d = createDuel({
+        player: { cards: squadB() },
+        bot: { cards: squadA() },
+        seed: 5,
+        questions: QUESTIONS,
+        botAccuracy: 1,
+        botSpecialMul: mul,
+      })
+      const s = advance({ ...d, turn, botCharge }, undefined)
+      return s.log.find((e): e is DuelEvent => e.kind === 'hit' && e.side === 'bot')!
+    }
+
+    const special = settle(1, 1)
+    const specialBuff = settle(1.5, 1)
+    expect(special.move).toBe('special')
+    expect(specialBuff.damage).toBeGreaterThan(special.damage)
+    expect(specialBuff.damage).toBe(Math.max(1, Math.round(special.damage * 1.5)))
+
+    const ult = settle(1, 1, 3)
+    const ultBuff = settle(2, 1, 3)
+    expect(ult.move).toBe('ultimate')
+    expect(ultBuff.damage).toBe(Math.max(1, Math.round(ult.damage * 2)))
+
+    const quick = settle(1, 3)
+    const quickBuff = settle(1.5, 3)
+    expect(quick.move).toBe('quick')
+    expect(quickBuff.damage).toBe(quick.damage) // quicks are never scaled
+  })
+})
+
 describe('purity — createDuel / advance never mutate their inputs', () => {
   it('input card arrays are untouched', () => {
     const p = squadA()

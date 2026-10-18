@@ -16,6 +16,7 @@ import {
   BATTLE_DIFFICULTIES,
   DEFAULT_BATTLE_DIFFICULTY,
   battleDifficultyDef,
+  effectiveBattleDifficulty,
   type BattleDifficulty,
 } from '../engine/battle/difficulty'
 import {
@@ -232,6 +233,9 @@ export function BattleDuel({ gym, dailyRival, onExit }: { gym: number; dailyRiva
   const entries = useMemo(() => ownedSquadEntries(cardStars, cardBattleXp), [cardStars, cardBattleXp])
   const [difficulty, setDifficulty] = useState<BattleDifficulty>(DEFAULT_BATTLE_DIFFICULTY)
   const diffMeta = battleDifficultyDef(difficulty)
+  // WS27: late gyms compress the tier extras — the picker + the duel both use
+  // the effective numbers for THIS gym.
+  const effMeta = effectiveBattleDifficulty(difficulty, gym)
   const botCards = useMemo(() => gymBotDuelCards(gym, difficulty), [gym, difficulty])
 
   const [stage, setStage] = useState<Stage>('pick')
@@ -275,6 +279,7 @@ export function BattleDuel({ gym, dailyRival, onExit }: { gym: number; dailyRiva
         seed,
         questions,
         botAccuracy: diffMeta.accuracy,
+        botSpecialMul: effMeta.specialMul,
       }),
     )
     setStage('intro')
@@ -504,7 +509,9 @@ export function BattleDuel({ gym, dailyRival, onExit }: { gym: number; dailyRiva
                     </div>
                     <p className="mt-2 text-center text-[11px] font-bold text-slate-500">{diffMeta.tagline}</p>
                     <p className="mt-0.5 text-center text-[10px] font-bold text-slate-400">
-                      Rival: ❤️ ×{diffMeta.hpMul} · ⚔️ ×{diffMeta.atkMul} · answers ~{Math.round(diffMeta.accuracy * 100)}% of questions right
+                      Rival: ❤️ ×{effMeta.hpMul} · ⚔️ ×{effMeta.atkMul}
+                      {effMeta.specialMul !== 1 ? ` · 💥 ×${effMeta.specialMul}` : ''} · answers ~
+                      {Math.round(effMeta.accuracy * 100)}% of questions right
                     </p>
                   </section>
 

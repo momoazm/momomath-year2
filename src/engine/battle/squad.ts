@@ -15,7 +15,7 @@
  */
 import { ALL_CARDS, CARD_BY_ID, type CardDef } from '../cards'
 import { CARD_ARCHETYPE, type Archetype } from './archetypes'
-import { DEFAULT_BATTLE_DIFFICULTY, battleDifficultyDef, type BattleDifficulty } from './difficulty'
+import { DEFAULT_BATTLE_DIFFICULTY, effectiveBattleDifficulty, type BattleDifficulty } from './difficulty'
 import type { DuelCard } from './duel'
 import { deriveStats, ownedCardStats, type BattleStats } from './stats'
 import { gymBotMul, gymBotStar, gymDef } from './roadmap'
@@ -94,8 +94,9 @@ export function playerDuelCard(entry: SquadEntry): DuelCard {
 /**
  * The gym's 3 bot `DuelCard`s: gym star level + `gymBotMul` scaling on the
  * shared stat curve (§13.3 strictly escalating hp/atk per gym), then the
- * WS26 difficulty tier on top (hp/atk × where `medium` is the identity —
- * def is untouched so player damage stays comparable across tiers).
+ * WS26/WS27 difficulty tier on top (hp/atk × per tier — def is untouched so
+ * player damage stays comparable across tiers; the rival's special moves get
+ * the tier's specialMul inside duel.ts).
  */
 export function gymBotDuelCards(
   gym: number,
@@ -103,7 +104,9 @@ export function gymBotDuelCards(
 ): DuelCard[] {
   const mul = gymBotMul(gym)
   const star = gymBotStar(gym)
-  const tier = battleDifficultyDef(difficulty)
+  // WS27: late gyms compress the tier extras (elite base rival) — see
+  // effectiveBattleDifficulty in difficulty.ts.
+  const tier = effectiveBattleDifficulty(difficulty, gym)
   return gymBotSquad(gym).map((cardId) => {
     const def = CARD_BY_ID[cardId]
     if (!def) throw new Error(`battle: gym ${gym} references unknown card '${cardId}'`)

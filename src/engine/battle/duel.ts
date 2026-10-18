@@ -33,10 +33,10 @@ import {
 import type { BattleStats } from './stats'
 
 /** Default chance the bot answers its own per-turn questions correctly
- *  (the identity "medium" difficulty tier — see difficulty.ts). Keeps the
+ *  (the `medium` difficulty tier — see difficulty.ts). Keeps the
  *  bot symmetric with a solid human: it attacks only on correct answers,
  *  exactly like the player, and never on a fumble. */
-export const DEFAULT_BOT_ACCURACY = 0.6
+export const DEFAULT_BOT_ACCURACY = 0.62
 
 export type BattleSide = 'player' | 'bot'
 
@@ -115,6 +115,8 @@ export interface DuelState {
   qIndex: number
   /** chance the bot answers its own per-turn question correctly (difficulty) */
   botAccuracy: number
+  /** extra multiplier on the bot's special/ultimate damage (difficulty) */
+  botSpecialMul: number
   player: DuelCard[]
   bot: DuelCard[]
   playerActive: number
@@ -141,8 +143,12 @@ export interface CreateDuelArgs {
   /** covered-content questions, cycled deterministically */
   questions: DuelQuestion[]
   /** difficulty knob: chance the bot answers its per-turn question right
-   *  (default = the identity `medium` tier, DEFAULT_BOT_ACCURACY). */
+   *  (default = the `medium` tier, DEFAULT_BOT_ACCURACY). */
   botAccuracy?: number
+  /** difficulty knob: extra multiplier on the bot's SPECIAL/ULTIMATE damage
+   *  ONLY (default 1 = off; harder tiers make the rival's big moves hit
+   *  noticeably harder than its quicks). */
+  botSpecialMul?: number
 }
 
 /**
@@ -218,6 +224,7 @@ export function createDuel(args: CreateDuelArgs): DuelState {
     botCharge: 0,
     qIndex: 0,
     botAccuracy: Math.min(1, Math.max(0, args.botAccuracy ?? DEFAULT_BOT_ACCURACY)),
+    botSpecialMul: Math.max(0, args.botSpecialMul ?? 1),
     player,
     bot,
     playerActive: 0,
@@ -251,8 +258,9 @@ function resolveHit(
   targetIdx: number,
   rand: () => number,
   teamBlast = false,
+  powerMult = 1,
 ): DuelEvent {
-  const { damage, effect } = computeDamage(
+  const { damage: baseDamage, effect } = computeDamage(
     attacker.stats.atk,
     target.stats.def,
     moveKind,
@@ -261,6 +269,9 @@ function resolveHit(
     target.archetype,
     rand,
   )
+  // WS27 difficulty: harder tiers buff the RIVAL's special moves only.
+  const damage =
+    powerMult === 1 ? baseDamage : Math.max(1, Math.round(baseDamage * powerMult))
   const next = Math.max(0, hp[targetIdx]! - damage)
   hp[targetIdx] = next
   const ev: DuelEvent = {
@@ -344,7 +355,9 @@ export function advance(
       const full = s.botCharge >= TEAM_BLAST_CHARGE
       const move = chooseMove(bCard, isPower ? 'power' : 'auto', full, true)!
       const teamBlast = move === 'ultimate'
-      resolveHit(s, 'bot', bCard, pCard, move, s.playerHp, s.playerActive, rand, teamBlast)
+      // WS27: the rival's Special/Ultimate carry the tier's special multiplier.
+      const powerMult = move === 'quick' ? 1 : s.botSpecialMul
+      resolveHit(s, 'bot', bCard, pCard, move, s.playerHp, s.playerActive, rand, teamBlast, powerMult)
       if (isPower) s.botCharge = teamBlast ? 0 : Math.min(TEAM_BLAST_CHARGE, s.botCharge + 1)
     } else {
       s.log.push({ kind: 'miss', side: 'bot', actorUid: bCard.uid })
@@ -428,12 +441,17 @@ export function simulate(
   let guard = 0
   while (!isOver(s) && guard++ < 400) {
     if (s.phase === 'intro' || s.phase === 'auto' || s.phase === 'power') {
-      const answer =
-        s.phase === 'power'
-          ? playerAnswers
-            ? playerAnswers(s.turn, s.question)
-            : { chosen: s.question?.answerIndex ?? 0, correct: true }
-          : undefined
+      // 'intro' is turn 0 and carries the opening question, exactly like the
+      // screen presents it — ask for an answer there too (WS27 parity fix).
+      const questionTurn = s.phase === 'intro' || s.phase === 'power'
+      const q = questionTurn
+        ? (s.question ?? (s.questions.length ? s.questions[s.qIndex % s.questions.length]! : null))
+        : null
+      const answer = questionTurn
+        ? playerAnswers
+          ? playerAnswers(s.turn, q)
+          : { chosen: q?.answerIndex ?? 0, correct: true }
+        : undefined
       s = advance(s, answer, opts)
     } else if (s.phase === 'playerFainted') {
       s = swapIn(s)
