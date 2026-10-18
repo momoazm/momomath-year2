@@ -1,16 +1,25 @@
 // Momo Year 2 Cambridge - one-shot deploy with retry-until-clean verification.
-// Usage: node scripts/deploy.mjs
-// Steps: build (with base flag) -> publish gh-pages -> verify live bundle matches dist.
+// Usage: node scripts/deploy.mjs [--allow-no-snapshot]
+// Steps: ARCHIVE LIVE SITE LOCALLY -> build -> publish gh-pages -> verify live
+// bundle matches dist. The archive step is mandatory (user rule 2026-09-28):
+// the previous site is stored locally in ~/site_snapshots/<repo>/ (rolling
+// window, newest 2) so a bad deploy is one command away:
+//   node scripts/site_snapshot.mjs restore --publish
 // Exits 0 only when the live site is verified in sync. Retries transient failures.
 
 import { execSync, spawnSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
 
 const ROOT = new URL('..', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1')
 const BASE = '/momomath-year2/'
 const LIVE_URL = 'https://momoazm.github.io/momomath-year2/'
-const MUST_CONTAIN = ['apps.googleusercontent.com', 'Momo Year 2 Cambridge', 'Retro Arcade', 'Boss Rush']
+const MUST_CONTAIN = [
+  'apps.googleusercontent.com', 'Momo Year 2 Cambridge', 'Retro Arcade', 'Boss Rush',
+  // Battle feature (WS23-WS25) live markers.
+  'Battle Exclusives', 'Daily Rival', 'Mecha Sonic',
+]
+const ALLOW_NO_SNAPSHOT = process.argv.includes('--allow-no-snapshot')
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 const log = (...a) => console.log(`[${new Date().toISOString().slice(11, 19)}]`, ...a)
@@ -53,6 +62,25 @@ async function liveBundleContains(asset, needle) {
   return js.includes(needle)
 }
 
+// 0. Archive the site that is LIVE right now, BEFORE the build overwrites
+// dist/ and before anything is published. Mandatory (user rule 2026-09-28):
+// a deploy without a local copy of the previous site is a deploy you cannot
+// undo. Stored in ~/site_snapshots/momomath-year2/, rolling window of 2.
+log('archiving the currently live site (pre-deploy snapshot)...')
+{
+  const r = spawnSync(process.execPath,
+    ['scripts/site_snapshot.mjs', 'save', '--reason', 'pre-deploy'],
+    { cwd: ROOT, stdio: 'inherit' })
+  if (r.status !== 0) {
+    if (!ALLOW_NO_SNAPSHOT) {
+      console.error('FATAL: pre-deploy snapshot failed — NOTHING was published.')
+      console.error('  Only for a first-ever deploy with nothing to archive: --allow-no-snapshot')
+      process.exit(1)
+    }
+    log('WARNING: snapshot failed but --allow-no-snapshot was passed — deploying without a backup')
+  }
+}
+
 // 1. Build
 log('building (tsc + vite, base=' + BASE + ')...')
 run('npm run build -- --base=' + BASE, { retries: 3, waitMs: 10000 })
@@ -62,6 +90,32 @@ if (!asset) {
   process.exit(1)
 }
 log('built', asset)
+
+// 1.5 Restore every previously published hashed asset into dist BEFORE
+// publishing. gh-pages replaces the branch content, which deletes old
+// hashed assets — a browser holding a cached index.html then 404s its JS
+// and shows only the CSS sky gradient ("just the background"). Hashed
+// filenames are unique per build, so merging is lossless.
+const restored = []
+try {
+  execSync('git fetch origin gh-pages', { cwd: ROOT, stdio: 'ignore', shell: true })
+  const list = execSync('git ls-tree -r --name-only origin/gh-pages', { cwd: ROOT, encoding: 'utf8', shell: true })
+  const files = list.split(/\r?\n/).filter((f) => f.startsWith('assets/'))
+  for (const f of files) {
+    try {
+      const buf = execSync(`git show "origin/gh-pages:${f}"`, { cwd: ROOT, encoding: 'buffer', maxBuffer: 20 * 1024 * 1024, shell: true })
+      const dest = join(ROOT, 'dist', f)
+      mkdirSync(dirname(dest), { recursive: true })
+      writeFileSync(dest, buf)
+      restored.push(f)
+    } catch (e) {
+      log(`restore failed for ${f}: ${String(e).slice(0, 80)}`)
+    }
+  }
+  log(`restored ${restored.length} previous asset file(s) into dist`)
+} catch (e) {
+  log('asset restore skipped:', String(e).slice(0, 80))
+}
 
 // 2. Publish gh-pages
 log('publishing to gh-pages...')
@@ -99,3 +153,18 @@ if (!inSync) {
 }
 
 log(`VERIFIED: ${LIVE_URL} is live, in sync, and contains all required markers.`)
+log('undo this deploy with: node scripts/site_snapshot.mjs list')
+log('                       node scripts/site_snapshot.mjs restore --name <archive> --publish')
+
+// 4. Stale-cache safety check: a previously published asset must still
+// resolve on live (old cached HTML keeps working instead of blanking).
+if (restored.length) {
+  try {
+    const res = await fetch(`${LIVE_URL}${restored[0]}?cb=${Date.now()}`)
+    log(`stale-cache check: ${restored[0]} -> ${res.status} (must be 200)`)
+    if (res.status !== 200) process.exit(1)
+  } catch (e) {
+    console.error('FATAL: stale-cache check failed', String(e).slice(0, 120))
+    process.exit(1)
+  }
+}

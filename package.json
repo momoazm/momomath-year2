@@ -9,6 +9,9 @@
     "preview": "vite preview --port 3200",
     "test": "vitest run",
     "verify": "node scripts/precommit.mjs",
+    "snapshot": "node scripts/site_snapshot.mjs save",
+    "snapshots": "node scripts/site_snapshot.mjs list",
+    "rollback": "node scripts/site_snapshot.mjs restore",
     "predeploy": "npm run verify"
   },
   "dependencies": {
