@@ -118,8 +118,12 @@ try {
 }
 
 // 2. Publish gh-pages
+// --add (never remove existing files): keeping old files is our policy (step
+// 1.5 above) and the default removal needs a single `git rm` argv containing
+// EVERY branch file — 6k+ with the tts tree — which exceeds the Windows
+// command-line limit (spawn ENAMETOOLONG).
 log('publishing to gh-pages...')
-run('npx --yes gh-pages -d dist -m "Deploy ' + asset + '"', { retries: 5, waitMs: 20000 })
+run('npx --yes gh-pages -d dist --add -m "Deploy ' + asset + '"', { retries: 5, waitMs: 20000 })
 
 // 3. Verify live (retry loop until in sync or timeout ~6 min)
 const deadline = Date.now() + 6 * 60 * 1000
