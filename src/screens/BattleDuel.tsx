@@ -8,10 +8,16 @@ import {
   createDuel,
   swapIn,
   type DuelCard,
-  type DuelEvent,
+  type DuelLogEntry,
   type DuelQuestion,
   type DuelState,
 } from '../engine/battle/duel'
+import {
+  BATTLE_DIFFICULTIES,
+  DEFAULT_BATTLE_DIFFICULTY,
+  battleDifficultyDef,
+  type BattleDifficulty,
+} from '../engine/battle/difficulty'
 import {
   autoPickStrongest,
   gymBotDuelCards,
@@ -27,17 +33,22 @@ import { TEAM_BLAST_CHARGE } from '../engine/battle/moves'
 import { sfx } from '../engine/sfx'
 
 /**
- * WS22 — Momo Battle duel screen (additive, §13.6). Full-screen overlay:
+ * WS22/WS26 — Momo Battle duel screen (additive, §13.6 / §13.10). Full-screen
+ * overlay:
  *
  *   pick  → squad picker (owned cards only; star row + battle level + HP/ATK;
- *           auto-pick-strongest default; friendly hint at 0 cards)
- *   intro → VS panel (your 3 vs the gym's villain squad)
- *   fight → hybrid 3v3 duel (auto attacks, Power-turn questions, 6 HP bars,
- *           Team-Blast meter, hit/KO banner, faint-swap, battle sfx)
+ *           auto-pick-strongest default; friendly hint at 0 cards) +
+ *           WS26 rival-difficulty picker (Easy → Impossible)
+ *   intro → VS panel (your 3 vs the gym's villain squad + difficulty chip)
+ *   fight → 3v3 question duel (§13.10): EVERY turn carries a question and a
+ *           correct answer is the only way to deal damage — both ways (the
+ *           rival answers its own, visibly). Power turns fire Specials; the
+ *           Team-Blast meter charges on correct Power answers; CSS arena
+ *           backdrop behind the fighters; hit/KO/miss banner, faint-swap, sfx
  *   result→ prizes (§13.4 payouts via battleFinished), card XP, retry/map
  *
  * The engine drives everything; this file is the state machine around it.
- * Pacing: auto/bot turns resolve on a short beat so hits are visible.
+ * Pacing: the rival's turn resolves on a short beat so its answer is visible.
  */
 
 type Stage = 'pick' | 'intro' | 'fight' | 'result'
@@ -146,6 +157,67 @@ function ChargePips({ charge, label, ready }: { charge: number; label: string; r
   )
 }
 
+/**
+ * WS26 — decorative arena backdrop for the duel + VS stages (pure CSS, no
+ * assets — safe under the no-IP-art rule). `MotionConfig reducedMotion="user"`
+ * disables the cloud drift for users who ask for reduced motion.
+ */
+function ArenaBackdrop() {
+  return (
+    <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
+      {/* sky */}
+      <div className="absolute inset-x-0 top-0 h-3/4 bg-gradient-to-b from-sky-200/70 via-sky-100/40 to-transparent" />
+      {/* sun */}
+      <div className="absolute -right-8 -top-10 h-32 w-32 rounded-full bg-amber-200/80 blur-2xl" />
+      {/* drifting clouds */}
+      <motion.div
+        className="absolute left-2 top-8 h-6 w-24 rounded-full bg-white/80 blur-[1px]"
+        animate={{ x: [0, 16, 0] }}
+        transition={{ duration: 9, repeat: Infinity, ease: 'easeInOut' }}
+      />
+      <motion.div
+        className="absolute right-10 top-24 h-5 w-16 rounded-full bg-white/70 blur-[1px]"
+        animate={{ x: [0, -12, 0] }}
+        transition={{ duration: 12, repeat: Infinity, ease: 'easeInOut' }}
+      />
+      {/* arena floor */}
+      <div className="absolute inset-x-0 bottom-0 h-44 bg-gradient-to-t from-emerald-200/80 via-emerald-100/40 to-transparent" />
+      <div className="absolute inset-x-10 bottom-8 h-28 rounded-[100%] border-2 border-white/60 bg-white/20" />
+    </div>
+  )
+}
+
+/**
+ * WS26 — the visible arena scene at the top of the fight stage: sky, sun,
+ * drifting clouds, distant hills and a grass horizon (pure CSS, no assets).
+ * The full-bleed `ArenaBackdrop` stays behind the cards; this strip is what
+ * makes the "we're in an arena" read obvious at a glance.
+ */
+function ArenaScene() {
+  return (
+    <div
+      aria-hidden="true"
+      className="relative mb-3 h-28 overflow-hidden rounded-2xl border-2 border-sky-100 bg-gradient-to-b from-sky-300 to-sky-100"
+    >
+      <div className="absolute right-4 top-3 h-10 w-10 rounded-full bg-amber-300 shadow-[0_0_24px_8px_rgba(252,211,77,0.65)]" />
+      <motion.div
+        className="absolute left-3 top-4 h-4 w-16 rounded-full bg-white/90 shadow-sm"
+        animate={{ x: [0, 18, 0] }}
+        transition={{ duration: 10, repeat: Infinity, ease: 'easeInOut' }}
+      />
+      <motion.div
+        className="absolute left-24 top-10 h-3.5 w-12 rounded-full bg-white/80 shadow-sm"
+        animate={{ x: [0, -14, 0] }}
+        transition={{ duration: 13, repeat: Infinity, ease: 'easeInOut' }}
+      />
+      <div className="absolute -bottom-6 -left-6 h-16 w-32 rounded-[50%] bg-emerald-200/80" />
+      <div className="absolute -bottom-8 left-20 h-20 w-44 rounded-[50%] bg-emerald-300/70" />
+      <div className="absolute -bottom-7 right-0 h-16 w-36 rounded-[50%] bg-emerald-200/80" />
+      <div className="absolute inset-x-0 bottom-0 h-5 bg-gradient-to-t from-emerald-400/80 to-emerald-300/60" />
+    </div>
+  )
+}
+
 export function BattleDuel({ gym, dailyRival, onExit }: { gym: number; dailyRival?: boolean; onExit: () => void }) {
   const cardStars = usePlayer((s) => s.cardStars)
   const cardBattleXp = usePlayer((s) => s.cardBattleXp)
@@ -158,7 +230,9 @@ export function BattleDuel({ gym, dailyRival, onExit }: { gym: number; dailyRiva
   const firstClearNow = !battleCleared.includes(gym)
 
   const entries = useMemo(() => ownedSquadEntries(cardStars, cardBattleXp), [cardStars, cardBattleXp])
-  const botCards = useMemo(() => gymBotDuelCards(gym), [gym])
+  const [difficulty, setDifficulty] = useState<BattleDifficulty>(DEFAULT_BATTLE_DIFFICULTY)
+  const diffMeta = battleDifficultyDef(difficulty)
+  const botCards = useMemo(() => gymBotDuelCards(gym, difficulty), [gym, difficulty])
 
   const [stage, setStage] = useState<Stage>('pick')
   const [sel, setSel] = useState<string[]>(() => autoPickStrongest(entries))
@@ -194,18 +268,25 @@ export function BattleDuel({ gym, dailyRival, onExit }: { gym: number; dailyRiva
     }))
     setAnswerFlash(null)
     setLastChosen(null)
-    setDuel(createDuel({ player: { cards: playerCards }, bot: { cards: botCards }, seed, questions }))
+    setDuel(
+      createDuel({
+        player: { cards: playerCards },
+        bot: { cards: botCards },
+        seed,
+        questions,
+        botAccuracy: diffMeta.accuracy,
+      }),
+    )
     setStage('intro')
   }
 
-  // The question to show right now: surfaced by the engine on 'power', or
-  // built for the opening turn (turn 0 is a player POWER turn).
+  // The question to show right now: surfaced by the engine on 'power' (every
+  // player turn, WS26), or built for the opening turn ('intro' = turn 0).
   const pendingQuestion: DuelQuestion | null = useMemo(() => {
     if (!duel || stage !== 'fight') return null
     if (duel.phase === 'power') return duel.question
     if (duel.phase === 'intro') {
-      const playerPower = duel.turn % 4 === 0 && duel.turn % 2 === 0
-      if (playerPower && duel.questions.length > 0) {
+      if (duel.turn % 2 === 0 && duel.questions.length > 0) {
         return duel.questions[duel.qIndex % duel.questions.length]!
       }
     }
@@ -289,7 +370,7 @@ export function BattleDuel({ gym, dailyRival, onExit }: { gym: number; dailyRiva
     startBattle(sel)
   }
 
-  const lastEvent: DuelEvent | null = duel && duel.log.length > 0 ? duel.log[duel.log.length - 1]! : null
+  const lastEntry: DuelLogEntry | null = duel && duel.log.length > 0 ? duel.log[duel.log.length - 1]! : null
   const lastAnswerCorrect = answerFlash === 'correct'
 
   return (
@@ -304,7 +385,9 @@ export function BattleDuel({ gym, dailyRival, onExit }: { gym: number; dailyRiva
             <p className="font-display text-sm font-extrabold text-slate-800">
               #{gym} · {gDef.name}
             </p>
-            <p className="text-[10px] font-bold text-slate-400">{gDef.villain}'s squad</p>
+            <p className="text-[10px] font-bold text-slate-400">
+              {gDef.villain}'s squad · {diffMeta.emoji} {diffMeta.label}
+            </p>
           </div>
           <div className="rounded-full bg-amber-100 px-2.5 py-1 text-[10px] font-extrabold text-amber-700">
             {firstClearNow ? `💎${GYM_GEMS[gym]}` : `+${REPEAT_WIN_GEMS}💎`}
@@ -386,6 +469,45 @@ export function BattleDuel({ gym, dailyRival, onExit }: { gym: number; dailyRiva
                     </p>
                   )}
 
+                  <section className="mt-4 rounded-2xl border-2 border-slate-100 bg-white p-3">
+                    <p className="font-display text-xs font-extrabold uppercase tracking-wide text-slate-400">
+                      👑 Rival difficulty
+                    </p>
+                    <div className="mt-2 grid grid-cols-4 gap-2" role="radiogroup" aria-label="Rival difficulty">
+                      {BATTLE_DIFFICULTIES.map((d) => {
+                        const on = d.key === difficulty
+                        return (
+                          <button
+                            key={d.key}
+                            role="radio"
+                            aria-checked={on}
+                            aria-label={`${d.label} difficulty`}
+                            onClick={() => {
+                              sfx.tap('difficulty')
+                              setDifficulty(d.key)
+                            }}
+                            className={`rounded-xl border-2 px-1 py-2 text-center transition-all active:scale-95 ${
+                              on
+                                ? 'border-speed-blue bg-speed-bluelight ring-2 ring-blue-200'
+                                : 'border-slate-100 bg-white hover:border-slate-200'
+                            }`}
+                          >
+                            <span className="block text-lg" aria-hidden="true">
+                              {d.emoji}
+                            </span>
+                            <span className={`block font-display text-[10px] font-extrabold ${on ? 'text-speed-blue' : 'text-slate-500'}`}>
+                              {d.label}
+                            </span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                    <p className="mt-2 text-center text-[11px] font-bold text-slate-500">{diffMeta.tagline}</p>
+                    <p className="mt-0.5 text-center text-[10px] font-bold text-slate-400">
+                      Rival: ❤️ ×{diffMeta.hpMul} · ⚔️ ×{diffMeta.atkMul} · answers ~{Math.round(diffMeta.accuracy * 100)}% of questions right
+                    </p>
+                  </section>
+
                   <button
                     disabled={!squadReady}
                     onClick={() => {
@@ -405,7 +527,8 @@ export function BattleDuel({ gym, dailyRival, onExit }: { gym: number; dailyRiva
 
           {/* ---------------- VS INTRO ---------------- */}
           {stage === 'intro' && duel && (
-            <div className="pt-2">
+            <div className="relative pt-2">
+              <ArenaBackdrop />
               <p className="text-center font-display text-xs font-extrabold uppercase tracking-widest text-slate-400">3 vs 3 · cover your eyes, it's a brawl!</p>
               <div className="mt-3 space-y-3">
                 <div className="card-white">
@@ -426,6 +549,9 @@ export function BattleDuel({ gym, dailyRival, onExit }: { gym: number; dailyRiva
                   <p className="font-display text-xs font-extrabold uppercase text-rose-500">
                     {gDef.villain}'s squad
                     {gDef.champion && <span className="ml-2 rounded-full bg-purple-100 px-2 py-0.5 text-purple-600">👑 CHAMPION</span>}
+                    <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-slate-500">
+                      {diffMeta.emoji} {diffMeta.label}
+                    </span>
                   </p>
                   <ul className="mt-2 grid grid-cols-3 gap-2">
                     {duel.bot.map((c, i) => (
@@ -455,7 +581,9 @@ export function BattleDuel({ gym, dailyRival, onExit }: { gym: number; dailyRiva
 
           {/* ---------------- DUEL ---------------- */}
           {stage === 'fight' && duel && (
-            <div>
+            <div className="relative">
+              <ArenaBackdrop />
+              <ArenaScene />
               {/* bot side */}
               <div className="grid grid-cols-3 gap-2">
                 {duel.bot.map((c, i) => (
@@ -473,24 +601,39 @@ export function BattleDuel({ gym, dailyRival, onExit }: { gym: number; dailyRiva
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.22 }}
                   >
-                    {!lastEvent && <p className="font-display text-sm font-extrabold text-slate-400">⚔️ FIGHT!</p>}
-                    {lastEvent && (
+                    {!lastEntry && <p className="font-display text-sm font-extrabold text-slate-400">⚔️ FIGHT!</p>}
+                    {lastEntry && lastEntry.kind === 'hit' && (
                       <>
                         <p className="font-display text-sm font-extrabold text-slate-800">
-                          {lastEvent.side === 'player' ? '🔵 ' : '🔴 '}
-                          {nameOf(duel, lastEvent.attackerUid)} used{' '}
-                          <span className={lastEvent.move === 'quick' ? 'text-slate-600' : 'text-purple-600'}>{lastEvent.moveName}</span>
-                          {lastEvent.teamBlast && ' 🔥'} · {lastEvent.damage} dmg
+                          {lastEntry.side === 'player' ? '🔵 ' : '🔴 '}
+                          {nameOf(duel, lastEntry.attackerUid)}{' '}
+                          {lastEntry.side === 'player' ? 'used' : 'answered right —'}{' '}
+                          <span className={lastEntry.move === 'quick' ? 'text-slate-600' : 'text-purple-600'}>{lastEntry.moveName}</span>
+                          {lastEntry.teamBlast && ' 🔥'} · {lastEntry.damage} dmg
                         </p>
                         <p className="mt-0.5 text-xs font-bold">
-                          {lastEvent.ko && <span className="text-rose-500">💫 {nameOf(duel, lastEvent.targetUid)} fainted!</span>}
-                          {!lastEvent.ko && lastEvent.effect === 'super' && <span className="text-emerald-600">🌟 SUPER EFFECTIVE!</span>}
-                          {!lastEvent.ko && lastEvent.effect === 'weak' && <span className="text-slate-400">🛡️ Not very effective</span>}
-                          {answerFlash && (
+                          {lastEntry.ko && <span className="text-rose-500">💫 {nameOf(duel, lastEntry.targetUid)} fainted!</span>}
+                          {!lastEntry.ko && lastEntry.effect === 'super' && <span className="text-emerald-600">🌟 SUPER EFFECTIVE!</span>}
+                          {!lastEntry.ko && lastEntry.effect === 'weak' && <span className="text-slate-400">🛡️ Not very effective</span>}
+                          {lastEntry.side === 'player' && answerFlash && (
                             <span className={lastAnswerCorrect ? 'text-emerald-600' : 'text-rose-500'}>
                               {lastAnswerCorrect ? ' ✅ Nice answer!' : ' ❌ Miss!'}
                             </span>
                           )}
+                        </p>
+                      </>
+                    )}
+                    {lastEntry && lastEntry.kind === 'miss' && (
+                      <>
+                        <p className="font-display text-sm font-extrabold text-slate-800">
+                          {lastEntry.side === 'player'
+                            ? `🔵 ${nameOf(duel, lastEntry.actorUid)} missed the question — no damage!`
+                            : `🛡️ ${nameOf(duel, lastEntry.actorUid)} missed its question — you're safe!`}
+                        </p>
+                        <p className="mt-0.5 text-xs font-bold text-slate-400">
+                          {lastEntry.side === 'player'
+                            ? '❌ Wrong answers deal no damage — get the next one right!'
+                            : '🌟 The rival fumbled its turn!'}
                         </p>
                       </>
                     )}
@@ -540,7 +683,9 @@ export function BattleDuel({ gym, dailyRival, onExit }: { gym: number; dailyRiva
                 {pendingQuestion && duel.phase !== 'playerFainted' && (
                   <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} className="card-white bg-gradient-to-r from-purple-50 to-indigo-50">
                     <p className="font-display text-[11px] font-extrabold uppercase tracking-wide text-purple-500">
-                      ⚡ Power turn — answer right for a SPECIAL!
+                      {duel.turn % 4 === 0
+                        ? '⚡ POWER turn — answer right for a SPECIAL!'
+                        : '🎯 Your turn — answer right to attack!'}
                     </p>
                     <p className="mt-1 font-display text-base font-extrabold leading-snug text-slate-800">{pendingQuestion.prompt}</p>
                     <div className="mt-2 grid gap-2">
@@ -579,7 +724,9 @@ export function BattleDuel({ gym, dailyRival, onExit }: { gym: number; dailyRiva
                 )}
 
                 {!pendingQuestion && duel.phase === 'auto' && (
-                  <p className="text-center text-xs font-bold text-slate-300">…</p>
+                  <p className="text-center text-xs font-bold text-slate-400">
+                    🤔 {duel.bot[duel.botActive]?.name ?? 'The rival'} is answering its question…
+                  </p>
                 )}
               </div>
             </div>
@@ -600,6 +747,9 @@ export function BattleDuel({ gym, dailyRival, onExit }: { gym: number; dailyRiva
                     ? `${gDef.name} cleared — ${gDef.villain} is toast!`
                     : 'Replay win — the trophy cabinet likes a repeat.'
                   : 'No worries — free retry, nothing lost. You got this!'}
+              </p>
+              <p className="mt-1 text-xs font-bold text-slate-400">
+                {diffMeta.emoji} {diffMeta.label} difficulty
               </p>
 
               <section className="card-white mt-5 bg-gradient-to-r from-amber-50 to-orange-50">

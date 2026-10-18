@@ -1,11 +1,15 @@
 /**
- * WS18 — Momo Battle duel engine (PURE, additive). A deterministic 3v3
- * squad state machine over the hybrid turn cycle (PLAN.md §13.1):
+ * WS18/WS26 — Momo Battle duel engine (PURE, additive). A deterministic 3v3
+ * squad state machine over the question-turn cycle (PLAN.md §13.1 as amended
+ * by the §13.10 user directive 2026-10-18):
  *
- *  - normal turns: the active card fires its Quick automatically (stats-based)
- *  - POWER turns (every 2nd): a covered-content question gates the Special —
- *    correct ⇒ Special (or the Team-Blast Ultimate when the meter is full),
- *    wrong ⇒ the card still throws its Quick, so there is no dead turn
+ *  - EVERY turn carries a question, and only a CORRECT answer deals damage —
+ *    both ways. The player answers on their turns (tapped choice); the bot
+ *    answers its own questions on its turns (seeded, difficulty-driven
+ *    `botAccuracy`). A wrong answer = NO damage for that side this turn.
+ *  - every 2nd player turn is a POWER turn: a correct answer fires the
+ *    Special (or the Team-Blast Ultimate when the meter is full). The meter
+ *    banks +1 on a correct POWER answer and resets on a wrong one.
  *  - on faint the player picks the next card; the bot swaps automatically
  *  - battle ends when one side is fully down (won/lost), no draws
  *
@@ -24,15 +28,15 @@ import {
   hasSpecial,
   hasUltimate,
   movePower,
+  type MoveKind,
 } from './moves'
 import type { BattleStats } from './stats'
 
-/** Chance the bot answers its POWER-turn question correctly, regardless of
- *  gym. Keeps the bot's Team-Blast banking symmetric to a player's (bank on a
- *  correct answer, reset on a wrong one) while leaving difficulty to the gym's
- *  stat scaling — so the bot earns an Ultimate at roughly the same rate a
- *  solid human does, and the fairness test compares a like-for-like line. */
-const BOT_CORRECT_BASE = 0.6
+/** Default chance the bot answers its own per-turn questions correctly
+ *  (the identity "medium" difficulty tier — see difficulty.ts). Keeps the
+ *  bot symmetric with a solid human: it attacks only on correct answers,
+ *  exactly like the player, and never on a fumble. */
+export const DEFAULT_BOT_ACCURACY = 0.6
 
 export type BattleSide = 'player' | 'bot'
 
@@ -71,10 +75,11 @@ export type DuelPhase =
 
 /** One resolved hit, for the on-screen log + animations. */
 export interface DuelEvent {
+  kind: 'hit'
   side: BattleSide
   attackerUid: string
   targetUid: string
-  move: 'quick' | 'special' | 'ultimate'
+  move: MoveKind
   moveName: string
   damage: number
   /** type effect of this matchup, for the "SUPER EFFECTIVE!" flash */
@@ -87,6 +92,17 @@ export interface DuelEvent {
   teamBlast?: boolean
 }
 
+/** A turn that dealt NO damage because the acting side answered its question
+ *  wrong (user directive 2026-10-18: wrong ⇒ no damage, both ways). */
+export interface DuelMiss {
+  kind: 'miss'
+  side: BattleSide
+  /** the side that fumbled its question this turn */
+  actorUid: string
+}
+
+export type DuelLogEntry = DuelEvent | DuelMiss
+
 export interface DuelState {
   phase: DuelPhase
   seed: number
@@ -95,8 +111,10 @@ export interface DuelState {
   charge: number
   /** bot's own Team-Blast charge (banks on its power turns, mirrors player) */
   botCharge: number
-  /** index into the question deck for POWER turns (cycles once exhausted) */
+  /** index into the question deck for the player's turns (cycles once exhausted) */
   qIndex: number
+  /** chance the bot answers its own per-turn question correctly (difficulty) */
+  botAccuracy: number
   player: DuelCard[]
   bot: DuelCard[]
   playerActive: number
@@ -104,7 +122,7 @@ export interface DuelState {
   /** live HP per card, index-aligned with player[] / bot[] */
   playerHp: number[]
   botHp: number[]
-  log: DuelEvent[]
+  log: DuelLogEntry[]
   /** the question to show while phase === 'power' */
   question: DuelQuestion | null
   /** covered-content deck, cycled deterministically once exhausted */
@@ -122,6 +140,9 @@ export interface CreateDuelArgs {
   seed: number
   /** covered-content questions, cycled deterministically */
   questions: DuelQuestion[]
+  /** difficulty knob: chance the bot answers its per-turn question right
+   *  (default = the identity `medium` tier, DEFAULT_BOT_ACCURACY). */
+  botAccuracy?: number
 }
 
 /**
@@ -153,18 +174,18 @@ export function computeDamage(
 }
 
 /** Which move a side throws this turn (uniform for both sides).
- *  §13.1 LOCKED: on a POWER turn a WRONG answer throws normal damage only —
- *  the Special/Ultimate is the reward for answering (the meter needs 3
- *  correct in a row; fumbling it resets the streak). `correct` defaults to
- *  true so preview/auto call-sites stay valid. */
+ *  WS26 (amends §13.1): on a POWER turn a WRONG answer throws NOTHING —
+ *  damage requires a correct answer. `correct` defaults to true so
+ *  preview/auto call-sites stay valid. Returns null when the question was
+ *  answered wrong (no attack this turn). */
 export function chooseMove(
   card: DuelCard,
   kind: 'auto' | 'power',
   chargeFull: boolean,
   correct = true,
-): 'quick' | 'special' | 'ultimate' {
+): MoveKind | null {
   if (kind === 'auto') return 'quick'
-  if (!correct) return 'quick' // wrong ⇒ normal damage only (§13.1)
+  if (!correct) return null // wrong ⇒ no damage (WS26)
   if (chargeFull && hasUltimate(card.star)) return 'ultimate'
   if (hasSpecial(card.star)) return 'special'
   return 'quick'
@@ -196,6 +217,7 @@ export function createDuel(args: CreateDuelArgs): DuelState {
     charge: 0,
     botCharge: 0,
     qIndex: 0,
+    botAccuracy: Math.min(1, Math.max(0, args.botAccuracy ?? DEFAULT_BOT_ACCURACY)),
     player,
     bot,
     playerActive: 0,
@@ -224,7 +246,7 @@ function resolveHit(
   side: BattleSide,
   attacker: DuelCard,
   target: DuelCard,
-  moveKind: 'quick' | 'special' | 'ultimate',
+  moveKind: MoveKind,
   hp: number[],
   targetIdx: number,
   rand: () => number,
@@ -242,6 +264,7 @@ function resolveHit(
   const next = Math.max(0, hp[targetIdx]! - damage)
   hp[targetIdx] = next
   const ev: DuelEvent = {
+    kind: 'hit',
     side,
     attackerUid: attacker.uid,
     targetUid: target.uid,
@@ -258,12 +281,15 @@ function resolveHit(
   return ev
 }
 
-/** Advance one turn. `answer` is only meaningful on POWER turns (the player's
- *  tapped choice, or null when the player has no Special yet / bot is acting). */
+/** Advance one turn. `answer` is the player's tapped choice — EVERY player
+ *  turn now carries a question (WS26), so it is meaningful on all player
+ *  turns. Bot turns resolve from the seeded stream + `botAccuracy` and take
+ *  no answer. `opts.botAlwaysCorrect` is a test hook (force the bot's answer
+ *  right) used by the determinism/fairness probes. */
 export function advance(
   state: DuelState,
   answer?: { chosen: number; correct: boolean },
-  opts?: { bankEveryPowerTurn?: boolean },
+  opts?: { botAlwaysCorrect?: boolean },
 ): DuelState {
   const s: DuelState = {
     ...state,
@@ -284,45 +310,45 @@ export function advance(
   const pCard = activeOf(s.player, s.playerActive)
   const bCard = activeOf(s.bot, s.botActive)
 
-  // alternate: even turns = player power/quick, odd turns = bot
+  // alternate: even turns = player, odd turns = bot
   const playerTurn = turn % 2 === 0
 
   if (playerTurn) {
     const isPower = turn % 4 === 0 // every 2nd PLAYER turn is a POWER turn
-    if (isPower) {
-      const correct = answer?.correct ?? false
+    const correct = answer?.correct ?? false
+    if (correct) {
       const full = s.charge >= TEAM_BLAST_CHARGE
-      // §13.1: correct ⇒ Special (or Team-Blast Ultimate when the meter is
-      // full); wrong ⇒ normal damage only.
-      const move = chooseMove(pCard, 'power', full, correct)
+      // WS26: a correct answer is the ONLY way to deal damage. POWER turn ⇒
+      // Special (or the Team-Blast Ultimate when the meter is full); other
+      // turns ⇒ Quick.
+      const move = chooseMove(pCard, isPower ? 'power' : 'auto', full, true)!
       const teamBlast = move === 'ultimate'
       resolveHit(s, 'player', pCard, bCard, move, s.botHp, s.botActive, rand, teamBlast)
-      if (correct) s.charge = Math.min(TEAM_BLAST_CHARGE, s.charge + 1)
-      else s.charge = 0
-      if (teamBlast) s.charge = 0
-      s.qIndex += 1
+      if (isPower) s.charge = teamBlast ? 0 : Math.min(TEAM_BLAST_CHARGE, s.charge + 1)
     } else {
-      resolveHit(s, 'player', pCard, bCard, chooseMove(pCard, 'auto', false), s.botHp, s.botActive, rand)
+      // WS26: a wrong answer deals NO damage (only POWER turns touch the meter).
+      s.log.push({ kind: 'miss', side: 'player', actorUid: pCard.uid })
+      if (isPower) s.charge = 0
     }
+    s.qIndex += 1
   } else {
-    // Bot mirrors the player's cadence + formula exactly (never cheats). The
-    // player takes the EVEN turns (0,2,4,...) and fires a POWER move on every
-    // second of those (turn % 4 === 0); the bot takes the ODD turns (1,3,5,...)
-    // and so powers up on turn % 4 === 1. Team-Blast banking uses the SAME
-    // correct→+1 / wrong→reset rule as the player.
+    // The bot answers its own question every turn (seeded, difficulty-driven
+    // accuracy) and — exactly like the player — only deals damage on a
+    // correct answer. It mirrors the player's cadence: POWER moves on
+    // turn % 4 === 1, Quick otherwise, and Team-Blast banking uses the SAME
+    // correct→+1 / wrong→reset rule (on its power turns only). The roll runs
+    // BEFORE resolveHit spends `rand` on damage variance (WS18 parity fix).
     const isPower = turn % 4 === 1
-    const full = s.botCharge >= TEAM_BLAST_CHARGE
-    // roll the bot's answer BEFORE resolveHit spends `rand` on damage variance,
-    // so the banking roll isn't coupled to the damage draw (WS18 parity fix).
-    // §13.1 applies to the bot identically: wrong ⇒ normal damage only.
-    const correct = isPower && (opts?.bankEveryPowerTurn || rand() < BOT_CORRECT_BASE)
-    const move = chooseMove(bCard, isPower ? 'power' : 'auto', full, correct)
-    const teamBlast = move === 'ultimate'
-    resolveHit(s, 'bot', bCard, pCard, move, s.playerHp, s.playerActive, rand, teamBlast)
-    if (isPower) {
-      if (teamBlast) s.botCharge = 0
-      else if (correct) s.botCharge = Math.min(TEAM_BLAST_CHARGE, s.botCharge + 1)
-      else s.botCharge = 0
+    const correct = opts?.botAlwaysCorrect ? true : rand() < s.botAccuracy
+    if (correct) {
+      const full = s.botCharge >= TEAM_BLAST_CHARGE
+      const move = chooseMove(bCard, isPower ? 'power' : 'auto', full, true)!
+      const teamBlast = move === 'ultimate'
+      resolveHit(s, 'bot', bCard, pCard, move, s.playerHp, s.playerActive, rand, teamBlast)
+      if (isPower) s.botCharge = teamBlast ? 0 : Math.min(TEAM_BLAST_CHARGE, s.botCharge + 1)
+    } else {
+      s.log.push({ kind: 'miss', side: 'bot', actorUid: bCard.uid })
+      if (isPower) s.botCharge = 0
     }
   }
 
@@ -346,10 +372,9 @@ export function advance(
     return s
   }
 
-  // next turn: surface the POWER question if the upcoming player turn is power
+  // next turn: EVERY player turn surfaces a question (WS26)
   const nextPlayerTurn = s.turn % 2 === 0
-  const nextIsPower = s.turn % 4 === 0
-  if (nextPlayerTurn && nextIsPower) {
+  if (nextPlayerTurn) {
     s.phase = 'power'
     s.question = pickQuestion(s)
   } else {
@@ -379,10 +404,10 @@ export function swapIn(state: DuelState, index?: number): DuelState {
     const next = livingIndex(s.bot, s.botHp, s.botActive + 1)
     if (next >= 0) s.botActive = next
   }
-  // re-enter the normal cycle: next turn decides auto vs power
-  const nextIsPower = s.turn % 4 === 0 && s.turn % 2 === 0
-  s.phase = nextIsPower ? 'power' : 'auto'
-  s.question = nextIsPower ? pickQuestion(s) : null
+  // re-enter the normal cycle: every player turn carries a question (WS26)
+  const nextIsPlayerTurn = s.turn % 2 === 0
+  s.phase = nextIsPlayerTurn ? 'power' : 'auto'
+  s.question = nextIsPlayerTurn ? pickQuestion(s) : null
   return s
 }
 
@@ -391,13 +416,13 @@ export function isOver(state: DuelState): boolean {
   return state.phase === 'won' || state.phase === 'lost'
 }
 
-/** Convenience: run a whole bot-vs-bot duel to completion (tests + fast sims).
- *  The player side answers every POWER turn per `playerAnswers` (default: all
- *  correct) — used by the fairness + determinism tests. */
+/** Convenience: run a whole duel to completion (tests + fast sims). The
+ *  player side answers every turn per `playerAnswers` (default: all
+ *  correct) — used by the determinism + fairness tests. */
 export function simulate(
   args: CreateDuelArgs,
   playerAnswers?: (turn: number, q: DuelQuestion | null) => { chosen: number; correct: boolean },
-  opts?: { bankEveryPowerTurn?: boolean },
+  opts?: { botAlwaysCorrect?: boolean },
 ): DuelState {
   let s = createDuel(args)
   let guard = 0

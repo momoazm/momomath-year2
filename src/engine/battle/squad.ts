@@ -15,6 +15,7 @@
  */
 import { ALL_CARDS, CARD_BY_ID, type CardDef } from '../cards'
 import { CARD_ARCHETYPE, type Archetype } from './archetypes'
+import { DEFAULT_BATTLE_DIFFICULTY, battleDifficultyDef, type BattleDifficulty } from './difficulty'
 import type { DuelCard } from './duel'
 import { deriveStats, ownedCardStats, type BattleStats } from './stats'
 import { gymBotMul, gymBotStar, gymDef } from './roadmap'
@@ -92,11 +93,17 @@ export function playerDuelCard(entry: SquadEntry): DuelCard {
 
 /**
  * The gym's 3 bot `DuelCard`s: gym star level + `gymBotMul` scaling on the
- * shared stat curve (§13.3 strictly escalating hp/atk per gym).
+ * shared stat curve (§13.3 strictly escalating hp/atk per gym), then the
+ * WS26 difficulty tier on top (hp/atk × where `medium` is the identity —
+ * def is untouched so player damage stays comparable across tiers).
  */
-export function gymBotDuelCards(gym: number): DuelCard[] {
+export function gymBotDuelCards(
+  gym: number,
+  difficulty: BattleDifficulty = DEFAULT_BATTLE_DIFFICULTY,
+): DuelCard[] {
   const mul = gymBotMul(gym)
   const star = gymBotStar(gym)
+  const tier = battleDifficultyDef(difficulty)
   return gymBotSquad(gym).map((cardId) => {
     const def = CARD_BY_ID[cardId]
     if (!def) throw new Error(`battle: gym ${gym} references unknown card '${cardId}'`)
@@ -107,7 +114,11 @@ export function gymBotDuelCards(gym: number): DuelCard[] {
       name: def.name,
       tier: def.tier,
       archetype: CARD_ARCHETYPE[cardId] ?? 'tech',
-      stats: { hp: r2(base.hp * mul), atk: r2(base.atk * mul), def: r2(base.def * mul) },
+      stats: {
+        hp: r2(base.hp * mul * tier.hpMul),
+        atk: r2(base.atk * mul * tier.atkMul),
+        def: r2(base.def * mul),
+      },
       star,
       bot: true,
     }

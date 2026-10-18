@@ -997,11 +997,14 @@ Battles may only ADD. Concretely:
 - **3v3 squads**: bring 3 owned cards vs 3 bot cards; one active card per
   side; on faint the player picks the next (auto-order fallback); the
   battle ends when one side is fully down. KO = dizzy stars (kid-safe).
-- **Hybrid turns (user choice)**: normal attacks resolve automatically each
-  turn (stats-based); **a Power turn every 2nd turn carries a question** —
-  correct ⇒ the active card fires its Special (big damage + animation);
-  wrong ⇒ normal damage only. The Ultimate fires when the Team-Blast meter
-  (3 correct answers) is full.
+- **Question turns (AMENDED by §13.10 user directive 2026-10-18)**: every
+  turn carries a question and only a CORRECT answer deals damage — both
+  ways (wrong answer ⇒ no damage, for either side; the rival answers its
+  own per-turn question, difficulty-driven). Every 2nd player turn is a
+  POWER turn: correct ⇒ the active card fires its Special (big damage +
+  animation). The Ultimate fires when the Team-Blast meter (3 correct
+  answers) is full. *(Original 2026-10-17 hybrid — auto normal attacks +
+  wrong ⇒ chip damage — superseded by the user.)*
 - **COVERED-ONLY rule (user-locked)**: battle questions may ONLY come from
   lessons the player has already covered in the current subject (completed
   lessons; the always-unlocked opening lessons count for a fresh save).
@@ -1088,7 +1091,7 @@ Battles may only ADD. Concretely:
 - Zero owned cards → friendly hint to win a lesson chest first.
 - Phone-first, big touch targets, one-thumb, reduced-motion respected.
 
-### 13.7 Workstreams WS17–WS25 (checklist; gates per WS: `npx tsc -b` → full
+### 13.7 Workstreams WS17–WS26 (checklist; gates per WS: `npx tsc -b` → full
 `npx vitest run` → `npm run verify` → dev smoke)
 
 > **STANDING RULE (user-mandated 2026-10-17, see AGENTS.md R1/R2):** keep this
@@ -1282,6 +1285,76 @@ change to existing progress/features.
   with clear locked/available/cleared visuals — NOT in the subject paths;
   unlock curve is a gentle escalating lesson-count, not exactly every 5.
 
+### 13.10 WS26 — Question duel (both sides) + difficulty tiers + arena backdrop (user directive 2026-10-18)
+
+**User directive (2026-10-18)**: "make the system make the opponent also
+fight back, so when a question is right you damage the opponent, otherwise no
+damage — and vice versa for the opponent. Also make difficulty level for each
+lesson, maybe from easy to impossible on the same level but opponent hit
+harder and has larger health. Also add a background."
+
+**Spec delta — amends §13.1's damage gating only (cadence + meter kept):**
+
+1. **Every turn is a question turn; only correct answers deal damage — both
+   ways.** Wrong player answer ⇒ NO damage (before: a free chip Quick).
+   The rival gets its own question every turn (auto-answered, seeded,
+   difficulty-driven accuracy): right ⇒ it damages YOU; wrong ⇒ no damage.
+   Move cadence unchanged (every 2nd player turn answers for a Special;
+   Team-Blast meter banks/resets on POWER turns exactly as before; bots
+   mirror the same cadence). Determinism (seeded) preserved.
+2. **Difficulty tiers per gym** — Easy 🌱 / Medium ⚔️ / Hard 🔥 / Impossible 💀
+   chosen on the squad-picker before the fight. The rival scales: bigger HP,
+   harder hits (ATK), higher answer accuracy on its turns.
+   **Medium = the identity tier (×1 HP/ATK, 0.6 accuracy = the exact shipped
+   numbers)** so the default experience is numerically unchanged (R0-safe);
+   everything else is opt-in.
+3. **Arena backdrop** for the duel + VS stages (pure CSS scene: sky, sun,
+   drifting clouds, arena floor; per the no-IP-art rule — no new assets).
+4. **Silent-round fix (found during the 2026-10-18 replay):** battle decks
+   leaked ARABIC audio-only questions ("استمع … سمعته") from
+   arabic/religion/social — unanswerable in the silent battle (no TTS in
+   duels; the filter only caught English words). `questions.ts` now excludes
+   them too; the English rule is unchanged.
+
+R0 note: §13.0.3's "no test edits" freezes the ORIGINAL additive build-out;
+this directive deliberately changes the battle's own damage gating, so the
+battle-suite tests that assert the old "wrong ⇒ quick chip" rule are updated
+with it. Every non-battle test stays untouched; the medium tier keeps all
+shipped numbers identical.
+
+- [x] `difficulty.ts` (new) — 4 ordered tiers + guards; medium identity
+      (DONE 2026-10-18)
+- [x] `duel.ts` — question-gated damage both ways (`kind: 'hit' | 'miss'` log
+      entries, `botAccuracy`, question on every player turn, `chooseMove`
+      wrong ⇒ null, `botAlwaysCorrect` test hook replacing `bankEveryPowerTurn`)
+      (DONE 2026-10-18)
+- [x] `squad.ts` — `gymBotDuelCards(gym, difficulty)` HP/ATK scaling (def
+      untouched; default arg = medium ⇒ zero change for existing callers)
+      (DONE 2026-10-18)
+- [x] `questions.ts` — Arabic listen-only prompt exclusion
+      (`LISTEN_ONLY_PROMPT_RE` exported; EN regex gains hear/heard/listening/
+      audio/voice) (DONE 2026-10-18)
+- [x] `BattleDuel.tsx` — difficulty picker (4 radio chips + tagline + rival
+      multiplier line), per-turn labels (POWER vs normal), miss banners both
+      ways, rival "is answering its question…" line, difficulty chips in
+      header/VS/result, `ArenaBackdrop` (full fight+intro, -z-10) + visible
+      `ArenaScene` strip (sky/sun/clouds/hills/grass) (DONE 2026-10-18)
+- [x] tests: duel.test.ts spec updates + WS26 block (per-turn questions,
+      accuracy 0/1 bots, determinism), roadmap.test.ts silent-deck test for
+      ALL 7 subjects, new difficulty.test.ts (ordering, medium identity,
+      fallback guards, HP/ATK scaling) — battle suite 112 tests green
+      (DONE 2026-10-18)
+- [x] gates: `npx tsc -b` clean → full `npx vitest run` **104 files / 2681
+      tests green** → `npm run verify` OK → `npm run build` ✓ (DONE 2026-10-18)
+- [x] PLAY verify (dev server :3200, seeded 5-card save): Easy full battle ran
+      to VICTORY — wrong player answer = "missed the question — no damage!"
+      (rival HP untouched), rival fumbled visibly ("Motobug missed its
+      question — you're safe!"); Impossible rematch showed rival 95/95
+      (×1.9) vs Easy 35/35 (×0.7), rival "answered right — Special Move ·
+      21 dmg" back at the player, per-turn question on non-POWER turns,
+      meter banking on POWER answers, arena scene + difficulty chips visible
+      (screenshots reviewed) (DONE 2026-10-18)
+
 ---
 
 ## 8. Session changelog
@@ -1320,3 +1393,4 @@ change to existing progress/features.
 | 2026-10-18 | WS25-polish | **WS25 — final polish; §13 COMPLETE (WS17–WS25 all `[x]`, the only unchecked box left in PLAN.md ticked).** A11y: squad-pick toggles `aria-pressed` + `aria-label`; victory-chest reveal + result stage `role="status"` (`aria-live="polite"` on the stage); decorative emoji `aria-hidden`; HP bars confirmed colorblind-safe (`hp/max` text + bar width, never color alone). Reduced motion honored (global `@media (prefers-reduced-motion: reduce)` + `MotionConfig reducedMotion="user"` in BattleDuel). Live Edge smoke (dev :3200, seeded `battleCleared:[1,2,3]`) — **found + fixed a real copy bug**: the Daily Rival line rendered the literal `#{rivalDef.index}` (missing `$` in the template literal) → now `Rematch #3 for an extra gem today!`; badge spacing (`+1 💎 bonus`) made explicit after the villain name. Surfaces verified: Daily Rival card, Library "Battle Exclusives" 0/3 (per-card goal + `Gyms n/m`), Profile "Battle Road" (🏆 3 / ⚔️ 5 / 🗺️ 3/13), all 3 battle webps load (naturalWidth 300), console **0 errors / 0 warnings**. Offline: `npm run build` → `vite preview` smoke (root 200 / hashed JS 200 / `cards/mecha-sonic.webp` 200, 3050 B); sw.js cache-first handles the new webps on first view — no precache change needed. Bundle hygiene: measured **975 KB raw / 301 KB gzip** single chunk → decided NOT to lazy-split battle ("if needed" = not needed: all screens share the chunk by architecture, and a lazy chunk never fetched before going offline would break the offline-first battle tab) — evidence recorded. Also repaired a local-only (gitignored, untracked) `.env.local` corruption where the Fish key had been concatenated onto the `VITE_GOOGLE_CLIENT_ID` value with no newline (broke dev GSI sign-in + sent the polluted id to Google) — newline inserted, both keys parse cleanly, nothing committed. Gates: `tsc -b` clean; full vitest **102 files / 2666 green**; `npm run verify` OK. No deploy. |
 | 2026-10-18 | deploy | **Momo Battle shipped live + deploy pipeline hardened to the user rule.** Ported from the tts line: `scripts/site_snapshot.mjs` (save/list/restore/prune, rolling window 2, fail-closed) + deploy.mjs **step 0** (no archive → no publish; `--allow-no-snapshot` only for a never-deployed site), **step 1.5** restore of all previously published hashed assets into dist (gh-pages replaces branch content; without this a cached old index.html 404s its JS), **step 4** live stale-cache check; MUST_CONTAIN now includes Battle Exclusives/Daily Rival/Mecha Sonic; `npm run snapshot/snapshots/rollback` added (commit `6075659`). First publish attempt died 5/5 `spawn ENAMETOOLONG` — gh-pages default removal passes EVERY branch file (6,155 incl. 5,985 tts clips) as one `git rm` argv — fixed with `--add` (commit `3117523`; also exactly the keep-old-assets policy); live was untouched by the failure. Pre-deploy archive of live `assets/index-DkCjZO-X.js` stored (170.1 MB, 6,155 files; the retry run captured an identical duplicate → window currently 2× DkCjZO-X). Deployed `assets/index-C-Rvbjqs.js` (998 KB raw / 308.5 KB gzip): 28 old assets restored, live in sync in ~2.5 min with all markers, stale-cache asset still 200. Live verification: **WS25 suite** (9 battle markers + all 3 battle art files 200), **PWA suite** (manifest/sw/icons 200), **WS16 suite** (sprint/check-up/recap markers), **live browser smoke** (Daily Rival shows the WS25-fixed `Rematch #3 for an extra gem today!`; Library battle panel + art naturalWidth 300; Profile Battle Road 🏆3/⚔️5/🗺️3/13; console **0 errors / 0 warnings**), full vitest **102 files / 2666 green** on the deployed commit. `main` stays unpushed (diverged: ahead 23 / behind 84 vs origin/main — separate merge decision); the gh-pages branch carries the deploy. Rollback: `node scripts/site_snapshot.mjs restore --name 20261018102421_3117523_index-DkCjZO-X --publish`. |
 | 2026-10-18 | edge-white-screen-fix | **User report "does not work on Edge" — found + fixed a white-screen class, redeployed.** Recon: live has been served by TWO divergent lines under the same storage key — the multi-year line (store v13–v16, relocates progress into `paths[yearLevel]`) vs ours (v12). Reproduced in msedge against live: a save holding any value outside this build's known sets crashed first render — `TypeError: … (reading 'icon')` from `LEAGUE_META[currentLeague].icon` in TopBar (renders on every screen) → **blank page**. Fix (additive): exported `bridgeForeignSave()` runs at hydrate for ALL incoming saves — MAX-merges `paths[yearLevel]` lessonProgress/arcadeScores/sprintBest into the top-level fields (lossless), coerces unknown `currentLeague`→Bronze / `subject`→math, drops malformed leagueHistory rows; new `leagueMeta()` crash-proof accessor; TopBar/Profile/Leagues lookups go through it; `tests/foreignSave.test.ts` +4 tests. Gates: tsc clean; full vitest **103 files / 2670 green**; committed `9929b0a`. Deploy: pre-deploy snapshot `20261018110554_9929b0a_index-C-Rvbjqs` (172.9 MB captured from live; window now C-Rvbjqs + DkCjZO-X); live now `assets/index-DKfsAgdT.js` (999.9 KB raw / 308.8 KB gzip, 30 old assets restored, stale asset still 200). Live verification: WS25 markers + 3 battle art PASS, PWA PASS, WS16 PASS; **live v16-save repro on the deployed build — the formerly-fatal save now renders (no blank; Bronze fallback), write-back carries u1l2 / retro:1500 / sprintBest:33 from paths[2], console 0 errors**; gate + GSI button render PASS. Pending: user confirmation of the exact original symptom. |
+| 2026-10-18 | WS26-question-duel | **User directive: rival fights back through its own questions, damage only on correct answers (both ways) + Easy→Impossible difficulty per gym + an arena background.** Engine (`duel.ts`): EVERY turn is a question turn — for the player a correct answer is the only way to deal damage (wrong ⇒ `kind:'miss'` log entry, no chip damage anymore; POWER-turn meter banks/resets unchanged), and the bot now answers its own question every turn from the seeded stream at a difficulty-driven `botAccuracy` (default 0.6 = new `DEFAULT_BOT_ACCURACY`), dealing damage only on right answers; `chooseMove` returns `null` on a wrong answer; test hook `bankEveryPowerTurn` → `botAlwaysCorrect`. New `difficulty.ts`: Easy 🌱 ×0.7/×0.7/40% · Medium ⚔️ ×1/×1/60% (**identity tier = shipped numbers, R0-safe default**) · Hard 🔥 ×1.4/×1.35/75% · Impossible 💀 ×1.9/×1.75/90% (`hpMul`/`atkMul`/`accuracy` + guards). `squad.ts` `gymBotDuelCards(gym, difficulty)` scales rival HP/ATK (def untouched; default arg = medium ⇒ existing callers unchanged). `BattleDuel.tsx`: 4-chip difficulty radio picker with tagline + "Rival: ❤️ ×… ⚔️ ×… answers ~…%" line, difficulty chips in fight header/VS panel/result, per-turn labels (POWER vs normal), miss banners for both sides, "🤔 <rival> is answering its question…" beat, and the arena: full-bleed `ArenaBackdrop` + visible `ArenaScene` strip (sky/sun/drifting clouds/hills/grass — pure CSS, no assets). Also fixed a real play bug found in the 2026-10-18 replay: battle decks leaked ARABIC audio-only prompts ("استمع … سمعته/سمعتها") from arabic/religion/social (the English-only filter missed them; duels are silent) — `LISTEN_ONLY_PROMPT_RE` now excludes them (+hear/heard/listening/audio/voice). Tests: duel.test.ts spec updates + WS26 block (question on every player turn incl. non-POWER, accuracy 0/1 bots, per-seed determinism), roadmap.test.ts silent-deck test across all 7 subjects, new difficulty.test.ts (ordering, identity, guards, scaling) — battle suite 112 green. Gates: `tsc -b` clean; full vitest **104 files / 2681 green**; `npm run verify` OK; `npm run build` ✓ (`index-CCNnhqTJ.js`). Play verify (dev :3200, seeded 5-card save, screenshots): Easy full battle → VICTORY with wrong answers visibly dealing zero damage and the rival missing its own questions; Impossible rematch → rival 95/95 (×1.9) vs Easy 35/35, rival "answered right — Special Move · 21 dmg" back at the player, new question every turn, meter banking on POWER answers, arena scene + chips visible, console clean (only pre-existing GSI noise). Deployment deliberately NOT run (not requested); deploy flow unchanged — snapshot → build → publish when asked. |

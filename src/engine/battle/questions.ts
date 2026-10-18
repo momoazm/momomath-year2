@@ -41,12 +41,21 @@ function isCompleted(p: LessonProgress | undefined): boolean {
   return !!p && (p.completions ?? 0) > 0
 }
 
-/** Sound-only prompts ("tap the word you hear") are excluded for a silent,
- *  fully-visual battle round — same rule as sprint.ts. */
+/** Audio-only prompts are excluded for a silent, fully-visual battle round —
+ *  same rule as sprint.ts. Covers the English listen generators ("tap the
+ *  word you hear") AND the Arabic listening generators (religion / arabic /
+ *  social: "استمع واضغط على … الذي سمعته/سمعتها") which the original
+ *  English-only filter missed — those questions are unanswerable without
+ *  TTS, and duels deliberately have no audio (WS26 fix, found during the
+ *  2026-10-18 replay). */
+export const LISTEN_ONLY_PROMPT_RE =
+  /\b(hear|heard|listen|listening|sound|audio|voice)\b|سمعت|استمع\s+واضغط/i
+
+/** Sound-only prompts ("tap the word you hear") are excluded. */
 function cardFrom(q: Question, lessonId: string, unit: UnitDef): BattleQuestion | null {
   if (q.kind !== 'mcq') return null
   if (typeof q.prompt !== 'string' || !q.prompt.trim()) return null
-  if (/\b(hear|listen|sound)\b/i.test(q.prompt)) return null
+  if (LISTEN_ONLY_PROMPT_RE.test(q.prompt)) return null
   if (!Array.isArray(q.choices) || q.choices.length < 2 || q.choices.length > 4) return null
   if (q.choices.some((c) => typeof c !== 'string' || !c.trim())) return null
   if (!Number.isInteger(q.answerIndex) || q.answerIndex < 0 || q.answerIndex >= q.choices.length) return null

@@ -3,6 +3,7 @@ import { ALL_CARDS } from '../../src/engine/cards'
 import {
   BATTLE_DECK_SIZE,
   BATTLE_BANK_SEEDS,
+  LISTEN_ONLY_PROMPT_RE,
   buildBattleDeck,
   completedLessonIds,
   openingLessonIds,
@@ -152,6 +153,19 @@ describe('covered-content selector — current subject only', () => {
       expect(q.answerIndex).toBeLessThan(q.choices.length)
       expect(q.prompt.trim().length).toBeGreaterThan(0)
     }
+  })
+
+  it('WS26 silent-battle rule: no listen-only prompts in ANY subject deck (EN + AR)', () => {
+    const subjects = ['math', 'english', 'science', 'german', 'arabic', 'religion', 'social'] as const
+    let nonEmpty = 0
+    for (const subject of subjects) {
+      const deck = buildBattleDeck({ subject, progress: {}, gym: 1, seed: 5 })
+      if (deck.length > 0) nonEmpty += 1
+      for (const q of deck) {
+        expect(q.prompt).not.toMatch(LISTEN_ONLY_PROMPT_RE)
+      }
+    }
+    expect(nonEmpty).toBeGreaterThan(0)
   })
 
   it('completedLessonIds only counts lessons with completions > 0', () => {

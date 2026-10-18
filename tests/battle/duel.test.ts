@@ -4,6 +4,7 @@ import { TIER_BASE } from '../../src/engine/battle/stats'
 import { TYPE_MULT_RESIST, TYPE_MULT_SUPER } from '../../src/engine/battle/archetypes'
 import {
   type DuelCard,
+  type DuelEvent,
   type DuelQuestion,
   advance,
   chooseMove,
@@ -101,28 +102,29 @@ describe('chooseMove — auto vs power', () => {
     expect(chooseMove(c, 'power', true)).toBe('ultimate')
     expect(chooseMove(c, 'power', false)).toBe('special')
   })
-  it('§13.1: a WRONG power-turn answer throws normal damage only', () => {
-    expect(chooseMove(c, 'power', false, false)).toBe('quick') // wrong ⇒ normal
-    expect(chooseMove(c, 'power', true, false)).toBe('quick') // fumbled Team-Blast
+  it('WS26: a WRONG answer throws NOTHING (correct answers are the only damage)', () => {
+    expect(chooseMove(c, 'power', false, false)).toBeNull()
+    expect(chooseMove(c, 'power', true, false)).toBeNull() // no free damage, even at full meter
     expect(chooseMove(c, 'power', true, true)).toBe('ultimate') // correct + meter full
     expect(chooseMove(c, 'power', false, true)).toBe('special') // correct + not full
   })
 })
 
-describe('§13.1 power-turn rule through advance()', () => {
-  it('a WRONG answer on the opening POWER turn throws Quick and resets the meter', () => {
+describe('WS26 question-gating through advance()', () => {
+  it('a WRONG opening answer deals NO damage (miss entry) and resets the meter', () => {
     const s0 = createDuel(baseArgs(5))
-    expect(s0.turn).toBe(0) // turn 0 is a player POWER turn
+    expect(s0.turn).toBe(0) // turn 0 is a player turn
     const s1 = advance(s0, { chosen: 0, correct: false })
-    const ev = s1.log.find((e) => e.side === 'player')!
-    expect(ev.move).toBe('quick')
+    expect(s1.log.some((e) => e.kind === 'hit' && e.side === 'player')).toBe(false)
+    expect(s1.log.some((e) => e.kind === 'miss' && e.side === 'player')).toBe(true)
+    expect(s1.botHp).toEqual(s0.botHp) // the rival takes zero damage
     expect(s1.charge).toBe(0)
   })
 
   it('a CORRECT answer on the opening POWER turn throws Special and banks +1', () => {
     const s0 = createDuel(baseArgs(5))
     const s1 = advance(s0, { chosen: 0, correct: true })
-    const ev = s1.log.find((e) => e.side === 'player')!
+    const ev = s1.log.find((e): e is DuelEvent => e.kind === 'hit' && e.side === 'player')!
     expect(ev.move).toBe('special')
     expect(s1.charge).toBe(1)
   })
@@ -130,7 +132,7 @@ describe('§13.1 power-turn rule through advance()', () => {
   it('correct + full meter fires the Team-Blast Ultimate and spends the charge', () => {
     const s0 = { ...createDuel(baseArgs(9)), charge: 3 }
     const s1 = advance(s0, { chosen: 0, correct: true })
-    const ev = s1.log.find((e) => e.side === 'player')!
+    const ev = s1.log.find((e): e is DuelEvent => e.kind === 'hit' && e.side === 'player')!
     expect(ev.move).toBe('ultimate')
     expect(ev.teamBlast).toBe(true)
     expect(s1.charge).toBe(0)
@@ -151,13 +153,61 @@ describe('duel determinism + terminal outcome', () => {
     expect(isOver(s)).toBe(true)
   })
 
-  it('every log event has positive damage and valid hp bookkeeping', () => {
+  it('hit entries carry damage + valid hp bookkeeping; miss entries deal none', () => {
     const s = simulate(baseArgs(11))
     for (const ev of s.log) {
+      if (ev.kind === 'miss') continue
       expect(ev.damage).toBeGreaterThanOrEqual(1)
       expect(ev.targetHpAfter).toBeGreaterThanOrEqual(0)
       expect(ev.targetHpAfter).toBeLessThanOrEqual(ev.targetMaxHp)
     }
+    // both sides fumble sometimes (default bot accuracy < 1)
+    expect(s.log.some((e) => e.kind === 'miss')).toBe(true)
+  })
+})
+
+describe('WS26 — both sides fight back through their own questions', () => {
+  it('every player turn surfaces a question (not only POWER turns)', () => {
+    let s = createDuel(baseArgs(21))
+    const questionTurns: number[] = []
+    let guard = 0
+    while (!isOver(s) && guard++ < 60) {
+      if (s.phase === 'power') {
+        expect(s.turn % 2).toBe(0)
+        expect(s.question).not.toBeNull()
+        questionTurns.push(s.turn)
+      }
+      if (s.phase === 'intro' || s.phase === 'power') {
+        s = advance(s, { chosen: 0, correct: true })
+      } else if (s.phase === 'auto') {
+        s = advance(s)
+      } else {
+        s = swapIn(s)
+      }
+    }
+    expect(questionTurns.length).toBeGreaterThanOrEqual(3)
+    // at least one NON-power player turn carried a question (turns 2, 6, ...)
+    expect(questionTurns.some((t) => t % 4 !== 0)).toBe(true)
+  })
+
+  it('a bot with accuracy 0 never damages the player — only misses', () => {
+    const s = simulate({ ...baseArgs(3), botAccuracy: 0 })
+    expect(s.log.some((e) => e.kind === 'hit' && e.side === 'bot')).toBe(false)
+    expect(s.log.some((e) => e.kind === 'miss' && e.side === 'bot')).toBe(true)
+    expect(s.phase).toBe('won') // the player (all correct) cleans up
+  })
+
+  it('a bot with accuracy 1 answers every turn right and always damages', () => {
+    const s = simulate({ ...baseArgs(3), botAccuracy: 1 })
+    expect(s.log.some((e) => e.kind === 'miss' && e.side === 'bot')).toBe(false)
+    expect(s.log.some((e) => e.kind === 'hit' && e.side === 'bot')).toBe(true)
+  })
+
+  it('stays deterministic per seed under the new rules', () => {
+    const a = simulate({ ...baseArgs(77), botAccuracy: 0.75 })
+    const b = simulate({ ...baseArgs(77), botAccuracy: 0.75 })
+    expect(a.log).toEqual(b.log)
+    expect(a.phase).toBe(b.phase)
   })
 })
 
@@ -190,9 +240,10 @@ describe('bot fairness — same formula, no cheating', () => {
           questions: QUESTIONS,
         },
         undefined,
-        { bankEveryPowerTurn: true },
+        { botAlwaysCorrect: true },
       )
       for (const e of s.log) {
+        if (e.kind !== 'hit') continue
         if (e.side === 'player') { pDmg += e.damage; pHits++ }
         else { bDmg += e.damage; bHits++ }
       }
